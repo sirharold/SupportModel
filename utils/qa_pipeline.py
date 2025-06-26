@@ -54,7 +54,7 @@ def answer_question(
             return [], "\n".join(debug_logs)
 
         # 6. Rerankear
-        reranked = rerank_documents(question, all_docs, embedding_client)
+        reranked = rerank_documents(question, all_docs, embedding_client, top_k=top_k)
         debug_logs.append(f"🔹 Documents after reranking: {len(reranked)}")
 
         return reranked, "\n".join(debug_logs)
