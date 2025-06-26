@@ -5,6 +5,7 @@ from utils.weaviate_utils import cargar_credenciales, conectar, WeaviateClientWr
 from utils.embedding import EmbeddingClient
 from openai import OpenAI
 import os
+import atexit
 
 # Configurar credenciales
 config = cargar_credenciales()
@@ -12,6 +13,7 @@ client = conectar(config)
 weaviate_wrapper = WeaviateClientWrapper(client)
 embedding_client = EmbeddingClient(api_key=config["OPENAI_API_KEY"], model="text-embedding-ada-002")
 openai_client = OpenAI(api_key=config["OPENAI_API_KEY"])
+atexit.register(lambda: client and client.close())
 
 st.set_page_config(page_title="Azure Q&A System", layout="wide")
 
