@@ -60,7 +60,7 @@ class WeaviateClientWrapper:
             return []
 
     def search_docs_by_vector(self, vector: List[float], top_k: int = 10) -> List[dict]:
-        """Search documents by vector but only return unique chunk 1 results."""
+        """Search documents by vector but only return unique chunk_index 1 results."""
         try:
             doc_collection = self.client.collections.get("Documentation")
 
@@ -75,7 +75,7 @@ class WeaviateClientWrapper:
             for obj in results.objects:
                 props = obj.properties
                 link = props.get("link")
-                if props.get("chunk") == 1 and link not in seen_links:
+                if props.get("chunk_index") == 1 and link not in seen_links:
                     filtered.append(props)
                     seen_links.add(link)
                 if len(filtered) >= top_k:
@@ -87,7 +87,7 @@ class WeaviateClientWrapper:
             return []
 
     def lookup_docs_by_links(self, links: List[str], max_per_link: int = 10) -> List[dict]:
-        """Fetch documents for provided links returning only chunk 1 results."""
+        """Fetch documents for provided links returning only chunk_index 1 results."""
         results = []
         seen_links = set()
         try:
@@ -97,7 +97,7 @@ class WeaviateClientWrapper:
                     continue
                 try:
                     filter_link = WeaviateFilter.by_property("link").equal(link)
-                    filter_chunk = WeaviateFilter.by_property("chunk").equal(1)
+                    filter_chunk = WeaviateFilter.by_property("chunk_index").equal(1)
                     filter_obj = filter_link & filter_chunk
                     query_result = doc_collection.query.fetch_objects(filters=filter_obj, limit=1)
                     if query_result.objects:
