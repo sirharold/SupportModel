@@ -45,7 +45,7 @@ if page == "Ask Azure Bot":
                         link = doc.get("link", "#")
                         st.markdown(f"**{i}. {title}**")
                         st.markdown(f"🔹 Score: {score:.4f}")
-                        st.markdown(f"🔗 [Link]({link})")
+                        st.markdown(f"🔗 [{link}]({link})")
                         st.markdown("---")
                     st.markdown(summarize)
 
@@ -54,7 +54,7 @@ if page == "Ask Azure Bot":
                 st.subheader("🤖 OpenAI Expert Answer")
                 prompt = (
                     "As an azure expert answer this question with the top 10 best official azure documentation pages, "
-                    "adding a score to the relevance of that page).\n\n"
+                    "adding a score to the relevance of that page).Show only the title of the page, the link and score. \n\n"
                     f"Question: {full_query}"
                 )
                 try:
