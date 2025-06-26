@@ -46,6 +46,14 @@ class WeaviateClientWrapper:
             raise TypeError("Provided client is invalid or missing the 'collections.get' method.")
         self.client = client
 
+    def close(self):
+        """Close the underlying weaviate client connection."""
+        if hasattr(self.client, "close"):
+            try:
+                self.client.close()
+            except Exception as e:
+                print("Error closing Weaviate client:", e)
+
     def search_questions_by_vector(self, vector: List[float], top_k: int = 10) -> List[dict]:
         try:
             
