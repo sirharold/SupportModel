@@ -142,7 +142,7 @@ def test_answer_question_uses_chunk1_docs():
     wrapper = WeaviateClientWrapper(FakeClient(docs, questions))
     embedding_client = FakeEmbeddingClient()
 
-    with patch("utils.qa_pipeline.rerank_documents", lambda q, docs, ec: docs) as _:
+    with patch("utils.qa_pipeline.rerank_documents", lambda q, docs, ec, top_k=None: docs) as _:
         result_docs, _ = answer_question("q", wrapper, embedding_client, top_k=3)
 
     assert result_docs

@@ -2,7 +2,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from typing import List
 from utils.embedding import EmbeddingClient
 
-def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 6) -> List[dict]:
+def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10) -> List[dict]:
     try:
         query_vec = embedding_client.generate_embedding(query)
         if not query_vec:
