@@ -130,10 +130,10 @@ class FakeEmbeddingClient:
 
 def test_answer_question_uses_chunk1_docs():
     docs = [
-        {"link": "l1", "content": "c1", "title": "t1", "chunk": 1},
-        {"link": "l1", "content": "c1b", "title": "t1b", "chunk": 2},
-        {"link": "l2", "content": "c2", "title": "t2", "chunk": 1},
-        {"link": "l3", "content": "c3", "title": "t3", "chunk": 1},
+        {"link": "l1", "content": "c1", "title": "t1", "chunk_index": 1},
+        {"link": "l1", "content": "c1b", "title": "t1b", "chunk_index": 2},
+        {"link": "l2", "content": "c2", "title": "t2", "chunk_index": 1},
+        {"link": "l3", "content": "c3", "title": "t3", "chunk_index": 1},
     ]
     questions = [
         {"accepted_answer": "see l1"},
@@ -146,7 +146,7 @@ def test_answer_question_uses_chunk1_docs():
         result_docs, _ = answer_question("q", wrapper, embedding_client, top_k=3)
 
     assert result_docs
-    assert all(d.get("chunk") == 1 for d in result_docs)
+    assert all(d.get("chunk_index") == 1 for d in result_docs)
     # ensure unique links
     links = [d["link"] for d in result_docs]
     assert len(links) == len(set(links))
