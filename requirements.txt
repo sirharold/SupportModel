@@ -1,0 +1,9 @@
+openai
+weaviate-client
+python-dotenv
+streamlit
+scikit-learn
+torch
+numpy
+matplotlib
+tqdm
