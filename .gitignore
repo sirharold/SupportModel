@@ -1,0 +1,30 @@
+# Ignore all files in data folder
+data/
+
+# Ignore any model files
+*.pt
+
+# Ignore any JSON files (e.g., datasets, embeddings)
+*.json
+
+# Common Python ignores
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Environment files
+.env
+*.env
+
+# VSCode and other editor settings
+.vscode/
+.idea/
+
+# Jupyter Notebooks Checkpoints
+.ipynb_checkpoints/
+
+# OS metadata files
+.DS_Store
+Thumbs.db
