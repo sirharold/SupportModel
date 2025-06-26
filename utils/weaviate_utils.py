@@ -60,26 +60,49 @@ class WeaviateClientWrapper:
             return []
 
     def search_docs_by_vector(self, vector: List[float], top_k: int = 10) -> List[dict]:
+        """Search documents by vector but only return unique chunk 1 results."""
         try:
             doc_collection = self.client.collections.get("Documentation")
+
+            fetch_limit = max(top_k * 3, top_k + 10)
             results = doc_collection.query.near_vector(
                 near_vector=vector,
-                limit=top_k
+                limit=fetch_limit
             )
-            return [obj.properties for obj in results.objects]
+
+            filtered = []
+            seen_links = set()
+            for obj in results.objects:
+                props = obj.properties
+                link = props.get("link")
+                if props.get("chunk") == 1 and link not in seen_links:
+                    filtered.append(props)
+                    seen_links.add(link)
+                if len(filtered) >= top_k:
+                    break
+
+            return filtered
         except Exception as e:
             print("Error in search_docs_by_vector:", e)
             return []
 
     def lookup_docs_by_links(self, links: List[str], max_per_link: int = 10) -> List[dict]:
+        """Fetch documents for provided links returning only chunk 1 results."""
         results = []
+        seen_links = set()
         try:
             doc_collection = self.client.collections.get("Documentation")
             for link in links:
+                if link in seen_links:
+                    continue
                 try:
-                    filter_obj = WeaviateFilter.by_property("link").equal(link)
-                    query_result = doc_collection.query.fetch_objects(filters=filter_obj, limit=max_per_link)
-                    results.extend([obj.properties for obj in query_result.objects])
+                    filter_link = WeaviateFilter.by_property("link").equal(link)
+                    filter_chunk = WeaviateFilter.by_property("chunk").equal(1)
+                    filter_obj = filter_link & filter_chunk
+                    query_result = doc_collection.query.fetch_objects(filters=filter_obj, limit=1)
+                    if query_result.objects:
+                        results.append(query_result.objects[0].properties)
+                        seen_links.add(link)
                 except Exception as e:
                     print(f"Error fetching documents for link '{link}':", e)
         except Exception as e:
