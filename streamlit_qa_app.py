@@ -56,7 +56,7 @@ if page == "Ask Azure Bot":
                 st.subheader("🤖 OpenAI Expert Answer")
                 prompt = (
                     "As an azure expert answer this question with the top 10 best official azure documentation pages, "
-                    "adding a score to the relevance of that page).Show only the title of the page, the link and score. \n\n"
+                    "adding a score to the relevance of that page). Show only links from learn.microsoft.com. Show only the title of the page, the complete link and score. \n\n"
                     f"Question: {full_query}"
                 )
                 try:
