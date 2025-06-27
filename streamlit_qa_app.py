@@ -83,20 +83,38 @@ if page == "Ask Azure Bot":
                         openai_links = re.findall(r"https?://\S+", answer)
 
                         # Comparar con nuestros resultados
-                        our_links = [doc["link"] for doc in results[:10]]
+                        our_docs = results[:10]
+                        our_links = [doc["link"] for doc in our_docs]
                         matched = [link for link in openai_links if link in our_links]
-                        precision, recall, f1 = compute_precision_recall_f1(results[:10], openai_links, k=10)
-                        ndcg = compute_ndcg(results[:10], openai_links, k=10)
-                        mrr = compute_mrr(results[:10], openai_links, k=10)
+
+                        # Métricas para nuestra clasificación respecto a OpenAI
+                        ours_p, ours_r, ours_f1 = compute_precision_recall_f1(our_docs, openai_links, k=10)
+                        ours_ndcg = compute_ndcg(our_docs, openai_links, k=10)
+                        ours_mrr = compute_mrr(our_docs, openai_links, k=10)
+
+                        # Métricas para la clasificación de OpenAI respecto a nuestros enlaces
+                        openai_docs = [{"link": l} for l in openai_links]
+                        openai_p, openai_r, openai_f1 = compute_precision_recall_f1(openai_docs, our_links, k=10)
+                        openai_ndcg = compute_ndcg(openai_docs, our_links, k=10)
+                        openai_mrr = compute_mrr(openai_docs, our_links, k=10)
 
                         st.subheader("📊 Comparison (Auto)")
                         st.markdown(f"🔗 Links from OpenAI: {len(openai_links)}")
                         st.markdown(f"✅ Matches with our results: {len(matched)}")
-                        st.markdown(f"🎯 Precision: **{precision:.2f}**")
-                        st.markdown(f"📥 Recall: **{recall:.2f}**")
-                        st.markdown(f"💡 F1: **{f1:.2f}**")
-                        st.markdown(f"📈 nDCG@10: **{ndcg:.2f}**")
-                        st.markdown(f"🔁 MRR@10: **{mrr:.2f}**")
+
+                        st.markdown("**Our Ranking vs OpenAI**")
+                        st.markdown(f"🎯 Precision: **{ours_p:.2f}**")
+                        st.markdown(f"📥 Recall: **{ours_r:.2f}**")
+                        st.markdown(f"💡 F1: **{ours_f1:.2f}**")
+                        st.markdown(f"📈 nDCG@10: **{ours_ndcg:.2f}**")
+                        st.markdown(f"🔁 MRR@10: **{ours_mrr:.2f}**")
+
+                        st.markdown("**OpenAI Ranking vs Ours**")
+                        st.markdown(f"🎯 Precision: **{openai_p:.2f}**")
+                        st.markdown(f"📥 Recall: **{openai_r:.2f}**")
+                        st.markdown(f"💡 F1: **{openai_f1:.2f}**")
+                        st.markdown(f"📈 nDCG@10: **{openai_ndcg:.2f}**")
+                        st.markdown(f"🔁 MRR@10: **{openai_mrr:.2f}**")
 
                     except Exception as e:
                         st.error(f"Failed to get response from OpenAI: {e}")
