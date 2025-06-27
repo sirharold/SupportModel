@@ -50,7 +50,7 @@ streamlit run streamlit_qa_app.py
 
 ## Evaluating retrieval metrics
 
-The `utils.metrics` module provides helpers to measure the quality of the ranked documents returned by `answer_question`.
+The `utils.metrics` module provides helpers to measure the quality of the ranked documents returned by `answer_question` or another source like OpenAI.
 
 ```python
 from utils.qa_pipeline import answer_question
@@ -64,6 +64,20 @@ ndcg = compute_ndcg(results, relevant_links, k=10)
 mrr = compute_mrr(results, relevant_links, k=10)
 precision, recall, f1 = compute_precision_recall_f1(results, relevant_links, k=10)
 print(ndcg, mrr, precision, recall, f1)
+
+
+# If you also have a list of links from OpenAI you can compare both rankings
+openai_links = ["https://learn.microsoft.com/...", "https://learn.microsoft.com/...",]
+
+# Our ranking evaluated with OpenAI links
+our_p, our_r, our_f1 = compute_precision_recall_f1(results, openai_links, k=10)
+our_mrr = compute_mrr(results, openai_links, k=10)
+
+# OpenAI ranking evaluated with our links
+openai_docs = [{"link": l} for l in openai_links]
+openai_p, openai_r, openai_f1 = compute_precision_recall_f1(openai_docs, [d["link"] for d in results], k=10)
+openai_mrr = compute_mrr(openai_docs, [d["link"] for d in results], k=10)
+
 ```
 
 These metrics are useful during training or when comparing the system against an external set of relevant links.
