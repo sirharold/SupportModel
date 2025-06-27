@@ -1,6 +1,11 @@
 import streamlit as st
 from utils.qa_pipeline import answer_question
-from utils.metrics import summarize_ranking
+from utils.metrics import (
+    summarize_ranking,
+    compute_ndcg,
+    compute_mrr,
+    compute_precision_recall_f1,
+)
 from utils.weaviate_utils import cargar_credenciales, conectar, WeaviateClientWrapper
 from utils.embedding import EmbeddingClient
 from openai import OpenAI
@@ -80,14 +85,18 @@ if page == "Ask Azure Bot":
                         # Comparar con nuestros resultados
                         our_links = [doc["link"] for doc in results[:10]]
                         matched = [link for link in openai_links if link in our_links]
-                        precision = len(matched) / len(openai_links) if openai_links else 0
-                        recall = len(matched) / len(our_links) if our_links else 0
+                        precision, recall, f1 = compute_precision_recall_f1(results[:10], openai_links, k=10)
+                        ndcg = compute_ndcg(results[:10], openai_links, k=10)
+                        mrr = compute_mrr(results[:10], openai_links, k=10)
 
                         st.subheader("📊 Comparison (Auto)")
                         st.markdown(f"🔗 Links from OpenAI: {len(openai_links)}")
                         st.markdown(f"✅ Matches with our results: {len(matched)}")
                         st.markdown(f"🎯 Precision: **{precision:.2f}**")
                         st.markdown(f"📥 Recall: **{recall:.2f}**")
+                        st.markdown(f"💡 F1: **{f1:.2f}**")
+                        st.markdown(f"📈 nDCG@10: **{ndcg:.2f}**")
+                        st.markdown(f"🔁 MRR@10: **{mrr:.2f}**")
 
                     except Exception as e:
                         st.error(f"Failed to get response from OpenAI: {e}")

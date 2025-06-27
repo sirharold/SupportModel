@@ -47,3 +47,23 @@ python manage.py migrate
 streamlit run streamlit_qa_app.py
 ```
 
+
+## Evaluating retrieval metrics
+
+The `utils.metrics` module provides helpers to measure the quality of the ranked documents returned by `answer_question`.
+
+```python
+from utils.qa_pipeline import answer_question
+from utils.metrics import compute_ndcg, compute_mrr, compute_precision_recall_f1
+
+# assume weaviate_wrapper and embedding_client are already created
+results, _ = answer_question("How do I create a storage account?", weaviate_wrapper, embedding_client)
+relevant_links = ["https://learn.microsoft.com/azure/storage/"]
+
+ndcg = compute_ndcg(results, relevant_links, k=10)
+mrr = compute_mrr(results, relevant_links, k=10)
+precision, recall, f1 = compute_precision_recall_f1(results, relevant_links, k=10)
+print(ndcg, mrr, precision, recall, f1)
+```
+
+These metrics are useful during training or when comparing the system against an external set of relevant links.
