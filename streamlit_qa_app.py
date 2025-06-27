@@ -116,6 +116,7 @@ if page == "Ask Azure Bot":
                         st.markdown(f"📈 nDCG@10: **{openai_ndcg:.2f}**")
                         st.markdown(f"🔁 MRR@10: **{openai_mrr:.2f}**")
 
+
                     except Exception as e:
                         st.error(f"Failed to get response from OpenAI: {e}")
                 else:
