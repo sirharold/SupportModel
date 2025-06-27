@@ -65,6 +65,7 @@ mrr = compute_mrr(results, relevant_links, k=10)
 precision, recall, f1 = compute_precision_recall_f1(results, relevant_links, k=10)
 print(ndcg, mrr, precision, recall, f1)
 
+
 # If you also have a list of links from OpenAI you can compare both rankings
 openai_links = ["https://learn.microsoft.com/...", "https://learn.microsoft.com/...",]
 
@@ -76,6 +77,7 @@ our_mrr = compute_mrr(results, openai_links, k=10)
 openai_docs = [{"link": l} for l in openai_links]
 openai_p, openai_r, openai_f1 = compute_precision_recall_f1(openai_docs, [d["link"] for d in results], k=10)
 openai_mrr = compute_mrr(openai_docs, [d["link"] for d in results], k=10)
+
 ```
 
 These metrics are useful during training or when comparing the system against an external set of relevant links.
