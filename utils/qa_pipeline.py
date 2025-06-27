@@ -26,9 +26,10 @@ def answer_question(
         # 1. Embedding de la pregunta
         vector = embedding_client.generate_embedding(question)
         debug_logs.append(f"🔹 Query vector length: {len(vector)}")
+        debug_logs.append(f"🔹 top_k: {top_k}")
 
         # 2. Buscar preguntas similares (Questions)
-        similar_questions = weaviate_wrapper.search_questions_by_vector(vector, top_k=top_k)
+        similar_questions = weaviate_wrapper.search_questions_by_vector(vector, top_k=top_k*5)
         debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
 
         # 3. Extraer links desde respuestas aceptadas
@@ -38,6 +39,8 @@ def answer_question(
             all_links.extend(extracted)
 
         debug_logs.append(f"🔹 Links extracted from answers: {len(all_links)}")
+        debug_logs.append(f"🔹 Unique links extracted: {len(set(all_links))}")
+        debug_logs.append(f"🔹 Unique links extracted: {all_links}")
 
         # 4. Recuperar documentos vinculados
         linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
@@ -47,16 +50,23 @@ def answer_question(
         vector_docs = weaviate_wrapper.search_docs_by_vector(vector, top_k=top_k)
         debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
 
-        all_docs = linked_docs + vector_docs
+        combined_docs = linked_docs + vector_docs
+        unique_docs_dict = {}
+        for doc in combined_docs:
+            link = doc.get("link", "").strip()
+            if link and link not in unique_docs_dict:
+                unique_docs_dict[link] = doc
 
-        if not all_docs:
-            debug_logs.append("⚠️ No documents retrieved from either method.")
+        unique_docs = list(unique_docs_dict.values())
+        debug_logs.append(f"🔹 Unique documents after deduplication: {len(unique_docs)}")
+
+        if not unique_docs:
+            debug_logs.append("⚠️ No unique documents retrieved.")
             return [], "\n".join(debug_logs)
 
         # 6. Rerankear
-        reranked = rerank_documents(question, all_docs, embedding_client, top_k=top_k)
+        reranked = rerank_documents(question, unique_docs, embedding_client, top_k=top_k)
         debug_logs.append(f"🔹 Documents after reranking: {len(reranked)}")
-
         return reranked, "\n".join(debug_logs)
 
     except Exception as e:

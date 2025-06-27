@@ -25,6 +25,7 @@ if page == "Ask Azure Bot":
 
     title = st.text_input("Title")
     question = st.text_area("Question")
+    use_openai = False
 
     if st.button("Ask"):
         full_query = f"{title.strip()} {question.strip()}"
@@ -54,41 +55,43 @@ if page == "Ask Azure Bot":
                 
             with col2:
                 st.subheader("🤖 OpenAI Expert Answer")
-                prompt = (
-                    "As an azure expert answer this question with the top 10 best official azure documentation pages, "
-                    "adding a score to the relevance of that page). Show only links from learn.microsoft.com. Show only the title of the page, the complete link and score. \n\n"
-                    f"Question: {full_query}"
-                )
-                try:
-                    response = openai_client.chat.completions.create(
-                        model="gpt-4",
-                        messages=[
-                            {"role": "system", "content": "You are a helpful Azure documentation expert."},
-                            {"role": "user", "content": prompt},
-                        ],
-                        temperature=0.3
+                if use_openai: 
+                    prompt = (
+                        "As an azure expert answer this question with the top 10 best official azure documentation pages, "
+                        "adding a score to the relevance of that page). Show only links from learn.microsoft.com. Show only the title of the page, the complete link and score. \n\n"
+                        f"Question: {full_query}"
                     )
-                    answer = response.choices[0].message.content
-                    st.markdown(answer)
+                    try:
+                        response = openai_client.chat.completions.create(
+                            model="gpt-4",
+                            messages=[
+                                {"role": "system", "content": "You are a helpful Azure documentation expert."},
+                                {"role": "user", "content": prompt},
+                            ],
+                            temperature=0.3
+                        )
+                        answer = response.choices[0].message.content
+                        st.markdown(answer)
 
-                    # Extraer links desde respuesta OpenAI
-                    import re
-                    openai_links = re.findall(r"https?://\S+", answer)
+                        # Extraer links desde respuesta OpenAI
+                        import re
+                        openai_links = re.findall(r"https?://\S+", answer)
 
-                    # Comparar con nuestros resultados
-                    our_links = [doc["link"] for doc in results[:10]]
-                    matched = [link for link in openai_links if link in our_links]
-                    precision = len(matched) / len(openai_links) if openai_links else 0
-                    recall = len(matched) / len(our_links) if our_links else 0
+                        # Comparar con nuestros resultados
+                        our_links = [doc["link"] for doc in results[:10]]
+                        matched = [link for link in openai_links if link in our_links]
+                        precision = len(matched) / len(openai_links) if openai_links else 0
+                        recall = len(matched) / len(our_links) if our_links else 0
 
-                    st.subheader("📊 Comparison (Auto)")
-                    st.markdown(f"🔗 Links from OpenAI: {len(openai_links)}")
-                    st.markdown(f"✅ Matches with our results: {len(matched)}")
-                    st.markdown(f"🎯 Precision: **{precision:.2f}**")
-                    st.markdown(f"📥 Recall: **{recall:.2f}**")
+                        st.subheader("📊 Comparison (Auto)")
+                        st.markdown(f"🔗 Links from OpenAI: {len(openai_links)}")
+                        st.markdown(f"✅ Matches with our results: {len(matched)}")
+                        st.markdown(f"🎯 Precision: **{precision:.2f}**")
+                        st.markdown(f"📥 Recall: **{recall:.2f}**")
 
-                except Exception as e:
-                    st.error(f"Failed to get response from OpenAI: {e}")
-                    
+                    except Exception as e:
+                        st.error(f"Failed to get response from OpenAI: {e}")
+                else:
+                    st.warning("OpenAI Expert Answer is disabled. Enable it in the code to see results.")   
         with st.expander("🛠️ Debug Info"):
             st.text(debug_info)
