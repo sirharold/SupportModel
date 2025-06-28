@@ -44,7 +44,7 @@ python manage.py migrate
 4. Run the application
 
 ```bash
-streamlit run streamlit_qa_app.py
+streamlit run EnhancedStreamlit_qa_app.py
 ```
 
 
