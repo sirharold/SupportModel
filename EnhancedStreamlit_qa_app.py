@@ -2,12 +2,6 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 from utils.qa_pipeline import answer_question
-from utils.metrics import (
-    summarize_ranking,
-    compute_ndcg,
-    compute_mrr,
-    compute_precision_recall_f1,
-)
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
 from utils.embedding import EmbeddingClient
 from openai import OpenAI
