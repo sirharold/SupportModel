@@ -81,10 +81,10 @@ st.sidebar.markdown("---")
 search_params = st.sidebar.expander("🔍 Parámetros de Búsqueda", expanded=True)
 with search_params:
     top_k = st.slider("Documentos a retornar", 5, 20, 10)
-    use_expansion = st.checkbox("Usar expansión de consulta", value=True, 
-                               help="Busca preguntas similares para mejorar resultados")
-    diversity_threshold = st.slider("Umbral de diversidad", 0.5, 0.95, 0.85, 0.05,
-                                   help="Controla la diversidad de resultados (más alto = más diverso)")
+    diversity_threshold = st.slider(
+        "Umbral de diversidad", 0.5, 0.95, 0.85, 0.05,
+        help="Controla la diversidad de resultados (más alto = más diverso)"
+    )
 
 # Métricas de evaluación
 eval_params = st.sidebar.expander("📊 Evaluación", expanded=False)
@@ -178,10 +178,11 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
         with st.spinner("🔍 Buscando documentación relevante..."):
             # Ejecutar búsqueda
             results, debug_info = answer_question(
-                full_query, 
-                weaviate_wrapper, 
-                embedding_client, 
-                top_k=top_k
+                full_query,
+                weaviate_wrapper,
+                embedding_client,
+                top_k=top_k,
+                diversity_threshold=diversity_threshold,
             )
             
             # Actualizar métricas de sesión
