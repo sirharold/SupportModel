@@ -232,7 +232,7 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                         
                         # Extract OpenAI links
                         import re
-                        openai_links = re.findall(r"https://learn\.microsoft\.com/[^\s\])\,]+", openai_answer)
+                        openai_links = re.findall(r"https://learn\.microsoft\.com/[^\s\]\),]+", openai_answer)
                         openai_links = [link.rstrip('.,)]}') for link in openai_links]
                         
                         # Parse OpenAI results into structured format
