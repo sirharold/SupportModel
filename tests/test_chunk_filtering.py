@@ -18,10 +18,11 @@ fake_filters_mod = types.ModuleType("filters")
 fake_classes.filters = fake_filters_mod
 
 class DummyFilter:
-    def __init__(self, prop=None, value=None, children=None):
+    def __init__(self, prop=None, value=None, children=None, op=None):
         self.prop = prop
         self.value = value
         self.children = children or []
+        self.op = op
 
     @classmethod
     def by_property(cls, prop):
@@ -32,7 +33,10 @@ class DummyFilter:
         return self
 
     def __and__(self, other):
-        return DummyFilter(children=[self, other])
+        return DummyFilter(children=[self, other], op="and")
+
+    def __or__(self, other):
+        return DummyFilter(children=[self, other], op="or")
 
 fake_filters_mod.Filter = DummyFilter
 
@@ -69,13 +73,14 @@ class DummyOpenAI:
 fake_openai.OpenAI = DummyOpenAI
 sys.modules.setdefault("openai", fake_openai)
 
-from utils.weaviate_utils import WeaviateClientWrapper
+from utils.weaviate_utils_improved import WeaviateClientWrapper
 from utils.qa_pipeline import answer_question
 from unittest.mock import patch
 
 class FakeObject:
     def __init__(self, properties):
         self.properties = properties
+        self.metadata = types.SimpleNamespace(distance=0.0)
 
 class FakeQueryResult:
     def __init__(self, objects):
@@ -88,16 +93,22 @@ class FakeQuery:
     def near_vector(self, near_vector=None, limit=10, **kwargs):
         return FakeQueryResult(self.docs[:limit])
 
-    def fetch_objects(self, filters=None, limit=10):
-        def match(doc, f):
-            if f is None:
+    def fetch_objects(self, where=None, filters=None, limit=10):
+        f = where if where is not None else filters
+
+        def match(doc, flt):
+            if flt is None:
                 return True
-            if f.children:
-                return all(match(doc, c) for c in f.children)
-            if f.prop:
-                return doc.get(f.prop) == f.value
+            if flt.children:
+                if flt.op == "or":
+                    return any(match(doc, c) for c in flt.children)
+                else:
+                    return all(match(doc, c) for c in flt.children)
+            if flt.prop:
+                return doc.get(flt.prop) == flt.value
             return True
-        filtered = [d for d in self.docs if match(d, filters)]
+
+        filtered = [d for d in self.docs if match(d, f)]
         return FakeQueryResult(filtered[:limit])
 
 class FakeDocCollection:
