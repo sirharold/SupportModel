@@ -9,7 +9,9 @@ def answer_question(
     question: str,
     weaviate_wrapper: WeaviateClientWrapper,
     embedding_client: EmbeddingClient,
-    top_k: int = 10
+    top_k: int = 10,
+    *,
+    diversity_threshold: float = 0.85,
 ) -> Tuple[List[dict], str]:
     """
     Realiza el pipeline completo para responder una pregunta:
@@ -42,17 +44,24 @@ def answer_question(
         debug_logs.append(f"🔹 Links extracted from answers: {len(all_links)}")
         debug_logs.append(f"🔹 Sample links: {all_links[:3]}")
 
-        # 4. Recuperar documentos vinculados usando batch operation
-        linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(all_links, batch_size=50)
+        # 4. Recuperar documentos vinculados usando batch operation when available
+        if hasattr(weaviate_wrapper, "lookup_docs_by_links_batch"):
+            linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(
+                all_links, batch_size=50
+            )
+        else:
+            linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
         debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
 
         # 5. Buscar documentos directamente por vector con diversity filtering
-        vector_docs = weaviate_wrapper.search_docs_by_vector(
-            vector, 
-            top_k=max(top_k*2, 20),
-            diversity_threshold=0.85,
-            include_distance=True
-        )
+        search_kwargs = {
+            "vector": vector,
+            "top_k": max(top_k * 2, 20),
+        }
+        if "diversity_threshold" in weaviate_wrapper.search_docs_by_vector.__code__.co_varnames:
+            search_kwargs["diversity_threshold"] = diversity_threshold
+            search_kwargs["include_distance"] = True
+        vector_docs = weaviate_wrapper.search_docs_by_vector(**search_kwargs)
         debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
 
         # 6. Combinar y deduplicar con prioridad a documentos linked
