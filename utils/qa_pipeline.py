@@ -3,7 +3,7 @@ from typing import List, Tuple
 from utils.extract_links import extract_urls_from_answer
 from utils.reranker import rerank_documents
 from utils.embedding import EmbeddingClient
-from utils.weaviate_utils import WeaviateClientWrapper
+from utils.weaviate_utils_improved import WeaviateClientWrapper
 
 def answer_question(
     question: str,
@@ -28,44 +28,60 @@ def answer_question(
         debug_logs.append(f"🔹 Query vector length: {len(vector)}")
         debug_logs.append(f"🔹 top_k: {top_k}")
 
-        # 2. Buscar preguntas similares (Questions)
-        similar_questions = weaviate_wrapper.search_questions_by_vector(vector, top_k=top_k*5)
+        # 2. Buscar preguntas similares (Questions) - optimized limit
+        similar_questions = weaviate_wrapper.search_questions_by_vector(vector, top_k=min(top_k*3, 30))
         debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
 
-        # 3. Extraer links desde respuestas aceptadas
-        all_links = []
+        # 3. Extraer links desde respuestas aceptadas con deduplicación temprana
+        unique_links = set()
         for q in similar_questions:
             extracted = extract_urls_from_answer(q.get("accepted_answer", ""))
-            all_links.extend(extracted)
+            unique_links.update(extracted)
 
+        all_links = list(unique_links)
         debug_logs.append(f"🔹 Links extracted from answers: {len(all_links)}")
-        debug_logs.append(f"🔹 Unique links extracted: {len(set(all_links))}")
-        debug_logs.append(f"🔹 Unique links extracted: {all_links}")
+        debug_logs.append(f"🔹 Sample links: {all_links[:3]}")
 
-        # 4. Recuperar documentos vinculados
-        linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
+        # 4. Recuperar documentos vinculados usando batch operation
+        linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(all_links, batch_size=50)
         debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
 
-        # 5. Buscar documentos directamente por vector
-        vector_docs = weaviate_wrapper.search_docs_by_vector(vector, top_k=top_k)
+        # 5. Buscar documentos directamente por vector con diversity filtering
+        vector_docs = weaviate_wrapper.search_docs_by_vector(
+            vector, 
+            top_k=max(top_k*2, 20),
+            diversity_threshold=0.85,
+            include_distance=True
+        )
         debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
 
-        combined_docs = linked_docs + vector_docs
+        # 6. Combinar y deduplicar con prioridad a documentos linked
         unique_docs_dict = {}
-        for doc in combined_docs:
+        
+        # Primero agregar documentos linked (mayor prioridad)
+        for doc in linked_docs:
+            link = doc.get("link", "").strip()
+            if link:
+                unique_docs_dict[link] = doc
+        
+        # Luego agregar documentos de vector search si no existen
+        for doc in vector_docs:
             link = doc.get("link", "").strip()
             if link and link not in unique_docs_dict:
                 unique_docs_dict[link] = doc
 
         unique_docs = list(unique_docs_dict.values())
-        debug_logs.append(f"🔹 Unique documents after deduplication: {len(unique_docs)}")
+        debug_logs.append(f"🔹 Unique documents after optimized deduplication: {len(unique_docs)}")
 
         if not unique_docs:
             debug_logs.append("⚠️ No unique documents retrieved.")
             return [], "\n".join(debug_logs)
 
-        # 6. Rerankear
-        reranked = rerank_documents(question, unique_docs, embedding_client, top_k=top_k)
+        # 7. Rerankear con límite optimizado
+        max_docs_to_rerank = min(len(unique_docs), top_k*3)
+        docs_to_rerank = unique_docs[:max_docs_to_rerank]
+        reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
+        debug_logs.append(f"🔹 Documents sent to reranking: {len(docs_to_rerank)}")
         debug_logs.append(f"🔹 Documents after reranking: {len(reranked)}")
         return reranked, "\n".join(debug_logs)
 

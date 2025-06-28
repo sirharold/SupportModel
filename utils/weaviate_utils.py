@@ -68,26 +68,30 @@ class WeaviateClientWrapper:
             return []
 
     def search_docs_by_vector(self, vector: List[float], top_k: int = 10) -> List[dict]:
-        """Search documents by vector but only return unique chunk_index 1 results."""
+        """Search documents by vector with optimized filtering and higher fetch limit."""
         try:
             doc_collection = self.client.collections.get("Documentation")
-
-            fetch_limit = max(top_k * 3, top_k + 10)
+            
+            # Filter for chunk_index=1 at query time for better performance
+            filter_chunk = WeaviateFilter.by_property("chunk_index").equal(1)
+            
+            # Increased fetch limit for better coverage
+            fetch_limit = max(top_k * 5, 50)
             results = doc_collection.query.near_vector(
                 near_vector=vector,
-                limit=fetch_limit
+                limit=fetch_limit,
+                where=filter_chunk
             )
 
+            # Deduplicate by link while preserving order
             filtered = []
             seen_links = set()
             for obj in results.objects:
                 props = obj.properties
                 link = props.get("link")
-                if props.get("chunk_index") == 1 and link not in seen_links:
+                if link and link not in seen_links:
                     filtered.append(props)
                     seen_links.add(link)
-                if len(filtered) >= top_k:
-                    break
 
             return filtered
         except Exception as e:
