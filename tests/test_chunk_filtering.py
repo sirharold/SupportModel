@@ -85,7 +85,7 @@ class FakeQuery:
     def __init__(self, docs):
         self.docs = docs
 
-    def near_vector(self, near_vector=None, limit=10):
+    def near_vector(self, near_vector=None, limit=10, **kwargs):
         return FakeQueryResult(self.docs[:limit])
 
     def fetch_objects(self, filters=None, limit=10):
