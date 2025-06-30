@@ -204,53 +204,68 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                 # Get OpenAI results first
                 with st.spinner("🤖 Consultando OpenAI para comparación..."):
                     try:
-                        prompt = (
-                            "As an Azure expert, provide EXACTLY 10 official documentation links from learn.microsoft.com "
-                            "to answer this question. Follow this EXACT format for each result:\n\n"
-                            "1. [Title] - https://learn.microsoft.com/[path]\n"
-                            "2. [Title] - https://learn.microsoft.com/[path]\n"
-                            "...\n\n"
-                            "STRICT REQUIREMENTS:\n"
-                            "- ALL links MUST start with https://learn.microsoft.com/\n"
-                            "- NO other domains allowed\n"
-                            "- Include ONLY official Azure documentation\n"
-                            "- Provide exactly 10 results\n"
-                            "- Focus on practical implementation guides\n\n"
-                            f"Question: {full_query}"
-                        )
+                        import json
+
+                        tools = [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": "list_azure_documentation",
+                                    "description": "Provides a list of relevant Azure documentation links for a given user question.",
+                                    "parameters": {
+                                        "type": "object",
+                                        "properties": {
+                                            "documents": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "title": {"type": "string", "description": "The official title of the documentation page."},
+                                                        "link": {"type": "string", "description": "The full URL to the documentation page, must be from learn.microsoft.com."},
+                                                    },
+                                                    "required": ["title", "link"]
+                                                }
+                                            }
+                                        },
+                                        "required": ["documents"]
+                                    }
+                                }
+                            }
+                        ]
                         
                         response = openai_client.chat.completions.create(
                             model="gpt-4",
                             messages=[
-                                {"role": "system", "content": "You are an Azure documentation expert. You ONLY recommend official Microsoft Learn documentation from learn.microsoft.com domain. Never suggest external links."},
-                                {"role": "user", "content": prompt}
+                                {"role": "system", "content": "You are an Azure documentation expert. You ONLY recommend official Microsoft Learn documentation from the learn.microsoft.com domain. You must call the `list_azure_documentation` function with exactly 10 results."},
+                                {"role": "user", "content": f"Please provide the top 10 Azure documentation links for the following question: {full_query}"}
                             ],
+                            tools=tools,
+                            tool_choice={"type": "function", "function": {"name": "list_azure_documentation"}},
                             temperature=0.1
                         )
                         
-                        openai_answer = response.choices[0].message.content
-                        
-                        # Extract OpenAI links
-                        import re
-                        openai_links = re.findall(r"https://learn\.microsoft\.com/[^\s\]\),]+", openai_answer)
-                        openai_links = [link.rstrip('.,)]}') for link in openai_links]
-                        
-                        # Parse OpenAI results into structured format
+                        message = response.choices[0].message
                         openai_docs = []
-                        lines = openai_answer.split('\n')
-                        for line in lines:
-                            if re.match(r'^\d+\.', line):
-                                parts = line.split(' - https://learn.microsoft.com/', 1)
-                                if len(parts) == 2:
-                                    title = parts[0].split('. ', 1)[1] if '. ' in parts[0] else parts[0]
-                                    link = 'https://learn.microsoft.com/' + parts[1]
+                        openai_links = []
+
+                        if message.tool_calls:
+                            tool_call = message.tool_calls[0]
+                            if tool_call.function.name == "list_azure_documentation":
+                                tool_args = json.loads(tool_call.function.arguments)
+                                documents_data = tool_args.get("documents", [])
+                                
+                                for doc in documents_data:
                                     openai_docs.append({
-                                        'title': title.strip('[]'),
-                                        'link': link.rstrip('.,)]}'),
-                                        'score': 1.0,  # OpenAI doesn't provide scores
+                                        'title': doc.get('title'),
+                                        'link': doc.get('link'),
+                                        'score': 1.0,
                                         'source': 'OpenAI GPT-4'
                                     })
-                        
+                                
+                                openai_links = [doc.get("link") for doc in documents_data if doc.get("link")]
+                        else:
+                            st.warning("OpenAI did not return documentation in the expected format.")
+
                     except Exception as e:
                         st.error(f"Error consultando OpenAI: {e}")
                         openai_docs = []
