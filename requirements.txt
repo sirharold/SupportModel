@@ -5,5 +5,3 @@ streamlit
 scikit-learn
 torch
 numpy
-matplotlib
-tqdm
