@@ -15,7 +15,8 @@ class WeaviateConfig:
     """Configuration for Weaviate connection."""
     wcs_url: str
     wcs_api_key: str
-    openai_api_key: str
+    openai_api_key: str # Still needed for LLM reranker and OpenAI comparison
+    huggingface_api_key: str | None = None # Added for Hugging Face models if needed
     
     @classmethod
     def from_env(cls, env_path: str = ".env") -> "WeaviateConfig":
@@ -25,6 +26,7 @@ class WeaviateConfig:
             load_dotenv(env_path)
             
             required_keys = ["WCS_URL", "WCS_API_KEY", "OPENAI_API_KEY"]
+            optional_keys = ["HUGGINGFACE_API_KEY"]
             config_dict = {}
             
             for key in required_keys:
@@ -32,11 +34,16 @@ class WeaviateConfig:
                 if not value:
                     raise ValueError(f"Missing required environment variable: {key}")
                 config_dict[key.lower()] = value
+
+            for key in optional_keys:
+                value = os.getenv(key)
+                config_dict[key.lower()] = value # Store even if None
             
             return cls(
                 wcs_url=config_dict["wcs_url"],
                 wcs_api_key=config_dict["wcs_api_key"],
-                openai_api_key=config_dict["openai_api_key"]
+                openai_api_key=config_dict["openai_api_key"],
+                huggingface_api_key=config_dict["huggingface_api_key"]
             )
         except Exception as e:
             logger.error(f"Error loading configuration: {e}")
@@ -87,7 +94,7 @@ class WeaviateClientWrapper:
     def docs_collection(self):
         """Lazy-loaded documentation collection."""
         if self._docs_collection is None:
-            self._docs_collection = self.client.collections.get("Documentation")
+            self._docs_collection = self.client.collections.get("DocumentsMiniLM")
         return self._docs_collection
     
     def _retry_operation(self, operation, *args, **kwargs):
@@ -154,33 +161,34 @@ class WeaviateClientWrapper:
         self, 
         vector: List[float], 
         top_k: int = 10,
-        chunk_index: int = 1,
         diversity_threshold: float = 0.85,
         include_distance: bool = False
     ) -> List[Dict]:
         """Enhanced document search with diversity control."""
+        print(f"[DEBUG] search_docs_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
         if not vector:
             raise ValueError("Vector cannot be empty")
         if top_k <= 0:
             raise ValueError("top_k must be positive")
         
         def _search():
+            print("[DEBUG] Entering _search nested function in search_docs_by_vector.")
             # Fetch more documents for better diversity
             fetch_limit = max(top_k * 3, 30)
-            
-            filter_chunk = WeaviateFilter.by_property("chunk_index").equal(chunk_index)
-            
+
             try:
-                # Try the new API with where parameter
+                # Try the new API with filters parameter
+                print("[DEBUG] Attempting near_vector query with filters.")
                 results = self.docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
-                    where=filter_chunk,
                     return_metadata=['distance'] if include_distance else None
                 )
-            except TypeError:
-                # Fallback to old API without where parameter
-                logger.warning("Using fallback API without where parameter")
+                print("[DEBUG] near_vector query successful.")
+            except TypeError as e:
+                # Fallback to old API without filters parameter (if TypeError is due to filters)
+                logger.warning(f"Using fallback API without filters parameter due to: {e}")
+                print(f"[DEBUG] Fallback to old API: {e}")
                 results = self.docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
@@ -189,17 +197,18 @@ class WeaviateClientWrapper:
                 # Filter results manually
                 filtered_objects = []
                 for obj in results.objects:
-                    if obj.properties.get("chunk_index") == chunk_index:
-                        filtered_objects.append(obj)
+                    # No chunk_index filter here, as it's removed
+                    filtered_objects.append(obj)
                 # Create a mock results object
                 class MockResults:
                     def __init__(self, objects):
                         self.objects = objects
                 results = MockResults(filtered_objects)
             
+            print("[DEBUG] Applying diversity filtering.")
             return self._apply_diversity_filtering(
-                results.objects, 
-                top_k, 
+                results.objects,
+                top_k,
                 diversity_threshold,
                 include_distance
             )
@@ -208,6 +217,7 @@ class WeaviateClientWrapper:
             return self._retry_operation(_search)
         except Exception as e:
             logger.error(f"Error searching docs by vector: {e}")
+            print(f"[DEBUG] search_docs_by_vector: Top-level error: {e}")
             return []
     
     def _apply_diversity_filtering(
@@ -269,7 +279,6 @@ class WeaviateClientWrapper:
     def lookup_docs_by_links_batch(
         self, 
         links: List[str], 
-        chunk_index: int = 1,
         batch_size: int = 50
     ) -> List[Dict]:
         """Optimized batch lookup of documents by links."""
@@ -292,11 +301,11 @@ class WeaviateClientWrapper:
                 for f in link_filters[1:]:
                     link_filter = link_filter | f
             
-            chunk_filter = WeaviateFilter.by_property("chunk_index").equal(chunk_index)
-            combined_filter = link_filter & chunk_filter
+            # No chunk_index filter needed for DocumentsMiniLM collection
+            combined_filter = link_filter
             
             results = self.docs_collection.query.fetch_objects(
-                where=combined_filter,
+                filters=combined_filter,
                 limit=len(link_batch)
             )
             
@@ -329,13 +338,41 @@ class WeaviateClientWrapper:
         """Get statistics about collections."""
         try:
             stats = {}
-            for collection_name in ["Questions", "Documentation"]:
-                # This is a simplified stat - in practice you might use aggregation queries
-                stats[collection_name] = "Available"
+            stats["Questions_count"] = self.questions_collection.aggregate.over_all(total_count=True).total_count
+            stats["DocumentsMiniLM_count"] = self.docs_collection.aggregate.over_all(total_count=True).total_count
             return stats
         except Exception as e:
             logger.error(f"Error getting collection stats: {e}")
             return {}
+
+    def search_docs_by_keyword(
+        self, 
+        keyword: str, 
+        limit: int = 10
+    ) -> List[Dict]:
+        """Search documents by keyword (BM25) in the Documentation collection."""
+        print(f"[DEBUG] search_docs_by_keyword: Searching for keyword: '{keyword}'")
+        if not keyword:
+            print("[DEBUG] search_docs_by_keyword: Keyword is empty.")
+            return []
+        
+        def _search():
+            results = self.docs_collection.query.bm25(
+                query=keyword,
+                limit=limit
+            )
+            docs = []
+            for obj in results.objects:
+                docs.append(obj.properties.copy())
+            print(f"[DEBUG] search_docs_by_keyword: Found {len(docs)} documents for keyword '{keyword}'.")
+            return docs
+        
+        try:
+            return self._retry_operation(_search)
+        except Exception as e:
+            logger.error(f"Error searching docs by keyword: {e}")
+            print(f"[DEBUG] search_docs_by_keyword: Error: {e}")
+            return []
 
 # Convenience functions for backward compatibility
 def cargar_credenciales(ruta_env: str = ".env") -> Dict[str, str]:
