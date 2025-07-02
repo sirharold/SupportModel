@@ -23,13 +23,19 @@ def initialize_clients(_config_hash: str):
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
     weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
-    embedding_client = EmbeddingClient(api_key=config.openai_api_key, model="text-embedding-3-small")
+    embedding_client = EmbeddingClient(huggingface_api_key=config.huggingface_api_key)
     openai_client = OpenAI(api_key=config.openai_api_key)
     return weaviate_wrapper, embedding_client, openai_client, client
 
 # Create a hash from environment variables for caching
 import hashlib
-env_hash = hashlib.md5(f"{os.getenv('WCS_URL', '')}{os.getenv('WCS_API_KEY', '')}{os.getenv('OPENAI_API_KEY', '')}".encode()).hexdigest()
+env_hash = hashlib.md5(
+    f"{os.getenv('WCS_URL', '')}"
+    f"{os.getenv('WCS_API_KEY', '')}"
+    f"{os.getenv('OPENAI_API_KEY', '')}"
+    f"{os.getenv('HUGGINGFACE_API_KEY', '')}"
+    .encode()
+).hexdigest()
 
 weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(env_hash)
 atexit.register(lambda: client and client.close())
@@ -81,6 +87,8 @@ st.sidebar.markdown("---")
 search_params = st.sidebar.expander("🔍 Parámetros de Búsqueda", expanded=True)
 with search_params:
     top_k = st.slider("Documentos a retornar", 5, 20, 10)
+    use_llm_reranker = st.checkbox("Usar Re-Ranking con LLM", value=False, help="Usa GPT-4 para un re-ranking más preciso pero más lento y costoso.")
+    use_questions_collection = st.checkbox("Usar Colección de Preguntas", value=False, help="Habilita la búsqueda en la colección de preguntas (puede causar errores si las dimensiones de embedding no coinciden).")
     diversity_threshold = st.slider(
         "Umbral de diversidad", 0.5, 0.95, 0.85, 0.05,
         help="Controla la diversidad de resultados (más alto = más diverso)"
@@ -98,13 +106,6 @@ col1, col2 = st.columns([2, 1])
 with col1:
     st.subheader("💬 Haz tu pregunta sobre Azure")
     
-    # Title input
-    title = st.text_input(
-        "📝 Título (opcional):",
-        placeholder="e.g., Azure Functions Authentication, Virtual Machine Setup, etc.",
-        help="Un título descriptivo para tu consulta"
-    )
-    
     # Question input with examples
     question_examples = [
         "¿Cómo configurar Managed Identity en Azure Functions?",
@@ -113,47 +114,45 @@ with col1:
         "¿Cómo implementar autenticación en Azure App Service?"
     ]
     
-    # Quick examples buttons
-    st.markdown("**🚀 Ejemplos rápidos:**")
-    example_cols = st.columns(2)
-    with example_cols[0]:
-        if st.button("🔐 Azure Functions + Key Vault", key="ex1"):
-            st.session_state.selected_title = "Azure Functions Authentication"
-            st.session_state.selected_question = question_examples[1]
-        if st.button("💾 Azure Storage Best Practices", key="ex3"):
-            st.session_state.selected_title = "Azure Storage Security"
-            st.session_state.selected_question = question_examples[2]
-    
-    with example_cols[1]:
-        if st.button("🆔 Managed Identity Setup", key="ex2"):
-            st.session_state.selected_title = "Managed Identity Configuration"
-            st.session_state.selected_question = question_examples[0]
-        if st.button("🛡️ App Service Authentication", key="ex4"):
-            st.session_state.selected_title = "App Service Security"
-            st.session_state.selected_question = question_examples[3]
+    # Initialize session state for persistence
+    if 'last_title' not in st.session_state:
+        st.session_state.last_title = ""
+    if 'last_question' not in st.session_state:
+        st.session_state.last_question = ""
     
     # Update inputs if example was selected
     if 'selected_title' in st.session_state:
-        title = st.session_state.selected_title
+        title_value = st.session_state.selected_title
         del st.session_state.selected_title
+    else:
+        title_value = st.session_state.last_title
     
     if 'selected_question' in st.session_state:
         selected_question = st.session_state.selected_question
         del st.session_state.selected_question
     else:
-        selected_question = ""
-    
+        selected_question = st.session_state.last_question
+
+    title = st.text_input(
+        "📝 Título (opcional):",
+        value=title_value,
+        placeholder="e.g., Azure Functions Authentication, Virtual Machine Setup, etc.",
+        help="Un título descriptivo para tu consulta",
+        key="title_input"
+    )
+
     question = st.text_area(
         "❓ Tu pregunta:",
         value=selected_question,
         height=120,
         placeholder="Describe tu pregunta técnica sobre Azure en detalle...",
-        help="Sé específico sobre el servicio de Azure y lo que quieres lograr"
+        help="Sé específico sobre el servicio de Azure y lo que quieres lograr",
+        key="question_input"
     )
 
 with col2:
     st.subheader("📈 Métricas de Sesión")
-    
+
     # Inicializar métricas de sesión
     if 'session_metrics' not in st.session_state:
         st.session_state.session_metrics = {
@@ -161,11 +160,15 @@ with col2:
             'avg_response_time': 0,
             'total_docs_retrieved': 0
         }
-    
+
     metrics_container = st.container()
 
 # Botón de búsqueda
 if st.button("🔍 Buscar Documentación", type="primary", use_container_width=True):
+    # Save current title and question to session state for persistence
+    st.session_state.last_title = title
+    st.session_state.last_question = question
+
     if not question.strip():
         st.warning("⚠️ Por favor ingresa una pregunta.")
     else:
@@ -181,8 +184,11 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                 full_query,
                 weaviate_wrapper,
                 embedding_client,
+                openai_client,
                 top_k=top_k,
                 diversity_threshold=diversity_threshold,
+                use_llm_reranker=use_llm_reranker,
+                use_questions_collection=use_questions_collection
             )
             
             # Actualizar métricas de sesión
@@ -288,16 +294,16 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                     
                     st.markdown(f"""
                     <div class="doc-card" style="border-left: 4px solid {score_color};">
-                        <h4>#{i} {doc.get('title', 'Sin título')}</h4>
+                        <p>#{i} {doc.get('title', 'Sin título')}</p>
                         <p><strong>📊 Score:</strong> <span style="color: {score_color}; font-weight: bold;">{score:.4f}</span></p>
                         <p><strong>🔗 Link:</strong> <a href="{doc.get('link', '#')}" target="_blank" style="color: #0078d4;">{doc.get('link', 'N/A')}</a></p>
                     </div>
                     """, unsafe_allow_html=True)
                     
                     # Content preview
-                    with st.expander(f"Ver contenido #{i}"):
-                        content_preview = doc.get('content', '')[:500]
-                        st.text(content_preview + "..." if len(doc.get('content', '')) > 500 else content_preview)
+                    #with st.expander(f"Ver contenido #{i}"):
+                    #    content_preview = doc.get('content', '')[:500]
+                    #    st.text(content_preview + "..." if len(doc.get('content', '')) > 500 else content_preview)
             
             with col_openai:
                 if enable_openai_comparison and openai_docs:
@@ -340,7 +346,7 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
             
             # Additional tabs for analysis and debug
             st.markdown("---")
-            tab1, tab2 = st.tabs(["📊 Análisis Detallado", "🔧 Debug Info"])
+            tab1, tab2, tab3 = st.tabs(["📊 Análisis Detallado", "🔧 Debug Info", "🗄️ Inspección DB"])
             
             with tab1:
                 if results:
@@ -364,6 +370,31 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                         color_continuous_scale='viridis'
                     )
                     st.plotly_chart(fig, use_container_width=True)
+
+                    if enable_openai_comparison and openai_links:
+                        st.markdown("---")
+                        st.subheader("⚖️ Métricas de Ranking (vs. OpenAI)")
+                        
+                        from utils.metrics import compute_ndcg, compute_mrr, compute_precision_recall_f1
+                        
+                        # Ensure results are in the correct format for metrics
+                        our_docs_for_metrics = [{"link": doc.get("link")} for doc in results]
+                        
+                        # Calculate metrics
+                        precision, recall, f1 = compute_precision_recall_f1(our_docs_for_metrics, openai_links, k=top_k)
+                        mrr = compute_mrr(our_docs_for_metrics, openai_links, k=top_k)
+                        ndcg = compute_ndcg(our_docs_for_metrics, openai_links, k=top_k)
+                        
+                        # Display metrics in columns
+                        m_col1, m_col2, m_col3 = st.columns(3)
+                        with m_col1:
+                            st.metric("nDCG@10", f"{ndcg:.3f}", help="Mide la calidad del ranking (más alto es mejor).")
+                            st.metric("MRR@10", f"{mrr:.3f}", help="Evalúa qué tan arriba aparece el primer resultado relevante.")
+                        with m_col2:
+                            st.metric("Precision", f"{precision:.3f}", help="De los documentos que mostramos, cuántos son relevantes.")
+                            st.metric("Recall", f"{recall:.3f}", help="De todos los documentos relevantes, cuántos encontramos.")
+                        with m_col3:
+                            st.metric("F1-Score", f"{f1:.3f}", help="Balance entre Precision y Recall.")
             
             with tab2:
                 if show_debug_info:
@@ -371,6 +402,53 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                     st.text(debug_info)
                 else:
                     st.info("ℹ️ Debug info deshabilitado en configuración")
+
+            with tab3:
+                st.subheader("🗄️ Inspección de Base de Datos Weaviate")
+                
+                # Display collection stats
+                try:
+                    stats = weaviate_wrapper.get_collection_stats()
+                    st.write(f"**Documentos en 'Questions':** {stats.get('Questions_count', 'N/A')}")
+                    st.write(f"**Documentos en 'DocumentsMiniLM':** {stats.get('DocumentsMiniLM_count', 'N/A')}")
+                except Exception as e:
+                    st.error(f"Error al obtener estadísticas de la colección: {e}")
+
+                st.markdown("--- ")
+                st.subheader("🔍 Búsqueda por Palabra Clave (BM25)")
+                keyword_query = st.text_input("Introduce una palabra clave para buscar en la documentación:", key="keyword_search_input")
+                
+                # Initialize keyword search results in session state
+                if 'keyword_search_results' not in st.session_state:
+                    st.session_state.keyword_search_results = []
+                if 'keyword_search_query' not in st.session_state:
+                    st.session_state.keyword_search_query = ""
+
+                if st.button("Buscar por Palabra Clave", key="bm25_search_button"):
+                    if keyword_query:
+                        st.session_state.keyword_search_query = keyword_query # Store the query
+                        with st.spinner(f"Buscando '{keyword_query}'..."):
+                            st.session_state.keyword_search_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20)
+                    else:
+                        st.warning("Por favor, introduce una palabra clave.")
+                        st.session_state.keyword_search_results = [] # Clear previous results
+
+                # Display results if any are stored in session state
+                if st.session_state.keyword_search_results:
+                    st.success(f"Encontrados {len(st.session_state.keyword_search_results)} documentos para '{st.session_state.keyword_search_query}':")
+                    for i, doc in enumerate(st.session_state.keyword_search_results):
+                                    content_preview = doc.get('content', '')[:500]
+                                    st.markdown(f"**{i+1}. {doc.get('title', 'Sin título')}**")
+                                    st.markdown(f"🔗 [{doc.get('link', '#')}]({doc.get('link', '#')})")
+                                    st.markdown(f"""
+```
+{content_preview}
+```
+""")
+                                    st.markdown("--- ")
+                elif st.session_state.keyword_search_query and not st.session_state.keyword_search_results:
+                    st.info(f"No se encontraron documentos para '{st.session_state.keyword_search_query}'.")
+
         else:
             st.warning("⚠️ No se encontraron documentos relevantes. Intenta reformular tu pregunta.")
 
