@@ -87,14 +87,14 @@ class WeaviateClientWrapper:
     def questions_collection(self):
         """Lazy-loaded questions collection."""
         if self._questions_collection is None:
-            self._questions_collection = self.client.collections.get("Questions")
+            self._questions_collection = self.client.collections.get("QuestionsMiniLM")
         return self._questions_collection
     
     @property
     def docs_collection(self):
-        """Lazy-loaded documentation collection."""
+        """Lazy-loaded documentation collection using MPNet embeddings."""
         if self._docs_collection is None:
-            self._docs_collection = self.client.collections.get("DocumentsMiniLM")
+            self._docs_collection = self.client.collections.get("DocumentsMpnet")
         return self._docs_collection
     
     def _retry_operation(self, operation, *args, **kwargs):
@@ -301,7 +301,7 @@ class WeaviateClientWrapper:
                 for f in link_filters[1:]:
                     link_filter = link_filter | f
             
-            # No chunk_index filter needed for DocumentsMiniLM collection
+            # No chunk_index filter needed for DocumentsMpnet collection
             combined_filter = link_filter
             
             results = self.docs_collection.query.fetch_objects(
@@ -334,12 +334,20 @@ class WeaviateClientWrapper:
             logger.error(f"Error in batch lookup: {e}")
             return []
     
+    def lookup_docs_by_links(self, links: List[str]) -> List[Dict]:
+        """Legacy method - lookup documents by links (non-batch version)."""
+        if not links:
+            return []
+        
+        # Use batch method for better performance
+        return self.lookup_docs_by_links_batch(links, batch_size=50)
+    
     def get_collection_stats(self) -> Dict[str, int]:
         """Get statistics about collections."""
         try:
             stats = {}
-            stats["Questions_count"] = self.questions_collection.aggregate.over_all(total_count=True).total_count
-            stats["DocumentsMiniLM_count"] = self.docs_collection.aggregate.over_all(total_count=True).total_count
+            stats["QuestionsMiniLM_count"] = self.questions_collection.aggregate.over_all(total_count=True).total_count
+            stats["DocumentsMpnet_count"] = self.docs_collection.aggregate.over_all(total_count=True).total_count
             return stats
         except Exception as e:
             logger.error(f"Error getting collection stats: {e}")
@@ -372,6 +380,74 @@ class WeaviateClientWrapper:
         except Exception as e:
             logger.error(f"Error searching docs by keyword: {e}")
             print(f"[DEBUG] search_docs_by_keyword: Error: {e}")
+            return []
+
+    def search_questions_by_keyword(
+        self, 
+        keyword: str, 
+        limit: int = 10
+    ) -> List[Dict]:
+        """Search questions by keyword (BM25) in the Questions collection."""
+        print(f"[DEBUG] search_questions_by_keyword: Searching for keyword: '{keyword}'")
+        if not keyword:
+            print("[DEBUG] search_questions_by_keyword: Keyword is empty.")
+            return []
+        
+        def _search():
+            results = self.questions_collection.query.bm25(
+                query=keyword,
+                limit=limit
+            )
+            questions = []
+            for obj in results.objects:
+                questions.append(obj.properties.copy())
+            print(f"[DEBUG] search_questions_by_keyword: Found {len(questions)} questions for keyword '{keyword}'.")
+            return questions
+        
+        try:
+            return self._retry_operation(_search)
+        except Exception as e:
+            logger.error(f"Error searching questions by keyword: {e}")
+            print(f"[DEBUG] search_questions_by_keyword: Error: {e}")
+            return []
+
+    def get_sample_questions(
+        self, 
+        limit: int = 20, 
+        random_sample: bool = False
+    ) -> List[Dict]:
+        """Get sample questions from the collection."""
+        print(f"[DEBUG] get_sample_questions: Getting {limit} questions, random: {random_sample}")
+        
+        def _get_questions():
+            if random_sample:
+                # For random sampling, we fetch more and then sample
+                fetch_limit = min(limit * 5, 1000)  # Get more for better randomization
+                results = self.questions_collection.query.fetch_objects(
+                    limit=fetch_limit
+                )
+            else:
+                # Get first N questions
+                results = self.questions_collection.query.fetch_objects(
+                    limit=limit
+                )
+            
+            questions = []
+            for obj in results.objects:
+                question_data = obj.properties.copy()
+                # Add the object ID for reference
+                if hasattr(obj, 'uuid'):
+                    question_data['id'] = str(obj.uuid)
+                questions.append(question_data)
+            
+            print(f"[DEBUG] get_sample_questions: Found {len(questions)} questions")
+            return questions
+        
+        try:
+            return self._retry_operation(_get_questions)
+        except Exception as e:
+            logger.error(f"Error getting sample questions: {e}")
+            print(f"[DEBUG] get_sample_questions: Error: {e}")
             return []
 
 # Convenience functions for backward compatibility

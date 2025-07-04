@@ -89,10 +89,17 @@ def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_
     return sorted_docs[:top_k]
 
 
-def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10) -> List[dict]:
-    print(f"[DEBUG] rerank_documents: Received {len(docs)} documents for standard reranking.")
+def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10, use_document_model: bool = False) -> List[dict]:
+    print(f"[DEBUG] rerank_documents: Received {len(docs)} documents for standard reranking (use_document_model={use_document_model}).")
     try:
-        query_vec = embedding_client.generate_embedding(query)
+        # Usar el modelo apropiado para la query
+        if use_document_model:
+            query_vec = embedding_client.generate_document_embedding(query)
+            print(f"[DEBUG] rerank_documents: Using document model (MPNet) for query embedding.")
+        else:
+            query_vec = embedding_client.generate_query_embedding(query)
+            print(f"[DEBUG] rerank_documents: Using query model (MiniLM) for query embedding.")
+            
         if not query_vec:
             print("[DEBUG] rerank_documents: Query embedding could not be generated.")
             raise ValueError("Query embedding could not be generated.")
@@ -102,7 +109,11 @@ def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingCl
 
         for doc in docs:
             content = doc.get("content", "")
-            vec = embedding_client.generate_embedding(content)
+            # Para documentos, siempre usar el modelo de documentos
+            if use_document_model:
+                vec = embedding_client.generate_document_embedding(content)
+            else:
+                vec = embedding_client.generate_embedding(content)
             if vec:  # solo incluimos si el embedding es válido
                 valid_docs.append(doc)
                 valid_vecs.append(vec)
