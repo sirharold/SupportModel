@@ -1,9 +1,8 @@
 import streamlit as st
 import plotly.express as px
-import plotly.graph_objects as go
-from utils.qa_pipeline import answer_question
+from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
-from utils.embedding import EmbeddingClient
+from utils.embedding_safe import SafeEmbeddingClient
 from openai import OpenAI
 import os
 import atexit
@@ -23,11 +22,13 @@ def initialize_clients(_config_hash: str):
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
     weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
-    embedding_client = EmbeddingClient(huggingface_api_key=config.huggingface_api_key)
+    embedding_client = SafeEmbeddingClient(
+        model_name="sentence-transformers/multi-qa-mpnet-base-dot-v1",
+        huggingface_api_key=config.huggingface_api_key
+    )
     openai_client = OpenAI(api_key=config.openai_api_key)
     return weaviate_wrapper, embedding_client, openai_client, client
 
-# Create a hash from environment variables for caching
 import hashlib
 env_hash = hashlib.md5(
     f"{os.getenv('WCS_URL', '')}"
@@ -38,7 +39,18 @@ env_hash = hashlib.md5(
 ).hexdigest()
 
 weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(env_hash)
-atexit.register(lambda: client and client.close())
+
+# Register cleanup functions
+def cleanup_resources():
+    try:
+        if client:
+            client.close()
+        if embedding_client:
+            embedding_client.cleanup()
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+
+atexit.register(cleanup_resources)
 
 # CSS personalizado
 st.markdown("""
@@ -79,32 +91,53 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Sidebar para configuración
-st.sidebar.title("⚙️ Configuración")
+# Sidebar para navegación y configuración
+st.sidebar.title("🧭 Navegación")
+page = st.sidebar.radio(
+    "Selecciona una página:",
+    ["🔍 Búsqueda Individual", "📊 Consultas en Lote"],
+    index=0
+)
 st.sidebar.markdown("---")
 
-# Parámetros de búsqueda
-search_params = st.sidebar.expander("🔍 Parámetros de Búsqueda", expanded=True)
-with search_params:
-    top_k = st.slider("Documentos a retornar", 5, 20, 10)
-    use_llm_reranker = st.checkbox("Usar Re-Ranking con LLM", value=False, help="Usa GPT-4 para un re-ranking más preciso pero más lento y costoso.")
-    use_questions_collection = st.checkbox("Usar Colección de Preguntas", value=False, help="Habilita la búsqueda en la colección de preguntas (puede causar errores si las dimensiones de embedding no coinciden).")
-    diversity_threshold = st.slider(
-        "Umbral de diversidad", 0.5, 0.95, 0.85, 0.05,
-        help="Controla la diversidad de resultados (más alto = más diverso)"
-    )
+# Solo mostrar configuración en la página de búsqueda individual
+if page == "🔍 Búsqueda Individual":
+    st.sidebar.title("⚙️ Configuración")
+    
+    # Parámetros de búsqueda
+    search_params = st.sidebar.expander("🔍 Parámetros de Búsqueda", expanded=True)
+    with search_params:
+        top_k = st.slider("Documentos a retornar", 5, 20, 10)
+        use_llm_reranker = st.checkbox("Usar Re-Ranking con LLM", value=False, help="Usa GPT-4 para un re-ranking más preciso pero más lento y costoso.")
+        use_questions_collection = st.checkbox("Usar Colección de Preguntas", value=True, help="Habilita la búsqueda en la colección QuestionsMiniLM para encontrar preguntas similares y extraer enlaces relevantes.")
+        diversity_threshold = st.slider(
+            "Umbral de diversidad", 0.5, 0.95, 0.85, 0.05,
+            help="Controla la diversidad de resultados (más alto = más diverso)"
+        )
+    
+    # Configuración RAG
+    rag_params = st.sidebar.expander("🤖 Configuración RAG", expanded=False)
+    with rag_params:
+        enable_rag = st.checkbox("Activar RAG Completo", value=True, 
+                                help="Genera respuestas sintetizadas usando los documentos encontrados")
+        evaluate_rag_quality = st.checkbox("Evaluar Calidad RAG", value=False,
+                                         help="Calcula métricas de faithfulness, relevancy y utilización del contexto")
+        show_rag_metrics = st.checkbox("Mostrar Métricas RAG", value=True,
+                                     help="Muestra métricas de confianza y completitud de la respuesta generada")
 
-# Métricas de evaluación
-eval_params = st.sidebar.expander("📊 Evaluación", expanded=False)
-with eval_params:
-    enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
-    show_debug_info = st.checkbox("Mostrar información de debug", value=True)
+    # Métricas de evaluación
+    eval_params = st.sidebar.expander("📊 Evaluación", expanded=False)
+    with eval_params:
+        enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
+        show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-# Área principal
-col1, col2 = st.columns([2, 1])
+# Páginas principales
+if page == "🔍 Búsqueda Individual":
+    # Área principal
+    col1, col2 = st.columns([2, 1])
 
-with col1:
-    st.subheader("💬 Haz tu pregunta sobre Azure")
+    with col1:
+        st.subheader("💬 Haz tu pregunta sobre Azure")
     
     # Question input with examples
     question_examples = [
@@ -150,46 +183,61 @@ with col1:
         key="question_input"
     )
 
-with col2:
-    st.subheader("📈 Métricas de Sesión")
+    with col2:
+        st.subheader("📈 Métricas de Sesión")
 
-    # Inicializar métricas de sesión
-    if 'session_metrics' not in st.session_state:
-        st.session_state.session_metrics = {
-            'queries_made': 0,
-            'avg_response_time': 0,
-            'total_docs_retrieved': 0
-        }
+        # Inicializar métricas de sesión
+        if 'session_metrics' not in st.session_state:
+            st.session_state.session_metrics = {
+                'queries_made': 0,
+                'avg_response_time': 0,
+                'total_docs_retrieved': 0
+            }
 
-    metrics_container = st.container()
+        metrics_container = st.container()
 
-# Botón de búsqueda
-if st.button("🔍 Buscar Documentación", type="primary", use_container_width=True):
-    # Save current title and question to session state for persistence
-    st.session_state.last_title = title
-    st.session_state.last_question = question
+    # Botón de búsqueda
+    if st.button("🔍 Buscar Documentación", type="primary", use_container_width=True):
+        # Save current title and question to session state for persistence
+        st.session_state.last_title = title
+        st.session_state.last_question = question
 
-    if not question.strip():
-        st.warning("⚠️ Por favor ingresa una pregunta.")
-    else:
-        # Combine title and question for better search
-        full_query = f"{title.strip()} {question.strip()}".strip()
-        
-        # Medir tiempo de respuesta
-        start_time = time.time()
-        
-        with st.spinner("🔍 Buscando documentación relevante..."):
-            # Ejecutar búsqueda
-            results, debug_info = answer_question(
-                full_query,
-                weaviate_wrapper,
-                embedding_client,
-                openai_client,
-                top_k=top_k,
-                diversity_threshold=diversity_threshold,
-                use_llm_reranker=use_llm_reranker,
-                use_questions_collection=use_questions_collection
-            )
+        if not question.strip():
+            st.warning("⚠️ Por favor ingresa una pregunta.")
+        else:
+            # Combine title and question for better search
+            full_query = f"{title.strip()} {question.strip()}".strip()
+            
+            # Medir tiempo de respuesta
+            start_time = time.time()
+            
+            with st.spinner("🔍 Buscando documentación relevante..." + (" y generando respuesta..." if enable_rag else "")):
+                # Ejecutar búsqueda con o sin RAG
+                if enable_rag:
+                    results, debug_info, generated_answer, rag_metrics = answer_question_with_rag(
+                        full_query,
+                        weaviate_wrapper,
+                        embedding_client,
+                        openai_client,
+                        top_k=top_k,
+                        diversity_threshold=diversity_threshold,
+                        use_llm_reranker=use_llm_reranker,
+                        use_questions_collection=use_questions_collection,
+                        evaluate_quality=evaluate_rag_quality
+                    )
+                else:
+                    results, debug_info = answer_question_documents_only(
+                        full_query,
+                        weaviate_wrapper,
+                        embedding_client,
+                        openai_client,
+                        top_k=top_k,
+                        diversity_threshold=diversity_threshold,
+                        use_llm_reranker=use_llm_reranker,
+                        use_questions_collection=use_questions_collection
+                    )
+                    generated_answer = None
+                    rag_metrics = {}
             
             # Actualizar métricas de sesión
             response_time = time.time() - start_time
@@ -203,7 +251,67 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
 
         # Mostrar resultados
         if results:
-            st.success(f"✅ Encontrados {len(results)} documentos relevantes en {response_time:.2f}s")
+            if enable_rag and generated_answer:
+                st.success(f"✅ Respuesta generada con {len(results)} documentos en {response_time:.2f}s")
+            else:
+                st.success(f"✅ Encontrados {len(results)} documentos relevantes en {response_time:.2f}s")
+            
+            # Mostrar respuesta generada RAG si está disponible
+            if enable_rag and generated_answer:
+                st.markdown("---")
+                st.markdown("### 🤖 **Respuesta Generada (RAG)**")
+                
+                # Mostrar métricas RAG si están habilitadas
+                if show_rag_metrics and rag_metrics:
+                    rag_col1, rag_col2, rag_col3, rag_col4 = st.columns(4)
+                    
+                    with rag_col1:
+                        confidence = rag_metrics.get('confidence', 0)
+                        st.metric("🎯 Confianza", f"{confidence:.2f}", 
+                                help="Confianza del modelo en la respuesta generada")
+                    
+                    with rag_col2:
+                        completeness = rag_metrics.get('completeness', 'unknown')
+                        completeness_emoji = {"complete": "✅", "partial": "⚠️", "limited": "❌"}.get(completeness, "❓")
+                        st.metric("📊 Completitud", f"{completeness_emoji} {completeness.title()}", 
+                                help="Si la documentación permite una respuesta completa")
+                    
+                    with rag_col3:
+                        docs_used = rag_metrics.get('docs_used', 0)
+                        st.metric("📚 Docs Usados", f"{docs_used}/{len(results)}", 
+                                help="Documentos utilizados para generar la respuesta")
+                    
+                    with rag_col4:
+                        if evaluate_rag_quality and 'faithfulness' in rag_metrics:
+                            faithfulness = rag_metrics.get('faithfulness', 0)
+                            st.metric("🔍 Fidelidad", f"{faithfulness:.2f}", 
+                                    help="Fidelidad de la respuesta a los documentos fuente")
+                        else:
+                            st.metric("⚡ Estado", "✅ Generada", help="Respuesta generada exitosamente")
+                
+                # Mostrar la respuesta generada
+                st.markdown("#### 💬 Respuesta:")
+                st.markdown(generated_answer)
+                
+                # Mostrar métricas adicionales de evaluación si están disponibles
+                if evaluate_rag_quality and rag_metrics.get('answer_relevancy'):
+                    with st.expander("📊 Métricas Detalladas de Calidad RAG"):
+                        eval_col1, eval_col2, eval_col3 = st.columns(3)
+                        
+                        with eval_col1:
+                            st.metric("🎯 Faithfulness", f"{rag_metrics.get('faithfulness', 0):.3f}",
+                                    help="¿La respuesta es fiel a los documentos?")
+                        
+                        with eval_col2:
+                            st.metric("🔍 Answer Relevancy", f"{rag_metrics.get('answer_relevancy', 0):.3f}",
+                                    help="¿La respuesta responde la pregunta?")
+                        
+                        with eval_col3:
+                            st.metric("📚 Context Utilization", f"{rag_metrics.get('context_utilization', 0):.3f}",
+                                    help="¿Se utilizó bien el contexto?")
+                
+                st.markdown("---")
+                st.markdown("### 📄 **Documentos de Referencia**")
             
             # Create side-by-side comparison
             if enable_openai_comparison:
@@ -380,21 +488,103 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                         # Ensure results are in the correct format for metrics
                         our_docs_for_metrics = [{"link": doc.get("link")} for doc in results]
                         
-                        # Calculate metrics
+                        # Calculate metrics at k=5 and k=top_k
+                        precision_5, recall_5, f1_5 = compute_precision_recall_f1(our_docs_for_metrics, openai_links, k=5)
+                        mrr_5 = compute_mrr(our_docs_for_metrics, openai_links, k=5)
+                        ndcg_5 = compute_ndcg(our_docs_for_metrics, openai_links, k=5)
+                        
                         precision, recall, f1 = compute_precision_recall_f1(our_docs_for_metrics, openai_links, k=top_k)
                         mrr = compute_mrr(our_docs_for_metrics, openai_links, k=top_k)
                         ndcg = compute_ndcg(our_docs_for_metrics, openai_links, k=top_k)
                         
-                        # Display metrics in columns
+                        # Display metrics at k=5 (primary focus)
+                        st.markdown("**🎯 Métricas Principales (Top-5)**")
+                        m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
+                        with m_col1:
+                            st.metric("Precision@5", f"{precision_5:.3f}", help="Precisión en los primeros 5 documentos.")
+                        with m_col2:
+                            st.metric("Recall@5", f"{recall_5:.3f}", help="Cobertura en los primeros 5 documentos.")
+                        with m_col3:
+                            st.metric("F1-Score@5", f"{f1_5:.3f}", help="Balance entre Precision y Recall en top-5.")
+                        with m_col4:
+                            st.metric("MRR@5", f"{mrr_5:.3f}", help="Ranking del primer resultado relevante en top-5.")
+                        with m_col5:
+                            st.metric("nDCG@5", f"{ndcg_5:.3f}", help="Calidad del ranking en top-5.")
+                        
+                        # Display full metrics comparison
+                        st.markdown(f"**📊 Comparación Completa (Top-{top_k})**")
                         m_col1, m_col2, m_col3 = st.columns(3)
                         with m_col1:
-                            st.metric("nDCG@10", f"{ndcg:.3f}", help="Mide la calidad del ranking (más alto es mejor).")
-                            st.metric("MRR@10", f"{mrr:.3f}", help="Evalúa qué tan arriba aparece el primer resultado relevante.")
+                            st.metric(f"nDCG@{top_k}", f"{ndcg:.3f}", help="Mide la calidad del ranking completo.")
+                            st.metric(f"MRR@{top_k}", f"{mrr:.3f}", help="Evalúa qué tan arriba aparece el primer resultado relevante.")
                         with m_col2:
-                            st.metric("Precision", f"{precision:.3f}", help="De los documentos que mostramos, cuántos son relevantes.")
-                            st.metric("Recall", f"{recall:.3f}", help="De todos los documentos relevantes, cuántos encontramos.")
+                            st.metric(f"Precision@{top_k}", f"{precision:.3f}", help="De los documentos que mostramos, cuántos son relevantes.")
+                            st.metric(f"Recall@{top_k}", f"{recall:.3f}", help="De todos los documentos relevantes, cuántos encontramos.")
                         with m_col3:
-                            st.metric("F1-Score", f"{f1:.3f}", help="Balance entre Precision y Recall.")
+                            st.metric(f"F1-Score@{top_k}", f"{f1:.3f}", help="Balance entre Precision y Recall completo.")
+                        
+                        # Document score analysis
+                        st.markdown("**📈 Análisis de Scores de Documentos**")
+                        scores = [doc.get('score', 0) for doc in results if doc.get('score', 0) > 0]
+                        if scores:
+                            import numpy as np
+                            score_col1, score_col2 = st.columns(2)
+                            
+                            with score_col1:
+                                st.markdown("**📊 Estadísticas de Scores**")
+                                score_stats = pd.DataFrame({
+                                    'Métrica': ['Máximo', 'Promedio', 'Mediana', 'Mínimo', 'Desv. Estándar'],
+                                    'Valor': [
+                                        f"{max(scores):.4f}",
+                                        f"{np.mean(scores):.4f}",
+                                        f"{np.median(scores):.4f}",
+                                        f"{min(scores):.4f}",
+                                        f"{np.std(scores):.4f}"
+                                    ]
+                                })
+                                st.dataframe(score_stats, use_container_width=True)
+                                
+                                # Score distribution categories
+                                high_scores = len([s for s in scores if s >= 0.8])
+                                medium_scores = len([s for s in scores if 0.6 <= s < 0.8])
+                                low_scores = len([s for s in scores if s < 0.6])
+                                
+                                st.markdown("**🎯 Distribución por Calidad**")
+                                quality_df = pd.DataFrame({
+                                    'Calidad': ['Alta (≥0.8)', 'Media (0.6-0.8)', 'Baja (<0.6)'],
+                                    'Cantidad': [high_scores, medium_scores, low_scores],
+                                    'Porcentaje': [f"{high_scores/len(scores)*100:.1f}%", 
+                                                 f"{medium_scores/len(scores)*100:.1f}%", 
+                                                 f"{low_scores/len(scores)*100:.1f}%"]
+                                })
+                                st.dataframe(quality_df, use_container_width=True)
+                            
+                            with score_col2:
+                                # Score distribution chart
+                                fig_hist = px.histogram(
+                                    x=scores, 
+                                    nbins=20,
+                                    title="Distribución de Scores de Similitud",
+                                    labels={'x': 'Score de Similitud', 'y': 'Frecuencia'},
+                                    color_discrete_sequence=['#1f77b4']
+                                )
+                                fig_hist.update_layout(height=300)
+                                st.plotly_chart(fig_hist, use_container_width=True)
+                                
+                                # Top-5 scores bar chart
+                                top5_scores = scores[:5] if len(scores) >= 5 else scores
+                                fig_bar = px.bar(
+                                    x=[f"Doc {i+1}" for i in range(len(top5_scores))],
+                                    y=top5_scores,
+                                    title="Scores de Top-5 Documentos",
+                                    labels={'x': 'Documento', 'y': 'Score de Similitud'},
+                                    color=top5_scores,
+                                    color_continuous_scale='viridis'
+                                )
+                                fig_bar.update_layout(height=300)
+                                st.plotly_chart(fig_bar, use_container_width=True)
+                        else:
+                            st.info("No hay scores disponibles para análisis.")
             
             with tab2:
                 if show_debug_info:
@@ -409,8 +599,9 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
                 # Display collection stats
                 try:
                     stats = weaviate_wrapper.get_collection_stats()
-                    st.write(f"**Documentos en 'Questions':** {stats.get('Questions_count', 'N/A')}")
+                    st.write(f"**Documentos en 'QuestionsMiniLM':** {stats.get('QuestionsMiniLM_count', 'N/A')}")
                     st.write(f"**Documentos en 'DocumentsMiniLM':** {stats.get('DocumentsMiniLM_count', 'N/A')}")
+                    st.info("🎯 Ambas colecciones usan embeddings MiniLM compatibles (384 dimensiones)")
                 except Exception as e:
                     st.error(f"Error al obtener estadísticas de la colección: {e}")
 
@@ -452,17 +643,21 @@ if st.button("🔍 Buscar Documentación", type="primary", use_container_width=T
         else:
             st.warning("⚠️ No se encontraron documentos relevantes. Intenta reformular tu pregunta.")
 
-# Actualizar métricas en sidebar
-with metrics_container:
-    st.metric("Consultas realizadas", st.session_state.session_metrics['queries_made'])
-    st.metric("Tiempo promedio", f"{st.session_state.session_metrics['avg_response_time']:.2f}s")
-    st.metric("Docs recuperados", st.session_state.session_metrics['total_docs_retrieved'])
+    # Actualizar métricas en sidebar
+    with metrics_container:
+        st.metric("Consultas realizadas", st.session_state.session_metrics['queries_made'])
+        st.metric("Tiempo promedio", f"{st.session_state.session_metrics['avg_response_time']:.2f}s")
+        st.metric("Docs recuperados", st.session_state.session_metrics['total_docs_retrieved'])
 
-# Footer
+elif page == "📊 Consultas en Lote":
+    from batch_queries_page import show_batch_queries_page
+    show_batch_queries_page()
+
+# Footer común
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666;">
     <p>💡 <strong>Tip:</strong> Para mejores resultados, sé específico en tus preguntas e incluye el servicio de Azure de interés.</p>
-    <p>🔧 Sistema desarrollado con Weaviate + OpenAI Embeddings</p>
+    <p>🔧 Sistema desarrollado con Weaviate + sentence-transformers</p>
 </div>
 """, unsafe_allow_html=True)
