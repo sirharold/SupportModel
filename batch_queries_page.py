@@ -5,42 +5,51 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
-from utils.embedding_safe import SafeEmbeddingClient
+from utils.embedding_safe import get_embedding_client
 from openai import OpenAI
 import time
 import random
 import numpy as np
 from datetime import datetime
 import statistics
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG
 
 def show_batch_queries_page():
     """Página para consultas en lote."""
     
     # Configuración con cache
     @st.cache_resource
-    def initialize_clients(_config_hash: str):
+    def initialize_clients(model_name: str):
         config = WeaviateConfig.from_env()
         client = get_weaviate_client(config)
-        weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
-        embedding_client = SafeEmbeddingClient(
-            model_name="sentence-transformers/multi-qa-mpnet-base-dot-v1",
-            huggingface_api_key=config.huggingface_api_key
+        
+        weaviate_classes = WEAVIATE_CLASS_CONFIG[model_name]
+        weaviate_wrapper = WeaviateClientWrapper(
+            client,
+            documents_class=weaviate_classes["documents"],
+            questions_class=weaviate_classes["questions"],
+            retry_attempts=3
         )
+        
+        embedding_client = get_embedding_client(
+            model_name=EMBEDDING_MODELS[model_name],
+            huggingface_api_key=config.huggingface_api_key,
+            openai_api_key=config.openai_api_key
+        )
+        
         openai_client = OpenAI(api_key=config.openai_api_key)
-        return weaviate_wrapper, embedding_client, openai_client, client
+        
+        # This part is new - initialize Gemini client
+        gemini_client = None
+        if hasattr(config, 'gemini_api_key') and config.gemini_api_key:
+            import google.generativeai as genai
+            from config import GENERATIVE_MODELS
+            genai.configure(api_key=config.gemini_api_key)
+            # Assuming a default or selected generative model
+            gemini_client = genai.GenerativeModel(GENERATIVE_MODELS.get("gemini-pro", "gemini-pro"))
 
-    import hashlib
-    import os
-    env_hash = hashlib.md5(
-        f"{os.getenv('WCS_URL', '')}"
-        f"{os.getenv('WCS_API_KEY', '')}"
-        f"{os.getenv('OPENAI_API_KEY', '')}"
-        f"{os.getenv('HUGGINGFACE_API_KEY', '')}"
-        .encode()
-    ).hexdigest()
-    
-    weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(env_hash)
-    
+        return weaviate_wrapper, embedding_client, openai_client, client, gemini_client
+
     st.subheader("📊 Consultas en Lote")
     st.markdown("**Realiza múltiples consultas de documentos y obtén métricas comprehensivas**")
     
@@ -49,6 +58,16 @@ def show_batch_queries_page():
     
     with config_col1:
         st.markdown("### ⚙️ Configuración de Consulta")
+        
+        # Selección de modelo de embedding
+        model_name = st.selectbox(
+            "Selecciona el modelo de embedding:",
+            options=list(EMBEDDING_MODELS.keys()),
+            index=list(EMBEDDING_MODELS.keys()).index(DEFAULT_EMBEDDING_MODEL),
+            key="batch_model_select"
+        )
+
+        weaviate_wrapper, embedding_client, openai_client, client, gemini_client = initialize_clients(model_name)
         
         # Número de preguntas
         num_questions = st.number_input(
@@ -109,11 +128,12 @@ def show_batch_queries_page():
                     'selection_method': selection_method,
                     'keyword_filter': keyword_filter,
                     'enable_rag': batch_enable_rag,
-                    'evaluate_rag': batch_evaluate_rag
+                    'evaluate_rag': batch_evaluate_rag,
+                    'model_name': model_name
                 }
                 
                 # Ejecutar consultas
-                execute_batch_queries(weaviate_wrapper, embedding_client, openai_client)
+                execute_batch_queries(weaviate_wrapper, embedding_client, openai_client, gemini_client)
     
     with config_col2:
         st.markdown("### 📋 Estado Actual")
@@ -144,7 +164,7 @@ def show_batch_queries_page():
     if 'batch_results' in st.session_state:
         show_comprehensive_metrics()
 
-def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
+def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client, gemini_client):
     """Ejecuta las consultas en lote según la configuración."""
     config = st.session_state.batch_config
     
@@ -191,6 +211,9 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
             try:
                 if config.get('enable_rag', False):
                     # Usar RAG completo
+                    model_name = st.session_state.batch_config['model_name']
+                    documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"]
+                    questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
                     results, debug_info, generated_answer, rag_metrics = answer_question_with_rag(
                         question_text,
                         weaviate_wrapper,
@@ -199,10 +222,15 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
                         top_k=config['top_k'],
                         use_llm_reranker=config['use_llm'],
                         use_questions_collection=config['use_questions'],
-                        evaluate_quality=config.get('evaluate_rag', False)
+                        evaluate_quality=config.get('evaluate_rag', False),
+                        documents_class=documents_class,
+                        questions_class=questions_class
                     )
                 else:
                     # Solo documentos (modo tradicional)
+                    model_name = st.session_state.batch_config['model_name']
+                    documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"]
+                    questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
                     results, debug_info = answer_question_documents_only(
                         question_text,
                         weaviate_wrapper,
@@ -210,7 +238,9 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
                         openai_client,
                         top_k=config['top_k'],
                         use_llm_reranker=config['use_llm'],
-                        use_questions_collection=config['use_questions']
+                        use_questions_collection=config['use_questions'],
+                        documents_class=documents_class,
+                        questions_class=questions_class
                     )
                     generated_answer = None
                     rag_metrics = {}
@@ -267,6 +297,9 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
 def get_questions_from_db(weaviate_wrapper, num_questions, selection_method, keyword_filter):
     """Obtiene preguntas de la base de datos según el método especificado."""
     try:
+        model_name = st.session_state.batch_config['model_name']
+        questions_class = WEAVIATE_CLASS_CONFIG[model_name]["questions"]
+        
         if selection_method == "🎯 Palabras clave":
             # Búsqueda por palabra clave
             questions = weaviate_wrapper.search_questions_by_keyword(keyword_filter, limit=num_questions)

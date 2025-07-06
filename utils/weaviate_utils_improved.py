@@ -71,7 +71,7 @@ def get_weaviate_client(config: WeaviateConfig):
 class WeaviateClientWrapper:
     """Enhanced Weaviate client wrapper with improved performance and error handling."""
     
-    def __init__(self, client, retry_attempts: int = 3, retry_delay: float = 1.0):
+    def __init__(self, client, documents_class: str, questions_class: str, retry_attempts: int = 3, retry_delay: float = 1.0):
         if not client:
             raise ValueError("Weaviate client cannot be None")
         if not hasattr(client, "collections"):
@@ -80,22 +80,8 @@ class WeaviateClientWrapper:
         self.client = client
         self.retry_attempts = retry_attempts
         self.retry_delay = retry_delay
-        self._questions_collection = None
-        self._docs_collection = None
-    
-    @property
-    def questions_collection(self):
-        """Lazy-loaded questions collection."""
-        if self._questions_collection is None:
-            self._questions_collection = self.client.collections.get("QuestionsMiniLM")
-        return self._questions_collection
-    
-    @property
-    def docs_collection(self):
-        """Lazy-loaded documentation collection using MPNet embeddings."""
-        if self._docs_collection is None:
-            self._docs_collection = self.client.collections.get("DocumentsMpnet")
-        return self._docs_collection
+        self._docs_collection = self.client.collections.get(documents_class)
+        self._questions_collection = self.client.collections.get(questions_class)
     
     def _retry_operation(self, operation, *args, **kwargs):
         """Retry operation with exponential backoff."""
@@ -124,24 +110,27 @@ class WeaviateClientWrapper:
         include_distance: bool = False
     ) -> List[Dict]:
         """Search questions by vector similarity."""
+        print(f"[DEBUG] search_questions_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
         if not vector:
             raise ValueError("Vector cannot be empty")
         if top_k <= 0:
             raise ValueError("top_k must be positive")
         
-        def _search():
+        def _search_questions():
+            print(f"[DEBUG] search_questions_by_vector: Searching in collection: {self._questions_collection.name}")
             if include_distance:
-                results = self.questions_collection.query.near_vector(
+                results = self._questions_collection.query.near_vector(
                     near_vector=vector,
                     limit=top_k,
                     return_metadata=['distance']
                 )
             else:
-                results = self.questions_collection.query.near_vector(
+                results = self._questions_collection.query.near_vector(
                     near_vector=vector,
                     limit=top_k
                 )
             
+            print(f"[DEBUG] search_questions_by_vector: Weaviate returned {len(results.objects)} objects.")
             questions = []
             for obj in results.objects:
                 question_data = obj.properties.copy()
@@ -152,9 +141,10 @@ class WeaviateClientWrapper:
             return questions
         
         try:
-            return self._retry_operation(_search)
+            return self._retry_operation(_search_questions)
         except Exception as e:
             logger.error(f"Error searching questions by vector: {e}")
+            print(f"[DEBUG] search_questions_by_vector: Error: {e}")
             return []
     
     def search_docs_by_vector(
@@ -171,29 +161,30 @@ class WeaviateClientWrapper:
         if top_k <= 0:
             raise ValueError("top_k must be positive")
         
-        def _search():
-            print("[DEBUG] Entering _search nested function in search_docs_by_vector.")
+        def _search_docs():
+            print(f"[DEBUG] search_docs_by_vector: Searching in collection: {self._docs_collection.name}")
             # Fetch more documents for better diversity
             fetch_limit = max(top_k * 3, 30)
 
             try:
                 # Try the new API with filters parameter
                 print("[DEBUG] Attempting near_vector query with filters.")
-                results = self.docs_collection.query.near_vector(
+                results = self._docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
                     return_metadata=['distance'] if include_distance else None
                 )
-                print("[DEBUG] near_vector query successful.")
+                print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects.")
             except TypeError as e:
                 # Fallback to old API without filters parameter (if TypeError is due to filters)
                 logger.warning(f"Using fallback API without filters parameter due to: {e}")
                 print(f"[DEBUG] Fallback to old API: {e}")
-                results = self.docs_collection.query.near_vector(
+                results = self._docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
                     return_metadata=['distance'] if include_distance else None
                 )
+                print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects (fallback).")
                 # Filter results manually
                 filtered_objects = []
                 for obj in results.objects:
@@ -214,7 +205,7 @@ class WeaviateClientWrapper:
             )
         
         try:
-            return self._retry_operation(_search)
+            return self._retry_operation(_search_docs)
         except Exception as e:
             logger.error(f"Error searching docs by vector: {e}")
             print(f"[DEBUG] search_docs_by_vector: Top-level error: {e}")
@@ -304,7 +295,7 @@ class WeaviateClientWrapper:
             # No chunk_index filter needed for DocumentsMpnet collection
             combined_filter = link_filter
             
-            results = self.docs_collection.query.fetch_objects(
+            results = self._docs_collection.query.fetch_objects(
                 filters=combined_filter,
                 limit=len(link_batch)
             )
@@ -346,8 +337,8 @@ class WeaviateClientWrapper:
         """Get statistics about collections."""
         try:
             stats = {}
-            stats["QuestionsMiniLM_count"] = self.questions_collection.aggregate.over_all(total_count=True).total_count
-            stats["DocumentsMpnet_count"] = self.docs_collection.aggregate.over_all(total_count=True).total_count
+            stats["QuestionsMiniLM_count"] = self._questions_collection.aggregate.over_all(total_count=True).total_count
+            stats["DocumentsMpnet_count"] = self._docs_collection.aggregate.over_all(total_count=True).total_count
             return stats
         except Exception as e:
             logger.error(f"Error getting collection stats: {e}")
@@ -365,7 +356,7 @@ class WeaviateClientWrapper:
             return []
         
         def _search():
-            results = self.docs_collection.query.bm25(
+            results = self._docs_collection.query.bm25(
                 query=keyword,
                 limit=limit
             )
@@ -394,7 +385,7 @@ class WeaviateClientWrapper:
             return []
         
         def _search():
-            results = self.questions_collection.query.bm25(
+            results = self._questions_collection.query.bm25(
                 query=keyword,
                 limit=limit
             )
@@ -420,16 +411,20 @@ class WeaviateClientWrapper:
         print(f"[DEBUG] get_sample_questions: Getting {limit} questions, random: {random_sample}")
         
         def _get_questions():
+            properties_to_return = ["title", "question_content", "accepted_answer"]
+            
             if random_sample:
                 # For random sampling, we fetch more and then sample
                 fetch_limit = min(limit * 5, 1000)  # Get more for better randomization
-                results = self.questions_collection.query.fetch_objects(
-                    limit=fetch_limit
+                results = self._questions_collection.query.fetch_objects(
+                    limit=fetch_limit,
+                    return_properties=properties_to_return
                 )
             else:
                 # Get first N questions
-                results = self.questions_collection.query.fetch_objects(
-                    limit=limit
+                results = self._questions_collection.query.fetch_objects(
+                    limit=limit,
+                    return_properties=properties_to_return
                 )
             
             questions = []

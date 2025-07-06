@@ -1,13 +1,19 @@
+import multiprocessing
+import os
+
+# Set multiprocessing start method to 'spawn' and disable tokenizers parallelism
+# This must be done before any other imports that might initialize multiprocessing
+if multiprocessing.get_start_method(allow_none=True) != 'spawn':
+    multiprocessing.set_start_method('spawn', force=True)
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
 import streamlit as st
 import plotly.express as px
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
-from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
-from utils.embedding_safe import SafeEmbeddingClient
-from openai import OpenAI
-import os
-import atexit
-import pandas as pd
-import time
+from utils.clients import initialize_clients
+from comparison_page import show_comparison_page
+from batch_queries_page import show_batch_queries_page
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL
 
 # Configuración de página
 st.set_page_config(
@@ -15,42 +21,6 @@ st.set_page_config(
     layout="wide",
     page_icon="☁️"
 )
-
-# Configurar credenciales (con cache para evitar reconexiones)
-@st.cache_resource
-def initialize_clients(_config_hash: str):
-    config = WeaviateConfig.from_env()
-    client = get_weaviate_client(config)
-    weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
-    embedding_client = SafeEmbeddingClient(
-        model_name="sentence-transformers/multi-qa-mpnet-base-dot-v1",
-        huggingface_api_key=config.huggingface_api_key
-    )
-    openai_client = OpenAI(api_key=config.openai_api_key)
-    return weaviate_wrapper, embedding_client, openai_client, client
-
-import hashlib
-env_hash = hashlib.md5(
-    f"{os.getenv('WCS_URL', '')}"
-    f"{os.getenv('WCS_API_KEY', '')}"
-    f"{os.getenv('OPENAI_API_KEY', '')}"
-    f"{os.getenv('HUGGINGFACE_API_KEY', '')}"
-    .encode()
-).hexdigest()
-
-weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(env_hash)
-
-# Register cleanup functions
-def cleanup_resources():
-    try:
-        if client:
-            client.close()
-        if embedding_client:
-            embedding_client.cleanup()
-    except Exception as e:
-        print(f"Error during cleanup: {e}")
-
-atexit.register(cleanup_resources)
 
 # CSS personalizado
 st.markdown("""
@@ -95,14 +65,29 @@ st.markdown("""
 st.sidebar.title("🧭 Navegación")
 page = st.sidebar.radio(
     "Selecciona una página:",
-    ["🔍 Búsqueda Individual", "📊 Consultas en Lote"],
+    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos"],
     index=0
 )
 st.sidebar.markdown("---")
 
-# Solo mostrar configuración en la página de búsqueda individual
+st.sidebar.title("⚙️ Configuración")
+
+# Selección de modelo de embedding
+model_name = st.sidebar.selectbox(
+    "Selecciona el modelo de embedding:",
+    options=list(EMBEDDING_MODELS.keys()),
+    index=list(EMBEDDING_MODELS.keys()).index(DEFAULT_EMBEDDING_MODEL)
+)
+
+# Selección de modelo generativo
+generative_model_name = st.sidebar.selectbox(
+    "Selecciona el modelo generativo:",
+    options=list(GENERATIVE_MODELS.keys()),
+    index=list(GENERATIVE_MODELS.keys()).index(DEFAULT_GENERATIVE_MODEL)
+)
+
+# Páginas principales
 if page == "🔍 Búsqueda Individual":
-    st.sidebar.title("⚙️ Configuración")
     
     # Parámetros de búsqueda
     search_params = st.sidebar.expander("🔍 Parámetros de Búsqueda", expanded=True)
@@ -131,8 +116,8 @@ if page == "🔍 Búsqueda Individual":
         enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
         show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-# Páginas principales
-if page == "🔍 Búsqueda Individual":
+    weaviate_wrapper, embedding_client, openai_client, gemini_client, client = initialize_clients(model_name, generative_model_name)
+    
     # Área principal
     col1, col2 = st.columns([2, 1])
 
@@ -219,11 +204,15 @@ if page == "🔍 Búsqueda Individual":
                         weaviate_wrapper,
                         embedding_client,
                         openai_client,
+                        gemini_client,
                         top_k=top_k,
                         diversity_threshold=diversity_threshold,
                         use_llm_reranker=use_llm_reranker,
                         use_questions_collection=use_questions_collection,
-                        evaluate_quality=evaluate_rag_quality
+                        evaluate_quality=evaluate_rag_quality,
+                        documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"],
+                        questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"],
+                        generative_model_name=generative_model_name
                     )
                 else:
                     results, debug_info = answer_question_documents_only(
@@ -234,7 +223,9 @@ if page == "🔍 Búsqueda Individual":
                         top_k=top_k,
                         diversity_threshold=diversity_threshold,
                         use_llm_reranker=use_llm_reranker,
-                        use_questions_collection=use_questions_collection
+                        use_questions_collection=use_questions_collection,
+                        documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"],
+                        questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
                     )
                     generated_answer = None
                     rag_metrics = {}
@@ -599,8 +590,10 @@ if page == "🔍 Búsqueda Individual":
                 # Display collection stats
                 try:
                     stats = weaviate_wrapper.get_collection_stats()
-                    st.write(f"**Documentos en 'QuestionsMiniLM':** {stats.get('QuestionsMiniLM_count', 'N/A')}")
-                    st.write(f"**Documentos en 'DocumentsMiniLM':** {stats.get('DocumentsMiniLM_count', 'N/A')}")
+                    questions_class_name = WEAVIATE_CLASS_CONFIG[model_name]['questions']
+                    documents_class_name = WEAVIATE_CLASS_CONFIG[model_name]['documents']
+                    st.write(f"**Documentos en '{questions_class_name}':** {stats.get(f'{questions_class_name}_count', 'N/A')}")
+                    st.write(f"**Documentos en '{documents_class_name}':** {stats.get(f'{documents_class_name}_count', 'N/A')}")
                     st.info("🎯 Ambas colecciones usan embeddings MiniLM compatibles (384 dimensiones)")
                 except Exception as e:
                     st.error(f"Error al obtener estadísticas de la colección: {e}")
@@ -619,7 +612,7 @@ if page == "🔍 Búsqueda Individual":
                     if keyword_query:
                         st.session_state.keyword_search_query = keyword_query # Store the query
                         with st.spinner(f"Buscando '{keyword_query}'..."):
-                            st.session_state.keyword_search_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20)
+                            st.session_state.keyword_search_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20, class_name=WEAVIATE_CLASS_CONFIG[model_name]["documents"])
                     else:
                         st.warning("Por favor, introduce una palabra clave.")
                         st.session_state.keyword_search_results = [] # Clear previous results
@@ -632,10 +625,10 @@ if page == "🔍 Búsqueda Individual":
                                     st.markdown(f"**{i+1}. {doc.get('title', 'Sin título')}**")
                                     st.markdown(f"🔗 [{doc.get('link', '#')}]({doc.get('link', '#')})")
                                     st.markdown(f"""
-```
-{content_preview}
-```
-""")
+    ```
+    {content_preview}
+    ```
+    """)
                                     st.markdown("--- ")
                 elif st.session_state.keyword_search_query and not st.session_state.keyword_search_results:
                     st.info(f"No se encontraron documentos para '{st.session_state.keyword_search_query}'.")
@@ -650,8 +643,10 @@ if page == "🔍 Búsqueda Individual":
         st.metric("Docs recuperados", st.session_state.session_metrics['total_docs_retrieved'])
 
 elif page == "📊 Consultas en Lote":
-    from batch_queries_page import show_batch_queries_page
     show_batch_queries_page()
+
+elif page == "🔬 Comparación de Modelos":
+    show_comparison_page()
 
 # Footer común
 st.markdown("---")

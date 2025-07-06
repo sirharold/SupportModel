@@ -3,6 +3,7 @@ from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, W
 from utils.embedding import EmbeddingClient
 import os
 import atexit
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG
 
 st.set_page_config(page_title="Weaviate Keyword Search Debugger", layout="wide")
 
@@ -11,18 +12,21 @@ st.markdown("---")
 
 # Configurar credenciales (con cache para evitar reconexiones)
 @st.cache_resource
-def initialize_clients(_config_hash: str):
+def initialize_clients(model_name: str):
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
     weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
     embedding_client = EmbeddingClient(huggingface_api_key=config.huggingface_api_key) # Pass HF API key
     return weaviate_wrapper, client, embedding_client
 
-# Create a hash from environment variables for caching
-import hashlib
-env_hash = hashlib.md5(f"{os.getenv('WCS_URL', '')}{os.getenv('WCS_API_KEY', '')}{os.getenv('OPENAI_API_KEY', '')}".encode()).hexdigest()
+# Selección de modelo de embedding
+model_name = st.selectbox(
+    "Selecciona el modelo de embedding:",
+    options=list(EMBEDDING_MODELS.keys()),
+    index=list(EMBEDDING_MODELS.keys()).index(DEFAULT_EMBEDDING_MODEL)
+)
 
-weaviate_wrapper, client, embedding_client = initialize_clients(env_hash)
+weaviate_wrapper, client, embedding_client = initialize_clients(model_name)
 atexit.register(lambda: client and client.close())
 
 st.subheader("Búsqueda por Palabra Clave (BM25)")
@@ -32,7 +36,8 @@ if st.button("Buscar por Palabra Clave", key="debug_bm25_search_button"):
     if keyword_query:
         with st.spinner(f"Buscando '{keyword_query}' en Weaviate (BM25)..."):
             try:
-                keyword_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20)
+                documents_class = WEAVIATE_CLASS_CONFIG[model_name]["documents"]
+                keyword_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20, class_name=documents_class)
                 
                 if keyword_results:
                     st.success(f"Encontrados {len(keyword_results)} documentos para '{keyword_query}':")
@@ -56,7 +61,11 @@ st.markdown("---")
 st.subheader("Estadísticas de la Colección")
 try:
     stats = weaviate_wrapper.get_collection_stats()
-    st.write(f"**Documentos en 'Questions':** {stats.get('Questions_count', 'N/A')}")
-    st.write(f"**Documentos en 'Documentation':** {stats.get('Documentation_count', 'N/A')}")
+    for model, classes in WEAVIATE_CLASS_CONFIG.items():
+        questions_class_name = classes['questions']
+        documents_class_name = classes['documents']
+        st.write(f"**Documentos en '{questions_class_name}':** {stats.get(f'{questions_class_name}_count', 'N/A')}")
+        st.write(f"**Documentos en '{documents_class_name}':** {stats.get(f'{documents_class_name}_count', 'N/A')}")
 except Exception as e:
     st.error(f"Error al obtener estadísticas de la colección: {e}")
+
