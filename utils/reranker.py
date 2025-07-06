@@ -1,19 +1,16 @@
 from sklearn.metrics.pairwise import cosine_similarity
 from typing import List
 from openai import OpenAI
-from utils.embedding import EmbeddingClient
+from utils.embedding_safe import EmbeddingClient
 import json
 
 def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_k: int = 10) -> List[dict]:
-    print(f"[DEBUG] ENTERING rerank_with_llm function.")
-    print(f"[DEBUG] rerank_with_llm: Received {len(docs)} documents for reranking.")
     if not docs:
-        print("[DEBUG] rerank_with_llm: No documents to rerank, returning empty list.")
         return []
 
     ranked_docs = []
-    for i, doc in enumerate(docs):
-        score = 0.0  # Default score
+    for doc in docs:
+        score = 0.0
         try:
             content_preview = doc.get("content", "")[:2000]
             title = doc.get("title", "")
@@ -58,81 +55,45 @@ def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_
                 ],
                 tools=tools,
                 tool_choice={"type": "function", "function": {"name": "provide_relevance_score"}},
-                temperature=0.5 # Increased temperature to allow more varied scores
+                temperature=0.5
             )
 
             message = response.choices[0].message
             if message.tool_calls:
                 tool_call = message.tool_calls[0]
-                print(f"[DEBUG] LLM Tool Call Name: {tool_call.function.name}")
-                print(f"[DEBUG] LLM Tool Call Arguments: {tool_call.function.arguments}")
                 if tool_call.function.name == "provide_relevance_score":
                     tool_args = json.loads(tool_call.function.arguments)
                     score = tool_args.get("score", 0.0)
-                    print(f"[DEBUG] Extracted score: {score}")
-                else:
-                    print(f"[DEBUG] LLM called unexpected tool: {tool_call.function.name}")
-            else:
-                print(f"[DEBUG] LLM did not make a tool call. Message content: {message.content}")
-
         except Exception as e:
-            print(f"[DEBUG] Error reranking doc {doc.get('link')} with LLM: {e}")
-            # Score remains 0.0 if an error occurs
+            print(f"Error reranking doc {doc.get('link')} with LLM: {e}")
 
         doc["score"] = float(score)
         ranked_docs.append(doc)
 
-    # Sort by the new LLM-generated score
     sorted_docs = sorted(ranked_docs, key=lambda d: d.get("score", 0.0), reverse=True)
-    print(f"[DEBUG] rerank_with_llm: Final sorted scores: {[d.get('score', 0.0) for d in sorted_docs[:top_k]]}")
-    print(f"[DEBUG] rerank_with_llm: Returning {len(sorted_docs[:top_k])} documents.")
     return sorted_docs[:top_k]
 
 
-def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10, use_document_model: bool = False) -> List[dict]:
-    print(f"[DEBUG] rerank_documents: Received {len(docs)} documents for standard reranking (use_document_model={use_document_model}).")
-    try:
-        # Usar el modelo apropiado para la query
-        if use_document_model:
-            query_vec = embedding_client.generate_document_embedding(query)
-            print(f"[DEBUG] rerank_documents: Using document model (MPNet) for query embedding.")
-        else:
-            query_vec = embedding_client.generate_query_embedding(query)
-            print(f"[DEBUG] rerank_documents: Using query model (MiniLM) for query embedding.")
-            
-        if not query_vec:
-            print("[DEBUG] rerank_documents: Query embedding could not be generated.")
-            raise ValueError("Query embedding could not be generated.")
-
-        valid_docs = []
-        valid_vecs = []
-
-        for doc in docs:
-            content = doc.get("content", "")
-            # Para documentos, siempre usar el modelo de documentos
-            if use_document_model:
-                vec = embedding_client.generate_document_embedding(content)
-            else:
-                vec = embedding_client.generate_embedding(content)
-            if vec:  # solo incluimos si el embedding es válido
-                valid_docs.append(doc)
-                valid_vecs.append(vec)
-        
-        print(f"[DEBUG] rerank_documents: Found {len(valid_docs)} documents with valid embeddings.")
-
-        if not valid_vecs:
-            print("⚠️ No valid document embeddings generated for standard reranking.")
-            return []
-
-        scores = cosine_similarity([query_vec], valid_vecs)[0]
-
-        for doc, score in zip(valid_docs, scores):
-            doc["score"] = float(score)
-
-        ranked_docs = sorted(valid_docs, key=lambda d: d["score"], reverse=True)
-        print(f"[DEBUG] rerank_documents: Final sorted scores (standard): {[d.get('score', 0.0) for d in ranked_docs[:top_k]]}")
-        return ranked_docs[:top_k]
-
-    except Exception as e:
-        print("❌ Error in rerank_documents:", e)
+def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10) -> List[dict]:
+    if not docs:
         return []
+
+    query_vec = embedding_client.generate_query_embedding(query)
+    if not query_vec:
+        raise ValueError("Query embedding could not be generated.")
+
+    doc_vecs = [embedding_client.generate_document_embedding(doc.get("content", "")) for doc in docs]
+    
+    valid_docs = [doc for doc, vec in zip(docs, doc_vecs) if vec]
+    valid_vecs = [vec for vec in doc_vecs if vec]
+
+    if not valid_vecs:
+        return []
+
+    scores = cosine_similarity([query_vec], valid_vecs)[0]
+
+    for doc, score in zip(valid_docs, scores):
+        doc["score"] = float(score)
+
+    return sorted(valid_docs, key=lambda d: d["score"], reverse=True)[:top_k]
+

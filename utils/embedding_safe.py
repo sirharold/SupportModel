@@ -1,79 +1,70 @@
-from typing import List, Dict, Optional
+from typing import List
 import os
 import gc
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from openai import OpenAI
 
-class SafeEmbeddingClient:
-    """
-    Safe embedding client that uses only one model at a time to prevent memory issues.
-    Falls back to using the document model for both queries and documents.
-    """
-    
-    def __init__(self, 
-                 model_name: str = "sentence-transformers/multi-qa-mpnet-base-dot-v1",
-                 huggingface_api_key: str | None = None):
-        """
-        Initialize with single model to prevent segmentation faults.
-        
-        Args:
-            model_name: Single model to use for both queries and documents
-            huggingface_api_key: Optional HuggingFace API key
-        """
-        # Set HuggingFace token
+class EmbeddingClient:
+    """Base class for embedding clients."""
+    def generate_query_embedding(self, text: str) -> List[float]:
+        raise NotImplementedError
+
+    def generate_document_embedding(self, text: str) -> List[float]:
+        raise NotImplementedError
+
+    def cleanup(self):
+        pass
+
+class HuggingFaceEmbeddingClient(EmbeddingClient):
+    """Embedding client for Hugging Face sentence-transformers models."""
+    def __init__(self, model_name: str, huggingface_api_key: str | None = None):
         if huggingface_api_key:
             os.environ["HF_TOKEN"] = huggingface_api_key
-            os.environ["HUGGINGFACE_HUB_TOKEN"] = huggingface_api_key
-        
-        self.model_name = model_name
-        self._model = None
-        
-        print(f"[DEBUG] SafeEmbeddingClient initialized")
-        print(f"[DEBUG] Model: {model_name}")
+        self._model = SentenceTransformer(model_name, device='cpu')
 
-    @property
-    def model(self):
-        """Lazy load single model."""
-        if self._model is None:
-            from sentence_transformers import SentenceTransformer
-            print(f"[DEBUG] Loading model: {self.model_name}")
-            self._model = SentenceTransformer(self.model_name)
-            print(f"[DEBUG] Model loaded successfully")
-        return self._model
+    def generate_embedding(self, text: str) -> List[float]:
+        embedding = self._model.encode(text)
+        if isinstance(embedding, np.ndarray):
+            return embedding.tolist()
+        return embedding
 
-    def generate_embedding(self, text: str, use_document_model: bool = False) -> List[float]:
-        """Generate embedding for text using single model."""
-        if not text:
-            return []
-        
-        try:
-            embedding = self.model.encode(text).tolist()
-            return embedding
-        except Exception as e:
-            print(f"[DEBUG] Error generating embedding: {e}")
-            return []
-    
     def generate_query_embedding(self, text: str) -> List[float]:
-        """Generate embedding using model - for questions."""
-        return self.generate_embedding(text, use_document_model=False)
-    
+        return self.generate_embedding(text)
+
     def generate_document_embedding(self, text: str) -> List[float]:
-        """Generate embedding using model - for documents."""
-        return self.generate_embedding(text, use_document_model=True)
-    
+        return self.generate_embedding(text)
+
     def cleanup(self):
-        """Clean up model to free memory."""
-        try:
-            if self._model is not None:
-                del self._model
-                self._model = None
-                print("[DEBUG] Model cleaned up")
-                gc.collect()
-                print("[DEBUG] Garbage collection completed")
-        except Exception as e:
-            print(f"[DEBUG] Error during cleanup: {e}")
-    
-    def __del__(self):
-        """Destructor to ensure cleanup on object deletion."""
-        try:
-            self.cleanup()
-        except:
-            pass
+        if self._model:
+            del self._model
+            gc.collect()
+
+class OpenAIEmbeddingClient(EmbeddingClient):
+    """Embedding client for OpenAI models."""
+    def __init__(self, model_name: str, openai_api_key: str):
+        self._client = OpenAI(api_key=openai_api_key)
+        self._model_name = model_name
+
+    def generate_embedding(self, text: str) -> List[float]:
+        response = self._client.embeddings.create(input=text, model=self._model_name)
+        return response.data[0].embedding
+
+    def generate_query_embedding(self, text: str) -> List[float]:
+        return self.generate_embedding(text)
+
+    def generate_document_embedding(self, text: str) -> List[float]:
+        return self.generate_embedding(text)
+
+def get_embedding_client(
+    model_name: str,
+    huggingface_api_key: str | None = None,
+    openai_api_key: str | None = None,
+) -> EmbeddingClient:
+    """Factory function to get the correct embedding client."""
+    if "ada" in model_name:
+        if not openai_api_key:
+            raise ValueError("OpenAI API key is required for Ada models.")
+        return OpenAIEmbeddingClient(model_name, openai_api_key)
+    else:
+        return HuggingFaceEmbeddingClient(model_name, huggingface_api_key)

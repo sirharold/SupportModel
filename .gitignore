@@ -28,3 +28,8 @@ __pycache__/
 # OS metadata files
 .DS_Store
 Thumbs.db
+
+gemini_env/
+gemini_env_stable/
+gemini_env_stable_2/
+stable_env/
