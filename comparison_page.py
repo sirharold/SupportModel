@@ -13,8 +13,8 @@ from utils.extract_links import extract_urls_from_answer
 from utils.metrics import calculate_content_metrics
 from utils.pdf_generator import generate_pdf_report
 
-def generate_summary(question: str, results: list, openai_client) -> str:
-    """Generates a brief summary of why the results are relevant."""
+def generate_summary(question: str, results: list, gemini_client) -> str:
+    """Generates a brief summary of why the results are relevant using Gemini."""
     if not results:
         return "No se encontraron documentos para generar un resumen."
 
@@ -29,18 +29,11 @@ def generate_summary(question: str, results: list, openai_client) -> str:
     )
     
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful AI assistant that summarizes search results."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.5,
-            max_tokens=150
-        )
-        return response.choices[0].message.content.strip()
+        response = gemini_client.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
         return f"Error al generar el resumen: {e}"
+
 
 @st.cache_data(ttl=600)
 def get_and_filter_questions(_weaviate_wrapper, num_questions: int = 100):
@@ -107,7 +100,7 @@ def show_comparison_page():
             with st.spinner(f"Consultando con el modelo: {model_key}..."):
                 try:
                     start_time = time.time()
-                    weaviate_wrapper, embedding_client, openai_client, _, _ = initialize_clients(model_key)
+                    weaviate_wrapper, embedding_client, openai_client, gemini_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'gemini-pro'))
                     
                     results, debug_info = answer_question_documents_only(
                         question_to_ask, weaviate_wrapper, embedding_client, openai_client,
@@ -117,7 +110,7 @@ def show_comparison_page():
                     end_time = time.time()
                     elapsed_time = end_time - start_time
                     
-                    summary = generate_summary(question_to_ask, results, openai_client)
+                    summary = generate_summary(question_to_ask, results, gemini_client)
                     content_metrics = calculate_content_metrics(results, selected_question.get("accepted_answer", ""))
                     
                     st.session_state.comparison_results[model_key] = {
@@ -322,24 +315,26 @@ def show_comparison_page():
                 subgraph cluster_user {
                     label="Usuario";
                     color=blue;
-                    pregunta [label="1. Pregunta del Usuario"];
+                    pregunta [label="Pregunta del Usuario"];
                 }
                 
                 subgraph cluster_system {
                     label="Sistema RAG";
                     color=green;
+                    refinar [label="1. Refinar Consulta (Limpiar y Destilar)"];
                     embedding [label="2. Generar Embedding"];
                     busqueda [label="3. Búsqueda Vectorial"];
-                    reranking [label="4. Reranking (Opcional)"];
+                    reranking [label="4. Reranking Local (Cross-Encoder)"];
                     documentos [label="5. Documentos Relevantes"];
-                    generacion [label="6. Generación de Respuesta (Omitido)", style="rounded,filled,dashed", fillcolor="#f0f0f0", fontcolor=gray];
+                    resumen [label="6. Generación de Resumen (Gemini/GPT)"];
                 }
                 
-                pregunta -> embedding [label="  Consulta"];
+                pregunta -> refinar;
+                refinar -> embedding [label="  Consulta Refinada"];
                 embedding -> busqueda [label="  Vector"];
                 busqueda -> reranking [label="  Top-K Inicial"];
                 reranking -> documentos [label="  Top-K Final"];
-                documentos -> generacion [style=dashed, color=gray];
+                documentos -> resumen;
             }
         ''')
 

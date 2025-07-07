@@ -2,76 +2,43 @@ from sklearn.metrics.pairwise import cosine_similarity
 from typing import List
 from openai import OpenAI
 from utils.embedding_safe import EmbeddingClient
-import json
+from sentence_transformers import CrossEncoder
+from utils.auth import ensure_huggingface_login
+from utils.weaviate_utils_improved import WeaviateConfig
+import numpy as np
 
 def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_k: int = 10) -> List[dict]:
+    """
+    Reranks documents using a local CrossEncoder model and normalizes scores.
+    """
     if not docs:
         return []
 
-    ranked_docs = []
-    for doc in docs:
-        score = 0.0
-        try:
-            content_preview = doc.get("content", "")[:2000]
-            title = doc.get("title", "")
+    # Ensure we are logged in to Hugging Face before downloading the model
+    config = WeaviateConfig.from_env()
+    ensure_huggingface_login(token=config.huggingface_api_key)
 
-            prompt = (
-                f"User Question: {question}\n\n"
-                f"Document Title: {title}\n"
-                f"Document Content: {content_preview}...\n\n"
-                "Based on the document content, how relevant is this document to the user's question? "
-                "Provide a relevance score from 0.0 (not relevant) to 1.0 (highly relevant)."
-            )
+    # The CrossEncoder model expects pairs of [query, passage]
+    model_inputs = [[question, doc.get("content", "")] for doc in docs]
+    
+    # Initialize a light-weight, fast, and effective cross-encoder
+    cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2', max_length=512)
+    
+    # Predict the raw logit scores
+    raw_scores = cross_encoder.predict(model_inputs)
+    
+    # Normalize the scores using a Softmax function to get probabilities
+    softmax_scores = np.exp(raw_scores) / np.sum(np.exp(raw_scores))
 
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "provide_relevance_score",
-                        "description": "Provides a relevance score for a document based on a user question.",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "score": {
-                                    "type": "number",
-                                    "description": "The relevance score, from 0.0 to 1.0."
-                                },
-                                "reasoning": {
-                                    "type": "string",
-                                    "description": "A brief justification for the score."
-                                }
-                            },
-                            "required": ["score", "reasoning"]
-                        }
-                    }
-                }
-            ]
-
-            response = openai_client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are a relevance scoring expert."},
-                    {"role": "user", "content": prompt}
-                ],
-                tools=tools,
-                tool_choice={"type": "function", "function": {"name": "provide_relevance_score"}},
-                temperature=0.5
-            )
-
-            message = response.choices[0].message
-            if message.tool_calls:
-                tool_call = message.tool_calls[0]
-                if tool_call.function.name == "provide_relevance_score":
-                    tool_args = json.loads(tool_call.function.arguments)
-                    score = tool_args.get("score", 0.0)
-        except Exception as e:
-            print(f"Error reranking doc {doc.get('link')} with LLM: {e}")
-
+    # Add normalized scores to the documents
+    for doc, score in zip(docs, softmax_scores):
         doc["score"] = float(score)
-        ranked_docs.append(doc)
-
-    sorted_docs = sorted(ranked_docs, key=lambda d: d.get("score", 0.0), reverse=True)
+        
+    # Sort documents by the new score in descending order
+    sorted_docs = sorted(docs, key=lambda d: d.get("score", 0.0), reverse=True)
+    
     return sorted_docs[:top_k]
+
 
 
 def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingClient, top_k: int = 10) -> List[dict]:

@@ -17,6 +17,7 @@ class WeaviateConfig:
     wcs_api_key: str
     openai_api_key: str # Still needed for LLM reranker and OpenAI comparison
     huggingface_api_key: str | None = None # Added for Hugging Face models if needed
+    gemini_api_key: str | None = None
     
     @classmethod
     def from_env(cls, env_path: str = ".env") -> "WeaviateConfig":
@@ -26,7 +27,7 @@ class WeaviateConfig:
             load_dotenv(env_path)
             
             required_keys = ["WCS_URL", "WCS_API_KEY", "OPENAI_API_KEY"]
-            optional_keys = ["HUGGINGFACE_API_KEY"]
+            optional_keys = ["HUGGINGFACE_API_KEY", "GEMINI_API_KEY"]
             config_dict = {}
             
             for key in required_keys:
@@ -43,7 +44,8 @@ class WeaviateConfig:
                 wcs_url=config_dict["wcs_url"],
                 wcs_api_key=config_dict["wcs_api_key"],
                 openai_api_key=config_dict["openai_api_key"],
-                huggingface_api_key=config_dict["huggingface_api_key"]
+                huggingface_api_key=config_dict.get("huggingface_api_key"),
+                gemini_api_key=config_dict.get("gemini_api_key")
             )
         except Exception as e:
             logger.error(f"Error loading configuration: {e}")

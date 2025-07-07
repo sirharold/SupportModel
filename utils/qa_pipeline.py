@@ -8,7 +8,7 @@ from utils.weaviate_utils_improved import WeaviateClientWrapper
 from utils.answer_generator import generate_final_answer, evaluate_answer_quality
 from utils.gemini_answer_generator import generate_final_answer_gemini
 
-def refine_and_prepare_query(question: str, openai_client: OpenAI, model_name: str) -> Tuple[str, str]:
+def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel, model_name: str) -> Tuple[str, str]:
     """
     Cleans, distills, and conditionally prefixes a user query for optimal performance.
     """
@@ -22,16 +22,8 @@ def refine_and_prepare_query(question: str, openai_client: OpenAI, model_name: s
             f"\n\nOriginal Query: {question}"
         )
         
-        cleaned_response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a text cleaning expert."},
-                {"role": "user", "content": cleaning_prompt}
-            ],
-            temperature=0.0,
-            n=1
-        )
-        cleaned_question = cleaned_response.choices[0].message.content.strip()
+        cleaned_response = gemini_client.generate_content(cleaning_prompt)
+        cleaned_question = cleaned_response.text.strip()
         logs.append(f"🔹 Query after cleaning: {cleaned_question}")
 
         # Step 2: Core Question Distillation
@@ -42,16 +34,8 @@ def refine_and_prepare_query(question: str, openai_client: OpenAI, model_name: s
             f"\n\nCleaned Text: {cleaned_question}"
         )
 
-        distilled_response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are an expert at distilling technical questions."},
-                {"role": "user", "content": distillation_prompt}
-            ],
-            temperature=0.0,
-            n=1
-        )
-        distilled_question = distilled_response.choices[0].message.content.strip()
+        distilled_response = gemini_client.generate_content(distillation_prompt)
+        distilled_question = distilled_response.text.strip()
         logs.append(f"🔹 Query after distillation: {distilled_question}")
 
         # Step 3: Conditional Prefixing
@@ -110,11 +94,10 @@ def answer_question(
     try:
         # 1. Conditionally refine and prepare the query
         if "ada" in embedding_client.model_name:
-            print("[DEBUG-ADA] Using original question for Ada.")
             refined_query = question
             refinement_log = "🔹 Skipping query refinement for Ada model."
         else:
-            refined_query, refinement_log = refine_and_prepare_query(question, openai_client, embedding_client.model_name)
+            refined_query, refinement_log = refine_and_prepare_query(question, gemini_client, embedding_client.model_name)
         
         debug_logs.append(refinement_log)
         print(f"[DEBUG] Query used for embedding: {refined_query}")
@@ -123,6 +106,7 @@ def answer_question(
         query_vector = embedding_client.generate_query_embedding(refined_query)
         if "ada" in embedding_client.model_name:
             print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
+        
         print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
         debug_logs.append(f"🔹 Query vector length: {len(query_vector)}")
         debug_logs.append(f"🔹 top_k: {top_k}")
