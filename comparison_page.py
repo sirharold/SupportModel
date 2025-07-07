@@ -9,6 +9,7 @@ from utils.clients import initialize_clients
 from utils.qa_pipeline import answer_question_documents_only
 from config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
 from utils.extract_links import extract_urls_from_answer
+from utils.metrics import calculate_content_metrics
 from utils.pdf_generator import generate_pdf_report
 
 def generate_summary(question: str, results: list, openai_client) -> str:
@@ -40,7 +41,7 @@ def generate_summary(question: str, results: list, openai_client) -> str:
     except Exception as e:
         return f"Error al generar el resumen: {e}"
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=600)
 def get_and_filter_questions(_weaviate_wrapper, num_questions: int = 100):
     """Gets random questions and filters them for valid links."""
     random_questions = _weaviate_wrapper.get_sample_questions(limit=num_questions, random_sample=True)
@@ -90,7 +91,7 @@ def show_comparison_page():
             st.markdown(f"- {link}")
 
     top_k = st.slider("Documentos a retornar por modelo", 5, 20, 10, key="comparison_top_k")
-    use_reranker = st.toggle("Habilitar Reranking con LLM", value=False, help="Usa un LLM para reordenar los resultados iniciales y mejorar la relevancia. Aumentará la latencia.")
+    use_reranker = st.toggle("Habilitar Reranking con LLM", value=True, help="Usa un LLM para reordenar los resultados iniciales y mejorar la relevancia. Aumentará la latencia.")
 
     if st.button("🔍 Comparar Modelos", type="primary", use_container_width=True):
         question_to_ask = f"{selected_question.get('title', '')} {selected_question.get('question_content', '')}".strip()
@@ -116,9 +117,10 @@ def show_comparison_page():
                     elapsed_time = end_time - start_time
                     
                     summary = generate_summary(question_to_ask, results, openai_client)
+                    content_metrics = calculate_content_metrics(results, selected_question.get("accepted_answer", ""))
                     
                     st.session_state.comparison_results[model_key] = {
-                        "results": results, "debug_info": debug_info, "summary": summary, "time": elapsed_time
+                        "results": results, "debug_info": debug_info, "summary": summary, "time": elapsed_time, "content_metrics": content_metrics
                     }
                 except Exception as e:
                     st.session_state.comparison_results[model_key] = {"results": [], "error": str(e)}
@@ -218,7 +220,7 @@ def show_comparison_page():
                         f'{"✅" if is_ground_truth else ""}'
                         f'</p>'
                         f'<p style="font-size: 0.8em; margin-bottom: 0.2rem; color: #000000;">'
-                        f'<b>Score:</b> <span style="font-weight: bold;">{score:.4f}</span>'
+                        f'<b>Score:</b> <span style="font-weight: bold;">{score:.3f}</span>'
                         f'</p>'
                         f'<p style="font-size: 0.7em; word-wrap: break-word; margin-bottom: 0;">'
                         f'<a href="{safe_link}" target="_blank">{safe_link}</a>'
@@ -228,11 +230,12 @@ def show_comparison_page():
                     
                     st.markdown(html_card, unsafe_allow_html=True)
 
-        # --- 4. Performance Metrics & Graphs ---
+        # --- 4. Performance and Quality Metrics ---
         st.markdown("---")
-        st.markdown("### 📈 Métricas de Rendimiento")
+        st.markdown("### 📈 Métricas de Rendimiento y Calidad")
 
         if perf_data:
+            # Create a single section for all metrics
             st.markdown("#### Tabla de Métricas de Rendimiento")
             st.dataframe(perf_df.style.format({
                 "Latencia (s)": "{:.2f}",
@@ -258,6 +261,52 @@ def show_comparison_page():
                     labels={"Throughput (QPS)": "Consultas / Segundo"}
                 )
                 st.plotly_chart(fig_throughput, use_container_width=True)
+            
+            st.markdown("#### Distribución de Scores de Relevancia")
+            st.info("Este gráfico muestra la distribución de los scores de similitud para los documentos recuperados por cada modelo. Un buen modelo debería tener scores altos (cercanos a 1.0) y una distribución compacta en la parte superior.")
+            score_data = []
+            for model, data in st.session_state.comparison_results.items():
+                if data and not data.get("error"):
+                    for doc in data["results"]:
+                        score_data.append({"Modelo": model, "Score": doc.get("score", 0)})
+            
+            if score_data:
+                score_df = pd.DataFrame(score_data)
+                fig_box = px.box(score_df, x="Modelo", y="Score", color="Modelo", title="Distribución de Scores por Modelo")
+                st.plotly_chart(fig_box, use_container_width=True)
+
+            st.markdown("#### Métricas de Calidad de Contenido (BERTScore y ROUGE)")
+            st.info("Estas métricas comparan el contenido de los documentos recuperados con la **Respuesta Aceptada (Ground Truth)**. Miden la superposición semántica (BERTScore) y de palabras clave (ROUGE).")
+            content_metrics_data = []
+            for model, data in st.session_state.comparison_results.items():
+                if data and data.get("content_metrics"):
+                    metrics = data["content_metrics"]
+                    metrics["Modelo"] = model
+                    content_metrics_data.append(metrics)
+            
+            if content_metrics_data:
+                content_df = pd.DataFrame(content_metrics_data).set_index("Modelo")
+                st.dataframe(content_df)
+
+                st.markdown("##### Leyenda de Métricas de Contenido")
+                legend_data = {
+                    "Métrica": ["BERT_P", "BERT_R", "BERT_F1", "ROUGE1", "ROUGE2", "ROUGE-L"],
+                    "Significado": [
+                        "Precisión semántica (palabras coincidentes en la respuesta)",
+                        "Recall semántico (palabras coincidentes en la referencia)",
+                        "Balance de Precisión y Recall semántico",
+                        "Superposición de palabras individuales (unigramas)",
+                        "Superposición de pares de palabras (bigramas)",
+                        "Superposición de la subsecuencia más larga"
+                    ],
+                    "Interpretación": [
+                        "Bueno > 0.9", "Bueno > 0.9", "Bueno > 0.9",
+                        "Bueno > 0.4", "Bueno > 0.2", "Bueno > 0.3"
+                    ]
+                }
+                st.table(pd.DataFrame(legend_data))
+            else:
+                st.info("No hay métricas de calidad de contenido para mostrar.")
         else:
             st.info("No hay suficientes datos para generar gráficos de rendimiento.")
 

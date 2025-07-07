@@ -85,7 +85,7 @@ model_name = st.sidebar.selectbox(
 generative_model_name = st.sidebar.selectbox(
     "Selecciona el modelo generativo:",
     options=list(GENERATIVE_MODELS.keys()),
-    index=list(GENERATIVE_MODELS.keys()).index(DEFAULT_GENERATIVE_MODEL)
+    index=list(GENERATIVE_MODELS.keys()).index("gemini-pro")
 )
 
 # Páginas principales
