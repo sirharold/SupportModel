@@ -8,37 +8,65 @@ from utils.weaviate_utils_improved import WeaviateClientWrapper
 from utils.answer_generator import generate_final_answer, evaluate_answer_quality
 from utils.gemini_answer_generator import generate_final_answer_gemini
 
-def _expand_query_with_llm(question: str, openai_client: OpenAI) -> Tuple[str, str]:
+def refine_and_prepare_query(question: str, openai_client: OpenAI, model_name: str) -> Tuple[str, str]:
     """
-    Usa un LLM para expandir la pregunta del usuario con variantes técnicas.
-    Retorna la pregunta expandida y un log de la operación.
+    Cleans, distills, and conditionally prefixes a user query for optimal performance.
     """
+    logs = []
     try:
-        prompt = (
-            "You are an Azure expert acting as a search query optimizer. "
-            "Expand the following user question to improve search results in a technical documentation database. "
-            "Generate 3 more detailed or alternative technical phrasings. "
-            "Do NOT answer the question. ONLY generate the 3 variations, each on a new line.\n\n"
-            f"Original Question: {question}"
+        # Step 1: Noise and Salutation Removal
+        cleaning_prompt = (
+            "You are a text cleaning expert. Your task is to remove all greetings, "
+            "pleasantries, signatures, and any other conversational filler from the "
+            "following user query. Output ONLY the core technical question."
+            f"\n\nOriginal Query: {question}"
         )
         
-        response = openai_client.chat.completions.create(
-            model="gpt-4",
+        cleaned_response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a helpful Azure documentation expert and search query optimizer."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": "You are a text cleaning expert."},
+                {"role": "user", "content": cleaning_prompt}
             ],
-            temperature=0.2,
+            temperature=0.0,
             n=1
         )
-        
-        variations = response.choices[0].message.content.strip()
-        expanded_query = f"{question}\n{variations}"
-        log_message = f"🔹 Query expanded successfully.\nExpanded Query:\n---\n{expanded_query}\n---"
-        return expanded_query, log_message
+        cleaned_question = cleaned_response.choices[0].message.content.strip()
+        logs.append(f"🔹 Query after cleaning: {cleaned_question}")
+
+        # Step 2: Core Question Distillation
+        distillation_prompt = (
+            "Based on the following text, distill it into a single, clear, and "
+            "concise technical question suitable for a vector database search. "
+            "Remove any ambiguity and focus on the essential problem."
+            f"\n\nCleaned Text: {cleaned_question}"
+        )
+
+        distilled_response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are an expert at distilling technical questions."},
+                {"role": "user", "content": distillation_prompt}
+            ],
+            temperature=0.0,
+            n=1
+        )
+        distilled_question = distilled_response.choices[0].message.content.strip()
+        logs.append(f"🔹 Query after distillation: {distilled_question}")
+
+        # Step 3: Conditional Prefixing
+        if "multi-qa-mpnet-base-dot-v1" in model_name:
+            final_query = "query: " + distilled_question
+            logs.append("🔹 Added 'query: ' prefix for mpnet model.")
+        else:
+            final_query = distilled_question
+            logs.append("🔹 No prefix added for this model.")
+            
+        return final_query, "\n".join(logs)
+
     except Exception as e:
-        log_message = f"⚠️ Query expansion failed: {e}. Falling back to original question."
-        return question, log_message
+        logs.append(f"⚠️ Query refinement failed: {e}. Falling back to original question.")
+        return question, "\n".join(logs)
 
 def answer_question(
     question: str,
@@ -80,13 +108,21 @@ def answer_question(
     debug_logs = []
 
     try:
-        # 1. Expansión de la pregunta con LLM
-        expanded_question, expansion_log = _expand_query_with_llm(question, openai_client)
-        debug_logs.append(expansion_log)
-        print(f"[DEBUG] Expanded Question used for embedding: {expanded_question}")
+        # 1. Conditionally refine and prepare the query
+        if "ada" in embedding_client.model_name:
+            print("[DEBUG-ADA] Using original question for Ada.")
+            refined_query = question
+            refinement_log = "🔹 Skipping query refinement for Ada model."
+        else:
+            refined_query, refinement_log = refine_and_prepare_query(question, openai_client, embedding_client.model_name)
+        
+        debug_logs.append(refinement_log)
+        print(f"[DEBUG] Query used for embedding: {refined_query}")
 
-        # 2. Embedding de la pregunta expandida
-        query_vector = embedding_client.generate_query_embedding(expanded_question)
+        # 2. Embedding of the prepared question
+        query_vector = embedding_client.generate_query_embedding(refined_query)
+        if "ada" in embedding_client.model_name:
+            print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
         print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
         debug_logs.append(f"🔹 Query vector length: {len(query_vector)}")
         debug_logs.append(f"🔹 top_k: {top_k}")
@@ -129,7 +165,7 @@ def answer_question(
             linked_docs = []
 
         # 6. Buscar documentos directamente por vector
-        document_vector = embedding_client.generate_document_embedding(expanded_question)
+        document_vector = embedding_client.generate_document_embedding(refined_query)
         print(f"[DEBUG] Document vector generated. Length: {len(document_vector)}")
         debug_logs.append(f"🔹 Document vector length: {len(document_vector)}")
         
@@ -140,6 +176,8 @@ def answer_question(
             diversity_threshold=diversity_threshold,
             include_distance=True
         )
+        if "ada" in embedding_client.model_name:
+            print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
         debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
         print(f"[DEBUG] Vector-Retrieved Documents: {len(vector_docs)}")
         for i, doc in enumerate(vector_docs):
