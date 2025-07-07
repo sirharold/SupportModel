@@ -18,7 +18,7 @@ class EmbeddingClient:
         """
         # Set HuggingFace token before importing SentenceTransformer
         if huggingface_api_key:
-            os.environ["HF_TOKEN"] = huggingface_api_key
+            # os.environ["HF_TOKEN"] = huggingface_api_key
             os.environ["HUGGINGFACE_HUB_TOKEN"] = huggingface_api_key
         
         # Store model names for lazy loading

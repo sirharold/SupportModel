@@ -19,6 +19,8 @@ def compute_precision_recall_f1(retrieved_docs: List[Dict], relevant_docs: List[
     # Implementation...
     return 0.0, 0.0, 0.0
 
+from utils.weaviate_utils_improved import WeaviateConfig
+
 def calculate_content_metrics(retrieved_docs: List[Dict], ground_truth_answer: str, top_n: int = 3) -> Dict:
     """
     Calculates BERTScore and ROUGE scores based on retrieved content.
@@ -35,10 +37,15 @@ def calculate_content_metrics(retrieved_docs: List[Dict], ground_truth_answer: s
     # BERTScore
     bert_scores = {}
     try:
+        # Load config to get the key
+        config = WeaviateConfig.from_env()
+        hf_api_key = config.huggingface_api_key
+        
         print("[DEBUG METRICS] Ensuring Hugging Face login...")
-        ensure_huggingface_login()
+        ensure_huggingface_login(token=hf_api_key)
+        
         print(f"[DEBUG METRICS] Calculating BERTScore...")
-        P, R, F1 = bert_scorer([candidate_text], [ground_truth_answer], lang="en", verbose=False, model_type='distilbert-base-uncased')
+        P, R, F1 = bert_scorer([candidate_text], [ground_truth_answer], lang="en", verbose=False, model_type='roberta-large-mnli')
         bert_scores = {
             "BERT_P": P.mean().item(),
             "BERT_R": R.mean().item(),

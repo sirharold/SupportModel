@@ -21,8 +21,6 @@ class HuggingFaceEmbeddingClient(EmbeddingClient):
     def __init__(self, model_name: str, huggingface_api_key: str | None = None):
         self.model_name = model_name
         self.huggingface_api_key = huggingface_api_key
-        if self.huggingface_api_key:
-            os.environ["HF_TOKEN"] = self.huggingface_api_key
         self._model = SentenceTransformer(model_name, device='cpu')
 
     def generate_embedding(self, text: str) -> List[float]:
