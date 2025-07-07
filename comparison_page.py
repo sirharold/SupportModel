@@ -8,6 +8,7 @@ import time
 from utils.clients import initialize_clients
 from utils.qa_pipeline import answer_question_documents_only
 from config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
+from utils.weaviate_utils_improved import WeaviateConfig
 from utils.extract_links import extract_urls_from_answer
 from utils.metrics import calculate_content_metrics
 from utils.pdf_generator import generate_pdf_report

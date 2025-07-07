@@ -19,9 +19,10 @@ class EmbeddingClient:
 class HuggingFaceEmbeddingClient(EmbeddingClient):
     """Embedding client for Hugging Face sentence-transformers models."""
     def __init__(self, model_name: str, huggingface_api_key: str | None = None):
-        if huggingface_api_key:
-            os.environ["HF_TOKEN"] = huggingface_api_key
         self.model_name = model_name
+        self.huggingface_api_key = huggingface_api_key
+        if self.huggingface_api_key:
+            os.environ["HF_TOKEN"] = self.huggingface_api_key
         self._model = SentenceTransformer(model_name, device='cpu')
 
     def generate_embedding(self, text: str) -> List[float]:
@@ -44,8 +45,9 @@ class HuggingFaceEmbeddingClient(EmbeddingClient):
 class OpenAIEmbeddingClient(EmbeddingClient):
     """Embedding client for OpenAI models."""
     def __init__(self, model_name: str, openai_api_key: str):
-        self._client = OpenAI(api_key=openai_api_key)
         self.model_name = model_name
+        self.openai_api_key = openai_api_key
+        self._client = OpenAI(api_key=self.openai_api_key)
 
     def generate_embedding(self, text: str) -> List[float]:
         response = self._client.embeddings.create(input=text, model=self.model_name)

@@ -133,8 +133,8 @@ def answer_question(
             similar_questions = weaviate_wrapper.search_questions_by_vector(query_vector, top_k=min(top_k*3, 30))
             debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
             print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
-            for i, q in enumerate(similar_questions):
-                print(f"[DEBUG]   Q {i+1}: Title: {q.get('title', 'N/A')}, Accepted Answer: {q.get('accepted_answer', 'N/A')[:100]}...")
+            #for i, q in enumerate(similar_questions):
+            #    print(f"[DEBUG]   Q {i+1}: Title: {q.get('title', 'N/A')}, Accepted Answer: {q.get('accepted_answer', 'N/A')[:100]}...")
 
             # 4. Extraer links desde respuestas aceptadas con deduplicación temprana
             unique_links = set()
@@ -157,8 +157,8 @@ def answer_question(
                 linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
             debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
             print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
-            for i, doc in enumerate(linked_docs):
-                print(f"[DEBUG]   Linked Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
+            #for i, doc in enumerate(linked_docs):
+            #    print(f"[DEBUG]   Linked Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
         else:
             debug_logs.append("🔹 Skipping Questions collection search.")
             similar_questions = []
@@ -178,10 +178,10 @@ def answer_question(
         )
         if "ada" in embedding_client.model_name:
             print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
-        debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
-        print(f"[DEBUG] Vector-Retrieved Documents: {len(vector_docs)}")
-        for i, doc in enumerate(vector_docs):
-            print(f"[DEBUG]   Vector Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
+        #debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
+        #print(f"[DEBUG] Vector-Retrieved Documents: {len(vector_docs)}")
+        #for i, doc in enumerate(vector_docs):
+        #    print(f"[DEBUG]   Vector Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
 
         # 7. Combinar y deduplicar con prioridad a documentos linked
         unique_docs_dict = {}
@@ -208,8 +208,8 @@ def answer_question(
             return [], "\n".join(debug_logs)
 
         print("[DEBUG] Documents retrieved from Weaviate (before reranking):")
-        for i, doc in enumerate(unique_docs):
-            print(f"[DEBUG]   Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
+        #for i, doc in enumerate(unique_docs):
+        #    print(f"[DEBUG]   Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
 
         # 8. Reranking (condicional)
         debug_logs.append(f"🔹 Preparing for reranking. LLM Reranker enabled: {use_llm_reranker}")

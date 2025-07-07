@@ -2,6 +2,7 @@ from typing import List, Dict
 from bert_score import score as bert_scorer
 from rouge_score import rouge_scorer
 import numpy as np
+from utils.auth import ensure_huggingface_login
 
 def compute_ndcg(retrieved_docs: List[Dict], relevant_docs: List[str], k: int) -> float:
     """Computes Normalized Discounted Cumulative Gain (nDCG@k)."""
@@ -34,17 +35,19 @@ def calculate_content_metrics(retrieved_docs: List[Dict], ground_truth_answer: s
     # BERTScore
     bert_scores = {}
     try:
-        print(f"[DEBUG] Calculating BERTScore...")
-        P, R, F1 = bert_scorer([candidate_text], [ground_truth_answer], lang="en", verbose=False, model_type='microsoft/deberta-xlarge-mnli')
+        print("[DEBUG METRICS] Ensuring Hugging Face login...")
+        ensure_huggingface_login()
+        print(f"[DEBUG METRICS] Calculating BERTScore...")
+        P, R, F1 = bert_scorer([candidate_text], [ground_truth_answer], lang="en", verbose=False, model_type='distilbert-base-uncased')
         bert_scores = {
             "BERT_P": P.mean().item(),
             "BERT_R": R.mean().item(),
             "BERT_F1": F1.mean().item(),
         }
-        print(f"[DEBUG] BERTScore calculated successfully: {bert_scores}")
+        print(f"[DEBUG METRICS] BERTScore calculated successfully: {bert_scores}")
     except Exception as e:
         error_message = f"Error calculating BERTScore: {e}"
-        print(f"[DEBUG] {error_message}")
+        print(f"[DEBUG METRICS] {error_message}")
         bert_scores = {"BERT_P": "Error", "BERT_R": "Error", "BERT_F1": error_message} # Make error visible in UI
 
     # ROUGE Score
