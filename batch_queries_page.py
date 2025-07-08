@@ -37,18 +37,19 @@ def show_batch_queries_page():
             openai_api_key=config.openai_api_key
         )
         
+        # Initialize OpenAI client (required for some functions, but only used when needed)
         openai_client = OpenAI(api_key=config.openai_api_key)
         
-        # This part is new - initialize Gemini client
-        gemini_client = None
-        if hasattr(config, 'gemini_api_key') and config.gemini_api_key:
-            import google.generativeai as genai
-            from config import GENERATIVE_MODELS
-            genai.configure(api_key=config.gemini_api_key)
-            # Assuming a default or selected generative model
-            gemini_client = genai.GenerativeModel(GENERATIVE_MODELS.get("gemini-pro", "gemini-pro"))
-
-        return weaviate_wrapper, embedding_client, openai_client, client, gemini_client
+        # Warn if using costly OpenAI embeddings
+        if "ada" in model_name.lower():
+            st.error("⚠️ **ADVERTENCIA**: Estás usando el modelo OpenAI 'ada' que genera costos por cada consulta!")
+            st.info("💡 **Recomendación**: Cambia a 'multi-qa-mpnet-base-dot-v1' o 'all-MiniLM-L6-v2' para evitar costos.")
+        else:
+            st.success(f"✅ Usando modelo local: {model_name} (sin costos)")
+        
+        # Note: Gemini client removed to eliminate API costs
+        # All operations now use local models or heuristics
+        return weaviate_wrapper, embedding_client, openai_client, client
 
     st.subheader("📊 Consultas en Lote")
     st.markdown("**Realiza múltiples consultas de documentos y obtén métricas comprehensivas**")
@@ -67,7 +68,7 @@ def show_batch_queries_page():
             key="batch_model_select"
         )
 
-        weaviate_wrapper, embedding_client, openai_client, client, gemini_client = initialize_clients(model_name)
+        weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(model_name)
         
         # Número de preguntas
         num_questions = st.number_input(
@@ -133,7 +134,7 @@ def show_batch_queries_page():
                 }
                 
                 # Ejecutar consultas
-                execute_batch_queries(weaviate_wrapper, embedding_client, openai_client, gemini_client)
+                execute_batch_queries(weaviate_wrapper, embedding_client, openai_client)
     
     with config_col2:
         st.markdown("### 📋 Estado Actual")
@@ -164,7 +165,7 @@ def show_batch_queries_page():
     if 'batch_results' in st.session_state:
         show_comprehensive_metrics()
 
-def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client, gemini_client):
+def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
     """Ejecuta las consultas en lote según la configuración."""
     config = st.session_state.batch_config
     

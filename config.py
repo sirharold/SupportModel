@@ -12,10 +12,12 @@ DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
 # Generative model configurations
 GENERATIVE_MODELS = {
     "gpt-4": "gpt-4",
-    "gemini-pro": "gemini-pro"
+    "gemini-pro": "gemini-pro",
+    "llama-3.1-8b": "llama-3.1-8b",
+    "mistral-7b": "mistral-7b"
 }
 
-DEFAULT_GENERATIVE_MODEL = "gpt-4"
+DEFAULT_GENERATIVE_MODEL = "llama-3.1-8b"  # Changed to local model for cost savings
 
 # Weaviate class names for different models
 WEAVIATE_CLASS_CONFIG = {
@@ -49,5 +51,21 @@ MODEL_DESCRIPTIONS = {
         "description": "Potente modelo de propósito general de OpenAI. Excelente en capturar el significado semántico en una amplia gama de textos.",
         "dimensions": 1536,
         "provider": "OpenAI"
+    }
+}
+
+# Local model descriptions
+LOCAL_MODEL_DESCRIPTIONS = {
+    "llama-3.1-8b": {
+        "description": "Modelo local Llama 3.1 8B. Generación de respuestas de alta calidad sin costos de API.",
+        "provider": "Meta (Local)",
+        "cost": "Gratuito",
+        "requirements": "8GB+ RAM, GPU recomendada"
+    },
+    "mistral-7b": {
+        "description": "Modelo local Mistral 7B. Eficiente para refinamiento de queries y tareas de NLP.",
+        "provider": "Mistral AI (Local)",
+        "cost": "Gratuito", 
+        "requirements": "6GB+ RAM, GPU recomendada"
     }
 }

@@ -7,46 +7,76 @@ from utils.embedding import EmbeddingClient
 from utils.weaviate_utils_improved import WeaviateClientWrapper
 from utils.answer_generator import generate_final_answer, evaluate_answer_quality
 from utils.gemini_answer_generator import generate_final_answer_gemini
+from utils.local_answer_generator import generate_final_answer_local, refine_query_local
 
-def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel, model_name: str) -> Tuple[str, str]:
+def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel, model_name: str, 
+                           local_mistral_client=None, use_local_refinement: bool = True) -> Tuple[str, str]:
     """
     Cleans, distills, and conditionally prefixes a user query for optimal performance.
+    Now supports local model refinement for cost optimization.
     """
     logs = []
     try:
-        # Step 1: Noise and Salutation Removal
-        cleaning_prompt = (
-            "You are a text cleaning expert. Your task is to remove all greetings, "
-            "pleasantries, signatures, and any other conversational filler from the "
-            "following user query. Output ONLY the core technical question."
-            f"\n\nOriginal Query: {question}"
-        )
-        
-        cleaned_response = gemini_client.generate_content(cleaning_prompt)
-        cleaned_question = cleaned_response.text.strip()
-        logs.append(f"🔹 Query after cleaning: {cleaned_question}")
-
-        # Step 2: Core Question Distillation
-        distillation_prompt = (
-            "Based on the following text, distill it into a single, clear, and "
-            "concise technical question suitable for a vector database search. "
-            "Remove any ambiguity and focus on the essential problem."
-            f"\n\nCleaned Text: {cleaned_question}"
-        )
-
-        distilled_response = gemini_client.generate_content(distillation_prompt)
-        distilled_question = distilled_response.text.strip()
-        logs.append(f"🔹 Query after distillation: {distilled_question}")
-
-        # Step 3: Conditional Prefixing
-        if "multi-qa-mpnet-base-dot-v1" in model_name:
-            final_query = "query: " + distilled_question
-            logs.append("🔹 Added 'query: ' prefix for mpnet model.")
-        else:
-            final_query = distilled_question
-            logs.append("🔹 No prefix added for this model.")
+        # Use local model refinement if available and enabled
+        if use_local_refinement and local_mistral_client:
+            refined_query, refinement_log = refine_query_local(question, "mistral-7b")
+            logs.append(refinement_log)
             
-        return final_query, "\n".join(logs)
+            # Apply conditional prefixing
+            if "multi-qa-mpnet-base-dot-v1" in model_name:
+                final_query = "query: " + refined_query
+                logs.append("🔹 Added 'query: ' prefix for mpnet model.")
+            else:
+                final_query = refined_query
+                logs.append("🔹 No prefix added for this model.")
+            
+            return final_query, "\n".join(logs)
+        
+        # Fallback to original Gemini refinement if local not available
+        elif gemini_client:
+            # Step 1: Noise and Salutation Removal
+            cleaning_prompt = (
+                "You are a text cleaning expert. Your task is to remove all greetings, "
+                "pleasantries, signatures, and any other conversational filler from the "
+                "following user query. Output ONLY the core technical question."
+                f"\n\nOriginal Query: {question}"
+            )
+            
+            cleaned_response = gemini_client.generate_content(cleaning_prompt)
+            cleaned_question = cleaned_response.text.strip()
+            logs.append(f"🔹 Query after cleaning: {cleaned_question}")
+
+            # Step 2: Core Question Distillation
+            distillation_prompt = (
+                "Based on the following text, distill it into a single, clear, and "
+                "concise technical question suitable for a vector database search. "
+                "Remove any ambiguity and focus on the essential problem."
+                f"\n\nCleaned Text: {cleaned_question}"
+            )
+
+            distilled_response = gemini_client.generate_content(distillation_prompt)
+            distilled_question = distilled_response.text.strip()
+            logs.append(f"🔹 Query after distillation: {distilled_question}")
+
+            # Step 3: Conditional Prefixing
+            if "multi-qa-mpnet-base-dot-v1" in model_name:
+                final_query = "query: " + distilled_question
+                logs.append("🔹 Added 'query: ' prefix for mpnet model.")
+            else:
+                final_query = distilled_question
+                logs.append("🔹 No prefix added for this model.")
+                
+            return final_query, "\n".join(logs)
+        
+        # No refinement available, use original query
+        else:
+            logs.append("🔹 No refinement available, using original query.")
+            final_query = question
+            if "multi-qa-mpnet-base-dot-v1" in model_name:
+                final_query = "query: " + question
+                logs.append("🔹 Added 'query: ' prefix for mpnet model.")
+            
+            return final_query, "\n".join(logs)
 
     except Exception as e:
         logs.append(f"⚠️ Query refinement failed: {e}. Falling back to original question.")
@@ -58,6 +88,8 @@ def answer_question(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
+    local_llama_client = None,
+    local_mistral_client = None,
     top_k: int = 10,
     *,
     diversity_threshold: float = 0.85,
@@ -67,7 +99,8 @@ def answer_question(
     evaluate_quality: bool = False,
     documents_class: str = "Documents",
     questions_class: str = "Questions",
-    generative_model_name: str = "gpt-4"
+    generative_model_name: str = "llama-3.1-8b",
+    use_local_refinement: bool = True
 ) -> Union[Tuple[List[dict], str], Tuple[List[dict], str, str, Dict]]:
     print("[DEBUG] Entering answer_question function.")
     """
@@ -97,7 +130,10 @@ def answer_question(
             refined_query = question
             refinement_log = "🔹 Skipping query refinement for Ada model."
         else:
-            refined_query, refinement_log = refine_and_prepare_query(question, gemini_client, embedding_client.model_name)
+            refined_query, refinement_log = refine_and_prepare_query(
+                question, gemini_client, embedding_client.model_name, 
+                local_mistral_client, use_local_refinement
+            )
         
         debug_logs.append(refinement_log)
         print(f"[DEBUG] Query used for embedding: {refined_query}")
@@ -222,18 +258,33 @@ def answer_question(
         
         # 9. Generación de respuesta final (NUEVO)
         if generate_answer:
-            if generative_model_name == "gemini-pro" and gemini_client:
+            if generative_model_name == "llama-3.1-8b" and local_llama_client:
+                generated_answer, generation_info = generate_final_answer_local(
+                    question=question,
+                    retrieved_docs=reranked,
+                    model_name="llama-3.1-8b"
+                )
+            elif generative_model_name == "mistral-7b" and local_mistral_client:
+                generated_answer, generation_info = generate_final_answer_local(
+                    question=question,
+                    retrieved_docs=reranked,
+                    model_name="mistral-7b"
+                )
+            elif generative_model_name == "gemini-pro" and gemini_client:
                 generated_answer, generation_info = generate_final_answer_gemini(
                     question=question,
                     retrieved_docs=reranked,
                     gemini_client=gemini_client
                 )
-            else:
+            elif openai_client:
                 generated_answer, generation_info = generate_final_answer(
                     question=question,
                     retrieved_docs=reranked,
                     openai_client=openai_client
                 )
+            else:
+                generated_answer = "Error: No generative model available"
+                generation_info = {"status": "error", "error": "No generative model configured"}
             
             rag_metrics = {}
             if evaluate_quality and generation_info.get('status') == 'success':
@@ -285,6 +336,9 @@ def answer_question_documents_only(
         weaviate_wrapper=weaviate_wrapper,
         embedding_client=embedding_client,
         openai_client=openai_client,
+        gemini_client=None,
+        local_llama_client=None,
+        local_mistral_client=None,
         top_k=top_k,
         diversity_threshold=diversity_threshold,
         use_llm_reranker=use_llm_reranker,
@@ -300,6 +354,8 @@ def answer_question_with_rag(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
+    local_llama_client = None,
+    local_mistral_client = None,
     top_k: int = 10,
     *,
     diversity_threshold: float = 0.85,
@@ -308,7 +364,7 @@ def answer_question_with_rag(
     evaluate_quality: bool = True,
     documents_class: str = "Documents",
     questions_class: str = "Questions",
-    generative_model_name: str = "gpt-4"
+    generative_model_name: str = "llama-3.1-8b"
 ) -> Tuple[List[dict], str, str, Dict]:
     """
     Función que ejecuta el pipeline RAG completo con generación de respuesta.
@@ -322,6 +378,8 @@ def answer_question_with_rag(
         embedding_client=embedding_client,
         openai_client=openai_client,
         gemini_client=gemini_client,
+        local_llama_client=local_llama_client,
+        local_mistral_client=local_mistral_client,
         top_k=top_k,
         diversity_threshold=diversity_threshold,
         use_llm_reranker=use_llm_reranker,
