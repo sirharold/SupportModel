@@ -23,9 +23,9 @@ def generate_pdf_report(
     latency_img_b64 = base64.b64encode(latency_img).decode('utf-8')
 
     fig_throughput = px.bar(
-        perf_df, x="Modelo", y="Throughput (QPS)", color="Modelo",
+        perf_df, x="Modelo", y="Throughput Est. (QPS)", color="Modelo",
         title="Throughput Estimado (Consultas por Segundo)",
-        labels={"Throughput (QPS)": "Consultas / Segundo"}
+        labels={"Throughput Est. (QPS)": "Consultas / Segundo"}
     )
     throughput_img = fig_throughput.to_image(format="png")
     throughput_img_b64 = base64.b64encode(throughput_img).decode('utf-8')

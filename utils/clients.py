@@ -5,9 +5,10 @@ import google.generativeai as genai
 from config import EMBEDDING_MODELS, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
 from utils.embedding_safe import get_embedding_client
+from utils.local_models import get_llama_client, get_mistral_client
 
 @st.cache_resource
-def initialize_clients(model_name: str, generative_model_name: str = "gpt-4"):
+def initialize_clients(model_name: str, generative_model_name: str = "llama-3.1-8b"):
     """
     Initializes and caches all required clients based on the selected models.
     
@@ -17,7 +18,7 @@ def initialize_clients(model_name: str, generative_model_name: str = "gpt-4"):
         
     Returns:
         Tuple: A tuple containing the weaviate_wrapper, embedding_client,
-               openai_client, gemini_client, and the raw weaviate client.
+               openai_client, gemini_client, local_llama_client, local_mistral_client, and the raw weaviate client.
     """
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
@@ -36,13 +37,25 @@ def initialize_clients(model_name: str, generative_model_name: str = "gpt-4"):
         openai_api_key=config.openai_api_key
     )
     
-    openai_client = OpenAI(api_key=config.openai_api_key)
+    # Initialize OpenAI client (only if API key is available)
+    openai_client = None
+    if hasattr(config, 'openai_api_key') and config.openai_api_key:
+        openai_client = OpenAI(api_key=config.openai_api_key)
     
-    # Initialize Gemini client
+    # Initialize Gemini client (only if API key is available)
     gemini_api_key = getattr(config, 'gemini_api_key', None)
     gemini_client = None
-    if gemini_api_key:
+    if gemini_api_key and generative_model_name == "gemini-pro":
         genai.configure(api_key=gemini_api_key)
         gemini_client = genai.GenerativeModel(GENERATIVE_MODELS[generative_model_name])
-
-    return weaviate_wrapper, embedding_client, openai_client, gemini_client, client
+    
+    # Initialize local model clients
+    local_llama_client = None
+    local_mistral_client = None
+    
+    if generative_model_name == "llama-3.1-8b":
+        local_llama_client = get_llama_client()
+    elif generative_model_name == "mistral-7b":
+        local_mistral_client = get_mistral_client()
+    
+    return weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, client

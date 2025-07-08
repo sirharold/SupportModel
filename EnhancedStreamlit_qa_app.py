@@ -15,7 +15,7 @@ from utils.qa_pipeline import answer_question_documents_only, answer_question_wi
 from utils.clients import initialize_clients
 from comparison_page import show_comparison_page
 from batch_queries_page import show_batch_queries_page
-from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, LOCAL_MODEL_DESCRIPTIONS
 
 # Configuración de página
 st.set_page_config(
@@ -85,8 +85,19 @@ model_name = st.sidebar.selectbox(
 generative_model_name = st.sidebar.selectbox(
     "Selecciona el modelo generativo:",
     options=list(GENERATIVE_MODELS.keys()),
-    index=list(GENERATIVE_MODELS.keys()).index("gemini-pro")
+    index=list(GENERATIVE_MODELS.keys()).index(DEFAULT_GENERATIVE_MODEL),
+    help="Llama 3.1 8B y Mistral 7B son modelos locales gratuitos (sin costos de API)"
 )
+
+# Mostrar información del modelo seleccionado
+if generative_model_name in LOCAL_MODEL_DESCRIPTIONS:
+    model_info = LOCAL_MODEL_DESCRIPTIONS[generative_model_name]
+    st.sidebar.success(f"🎯 **{model_info['cost']}** - {model_info['description']}")
+    st.sidebar.info(f"📋 **Requisitos**: {model_info['requirements']}")
+elif generative_model_name == "gemini-pro":
+    st.sidebar.warning("💰 **Modelo de API** - Incurre en costos por uso")
+elif generative_model_name == "gpt-4":
+    st.sidebar.warning("💰 **Modelo de API** - Incurre en costos altos por uso")
 
 # Páginas principales
 if page == "🔍 Búsqueda Individual":
@@ -118,7 +129,7 @@ if page == "🔍 Búsqueda Individual":
         enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
         show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-    weaviate_wrapper, embedding_client, openai_client, gemini_client, client = initialize_clients(model_name, generative_model_name)
+    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, client = initialize_clients(model_name, generative_model_name)
     
     # Área principal
     col1, col2 = st.columns([2, 1])
@@ -207,6 +218,8 @@ if page == "🔍 Búsqueda Individual":
                         embedding_client,
                         openai_client,
                         gemini_client,
+                        local_llama_client,
+                        local_mistral_client,
                         top_k=top_k,
                         diversity_threshold=diversity_threshold,
                         use_llm_reranker=use_llm_reranker,
