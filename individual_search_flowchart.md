@@ -14,12 +14,12 @@ flowchart TD
     
     B4 --> B5{❓ Pregunta ingresada?}
     B5 -->|No| B6[⚠️ Mostrar advertencia]
-    B5 -->|Sí| C[🔍 Click Buscar Documentación]
+    B5 -->|Sí| C[🔍 Click Buscar Documentacion]
     B6 --> B4
     
     C --> D[⏱️ Iniciar timer de respuesta]
     D --> E[🔗 Combinar título + pregunta = full_query]
-    E --> F[🔧 initialize_clients()]
+    E --> F[🔧 initialize_clients]
     
     F --> F1[🌐 Conectar a Weaviate]
     F1 --> F2[🤖 Inicializar embedding_client local]
@@ -30,11 +30,11 @@ flowchart TD
     F6 --> G{🤖 RAG habilitado?}
     
     %% Flujo RAG Completo
-    G -->|Sí| H[📞 Llamar answer_question_with_rag()]
-    G -->|No| I[📞 Llamar answer_question_documents_only()]
+    G -->|Sí| H[📞 Llamar answer_question_with_rag]
+    G -->|No| I[📞 Llamar answer_question_documents_only]
     
     %% Pipeline RAG Completo
-    H --> H1[🔍 refine_and_prepare_query()]
+    H --> H1[🔍 refine_and_prepare_query]
     H1 --> H1a{🤖 Local refinement disponible?}
     H1a -->|Sí| H1b[🦙 Usar Mistral local para refinar query]
     H1a -->|No| H1c{💎 Gemini disponible?}
@@ -49,7 +49,7 @@ flowchart TD
     H4 -->|Sí| H5[🌐 Búsqueda en QuestionsMiniLM]
     H4 -->|No| H6[📄 Saltar búsqueda de preguntas]
     
-    H5 --> H5a[🔍 search_questions_by_vector()]
+    H5 --> H5a[🔍 search_questions_by_vector]
     H5a --> H5b[🌐 WEAVIATE: Buscar preguntas similares]
     H5b --> H5c[📊 Obtener top 15 preguntas]
     H5c --> H5d[🔗 Extraer enlaces únicos]
@@ -57,13 +57,13 @@ flowchart TD
     H5e --> H6
     
     H6 --> H7[🌐 WEAVIATE: Búsqueda vectorial en DocumentsMpnet]
-    H7 --> H7a[🔍 search_docs_by_vector()]
+    H7 --> H7a[🔍 search_docs_by_vector]
     H7a --> H7b[📊 Obtener documentos candidatos]
     H7b --> H8[🔄 Aplicar filtro de diversidad]
     H8 --> H9{🧠 use_llm_reranker?}
     
-    H9 -->|Sí| H10[🔧 rerank_with_llm()]
-    H9 -->|No| H11[📊 rerank_documents() estándar]
+    H9 -->|Sí| H10[🔧 rerank_with_llm]
+    H9 -->|No| H11[📊 rerank_documents estándar]
     
     H10 --> H10a[🤖 Usar CrossEncoder local ms-marco-MiniLM]
     H10a --> H10b[📈 Calcular scores normalizados]
@@ -77,10 +77,10 @@ flowchart TD
     H13 -->|Sí| H14{🦙 Modelo local seleccionado?}
     H13 -->|No| H20[📋 Solo devolver documentos]
     
-    H14 -->|llama-3.1-8b| H15[🦙 generate_final_answer_local()]
-    H14 -->|mistral-7b| H16[🤖 generate_final_answer_local()]
-    H14 -->|gemini-pro| H17[💎 generate_final_answer_gemini()]
-    H14 -->|gpt-4| H18[🔑 generate_final_answer() OpenAI]
+    H14 -->|llama-3.1-8b| H15[🦙 generate_final_answer_local]
+    H14 -->|mistral-7b| H16[🤖 generate_final_answer_local]
+    H14 -->|gemini-pro| H17[💎 generate_final_answer_gemini]
+    H14 -->|gpt-4| H18[🔑 generate_final_answer OpenAI]
     H14 -->|Ninguno| H19[❌ Error: No hay modelo]
     
     H15 --> H15a[🦙 Cargar modelo Llama local]
