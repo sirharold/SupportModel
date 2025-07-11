@@ -15,6 +15,7 @@ from utils.qa_pipeline import answer_question_documents_only, answer_question_wi
 from utils.clients import initialize_clients
 from comparison_page import show_comparison_page
 from batch_queries_page import show_batch_queries_page
+from data_analysis_page import show_data_analysis_page
 from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, LOCAL_MODEL_DESCRIPTIONS
 
 # Configuración de página
@@ -67,7 +68,7 @@ st.markdown("""
 st.sidebar.title("🧭 Navegación")
 page = st.sidebar.radio(
     "Selecciona una página:",
-    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos"],
+    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos", "📈 Análisis de Datos"],
     index=0
 )
 st.sidebar.markdown("---")
@@ -662,6 +663,9 @@ elif page == "📊 Consultas en Lote":
 
 elif page == "🔬 Comparación de Modelos":
     show_comparison_page()
+
+elif page == "📈 Análisis de Datos":
+    show_data_analysis_page()
 
 # Footer común
 st.markdown("---")
