@@ -21,9 +21,14 @@ def _init_wrapper():
     return wrapper, client
 
 
-def _fetch_all(collection, props=None, limit=20000):
-    results = collection.query.fetch_objects(limit=limit, return_properties=props)
-    return [obj.properties for obj in results.objects]
+def _fetch_all(collection, props=None, batch_size=20000):
+    """Fetch all objects from a collection using an iterator."""
+    iterator = collection.iterator(
+        include_vector=False,
+        return_properties=props,
+        cache_size=batch_size,
+    )
+    return [obj.properties for obj in iterator]
 
 
 def show_data_analysis_page():
