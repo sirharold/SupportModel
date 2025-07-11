@@ -7,9 +7,19 @@ from utils.auth import ensure_huggingface_login
 from utils.weaviate_utils_improved import WeaviateConfig
 import numpy as np
 
-def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_k: int = 10) -> List[dict]:
+def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_k: int = 10, embedding_model: str = None) -> List[dict]:
     """
-    Reranks documents using a local CrossEncoder model and normalizes scores.
+    Reranks documents using a local CrossEncoder model with absolute score normalization.
+    
+    Uses sigmoid normalization instead of softmax to ensure scores are comparable
+    across different embedding models regardless of the number of documents returned.
+    
+    Args:
+        question: The query string
+        docs: List of documents to rerank
+        openai_client: OpenAI client (for compatibility)
+        top_k: Number of top documents to return
+        embedding_model: Name of the embedding model used (for logging/debugging)
     """
     if not docs:
         return []
@@ -27,11 +37,28 @@ def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_
     # Predict the raw logit scores
     raw_scores = cross_encoder.predict(model_inputs)
     
-    # Normalize the scores using a Softmax function to get probabilities
-    softmax_scores = np.exp(raw_scores) / np.sum(np.exp(raw_scores))
+    # Apply sigmoid normalization to CrossEncoder scores
+    # NOTE: CrossEncoder scores ARE comparable across embedding models because
+    # they use the same CrossEncoder model to evaluate all query-document pairs
+    # regardless of which embedding model retrieved them initially
+    try:
+        raw_scores = np.array(raw_scores)
+        # Apply sigmoid: 1 / (1 + e^(-x))
+        # This maps CrossEncoder logits to [0,1] probabilities
+        final_scores = 1 / (1 + np.exp(-raw_scores))
+    except (OverflowError, ZeroDivisionError):
+        # Fallback: Min-max normalization if sigmoid fails
+        raw_scores = np.array(raw_scores)
+        min_score = np.min(raw_scores)
+        max_score = np.max(raw_scores)
+        if max_score > min_score:
+            final_scores = (raw_scores - min_score) / (max_score - min_score)
+        else:
+            final_scores = np.ones_like(raw_scores) * 0.5  # All equal scores
+        print(f"[WARNING] Sigmoid normalization failed for {embedding_model}, using min-max normalization")
 
-    # Add normalized scores to the documents
-    for doc, score in zip(docs, softmax_scores):
+    # Add final scores to the documents
+    for doc, score in zip(docs, final_scores):
         doc["score"] = float(score)
         
     # Sort documents by the new score in descending order
