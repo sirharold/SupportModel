@@ -8,6 +8,8 @@ import html
 import time
 from utils.clients import initialize_clients
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
+from utils.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
+from utils.retrieval_metrics import format_metrics_for_display
 from config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
 from utils.weaviate_utils_improved import WeaviateConfig
 from utils.extract_links import extract_urls_from_answer
@@ -96,6 +98,138 @@ def get_and_filter_questions(_weaviate_wrapper, num_questions: int = 100):
     
     return filtered_questions
 
+
+def generate_retrieval_metrics_analysis(retrieval_comparison_data):
+    """
+    Genera un análisis automático de los resultados de las métricas de recuperación.
+    
+    Args:
+        retrieval_comparison_data: Lista de diccionarios con métricas por modelo
+        
+    Returns:
+        String con el análisis en formato markdown
+    """
+    if not retrieval_comparison_data:
+        return ""
+    
+    try:
+        analysis_parts = []
+        
+        # 1. Resumen general
+        num_models = len(retrieval_comparison_data)
+        avg_ground_truth = sum(row.get('Ground Truth', 0) for row in retrieval_comparison_data) / num_models
+        
+        analysis_parts.append(f"**📊 Resumen General:**")
+        analysis_parts.append(f"- **{num_models} modelos** comparados con **{avg_ground_truth:.1f} enlaces de referencia** promedio")
+        
+        # 2. Análisis de MRR
+        mrr_improvements = []
+        mrr_after_values = []
+        for row in retrieval_comparison_data:
+            mrr_improvement = row.get('MRR_Δ', 0)
+            mrr_after = row.get('MRR_After', 0)
+            mrr_improvements.append(mrr_improvement)
+            mrr_after_values.append(mrr_after)
+        
+        avg_mrr_improvement = sum(mrr_improvements) / len(mrr_improvements)
+        avg_mrr_after = sum(mrr_after_values) / len(mrr_after_values)
+        best_mrr_model = max(retrieval_comparison_data, key=lambda x: x.get('MRR_After', 0))
+        
+        analysis_parts.append(f"")
+        analysis_parts.append(f"**🎯 Análisis de MRR (Mean Reciprocal Rank):**")
+        analysis_parts.append(f"- **Mejora promedio:** {avg_mrr_improvement:+.3f} ({avg_mrr_improvement*100:+.1f}%)")
+        analysis_parts.append(f"- **MRR promedio post-reranking:** {avg_mrr_after:.3f}")
+        analysis_parts.append(f"- **Mejor modelo:** {best_mrr_model.get('Modelo', 'N/A')} (MRR: {best_mrr_model.get('MRR_After', 0):.3f})")
+        
+        # 3. Análisis de Recall por k
+        analysis_parts.append(f"")
+        analysis_parts.append(f"**🔍 Análisis de Recall (Cobertura):**")
+        
+        for k in [1, 5, 10]:
+            recall_col = f'Recall@{k}_After'
+            recall_delta_col = f'Recall@{k}_Δ'
+            
+            if any(recall_col in row for row in retrieval_comparison_data):
+                recall_values = [row.get(recall_col, 0) for row in retrieval_comparison_data if recall_col in row]
+                recall_deltas = [row.get(recall_delta_col, 0) for row in retrieval_comparison_data if recall_delta_col in row]
+                
+                if recall_values:
+                    avg_recall = sum(recall_values) / len(recall_values)
+                    avg_recall_improvement = sum(recall_deltas) / len(recall_deltas) if recall_deltas else 0
+                    
+                    analysis_parts.append(f"- **Recall@{k}:** {avg_recall:.3f} promedio (mejora: {avg_recall_improvement:+.3f})")
+        
+        # 4. Análisis de Precision por k
+        analysis_parts.append(f"")
+        analysis_parts.append(f"**🎯 Análisis de Precision (Precisión):**")
+        
+        for k in [1, 5, 10]:
+            precision_col = f'Precision@{k}_After'
+            precision_delta_col = f'Precision@{k}_Δ'
+            
+            if any(precision_col in row for row in retrieval_comparison_data):
+                precision_values = [row.get(precision_col, 0) for row in retrieval_comparison_data if precision_col in row]
+                precision_deltas = [row.get(precision_delta_col, 0) for row in retrieval_comparison_data if precision_delta_col in row]
+                
+                if precision_values:
+                    avg_precision = sum(precision_values) / len(precision_values)
+                    avg_precision_improvement = sum(precision_deltas) / len(precision_deltas) if precision_deltas else 0
+                    
+                    analysis_parts.append(f"- **Precision@{k}:** {avg_precision:.3f} promedio (mejora: {avg_precision_improvement:+.3f})")
+        
+        # 5. Análisis de impacto del reranking
+        analysis_parts.append(f"")
+        analysis_parts.append(f"**⚡ Impacto del Reranking:**")
+        
+        # Contar cuántos modelos mejoraron
+        models_improved = 0
+        models_worsened = 0
+        models_unchanged = 0
+        
+        for row in retrieval_comparison_data:
+            mrr_delta = row.get('MRR_Δ', 0)
+            if mrr_delta > 0.01:  # Mejora significativa
+                models_improved += 1
+            elif mrr_delta < -0.01:  # Empeoramiento significativo
+                models_worsened += 1
+            else:
+                models_unchanged += 1
+        
+        analysis_parts.append(f"- **{models_improved} modelos mejoraron** significativamente")
+        if models_worsened > 0:
+            analysis_parts.append(f"- **{models_worsened} modelos empeoraron**")
+        if models_unchanged > 0:
+            analysis_parts.append(f"- **{models_unchanged} modelos sin cambios** significativos")
+        
+        # 6. Recomendaciones
+        analysis_parts.append(f"")
+        analysis_parts.append(f"**💡 Recomendaciones:**")
+        
+        if avg_mrr_improvement > 0.1:
+            analysis_parts.append(f"- ✅ **El reranking es muy efectivo** para esta consulta (mejora promedio: {avg_mrr_improvement*100:.1f}%)")
+        elif avg_mrr_improvement > 0.05:
+            analysis_parts.append(f"- ⚡ **El reranking es moderadamente efectivo** (mejora promedio: {avg_mrr_improvement*100:.1f}%)")
+        else:
+            analysis_parts.append(f"- ⚠️ **El reranking tiene poco impacto** en esta consulta (mejora promedio: {avg_mrr_improvement*100:.1f}%)")
+        
+        if avg_mrr_after >= 0.8:
+            analysis_parts.append(f"- 🎯 **Calidad excelente:** Los documentos relevantes aparecen en las primeras posiciones")
+        elif avg_mrr_after >= 0.5:
+            analysis_parts.append(f"- 📈 **Calidad buena:** Los documentos relevantes aparecen en posiciones medias")
+        else:
+            analysis_parts.append(f"- 📉 **Calidad mejorable:** Los documentos relevantes aparecen en posiciones bajas")
+        
+        # Recomendación de modelo
+        if best_mrr_model:
+            best_model_name = best_mrr_model.get('Modelo', 'N/A')
+            best_mrr_value = best_mrr_model.get('MRR_After', 0)
+            analysis_parts.append(f"- 🏆 **Modelo recomendado:** {best_model_name} (MRR: {best_mrr_value:.3f})")
+        
+        return "\n".join(analysis_parts)
+        
+    except Exception as e:
+        return f"**⚠️ Error generando análisis:** {str(e)}"
+
 def show_comparison_page():
     """Displays the model comparison page."""
     st.subheader("🔬 Comparación de Modelos de Embedding")
@@ -131,6 +265,22 @@ def show_comparison_page():
     top_k = st.slider("Documentos a retornar por modelo", 5, 20, 10, key="comparison_top_k")
     use_reranker = st.toggle("Habilitar Reranking con LLM", value=True, help="Usa un LLM para reordenar los resultados iniciales y mejorar la relevancia. Aumentará la latencia.")
     
+    # Configuración de métricas de recuperación
+    with st.expander("📊 Métricas de Recuperación", expanded=False):
+        enable_retrieval_metrics = st.checkbox(
+            "Habilitar Métricas de Recuperación",
+            value=True,
+            help="Calcula Recall@k, Precision@k, F1@k y MRR antes y después del reranking."
+        )
+        
+        if enable_retrieval_metrics:
+            st.info("📈 **Métricas de Recuperación Incluidas:**\n"
+                   "- 🎯 **MRR (Mean Reciprocal Rank)**: Posición del primer documento relevante\n"
+                   "- 🔍 **Recall@k**: Fracción de documentos relevantes recuperados\n"
+                   "- 🎯 **Precision@k**: Fracción de documentos recuperados que son relevantes\n"
+                   "- ⚖️ **F1@k**: Media armónica de Precision y Recall\n"
+                   "- 📊 **Evaluación para k=1,3,5,10**: Before/After reranking")
+    
     # Configuración de métricas avanzadas
     with st.expander("🧪 Métricas Avanzadas RAG", expanded=False):
         enable_advanced_metrics = st.checkbox(
@@ -163,24 +313,75 @@ def show_comparison_page():
 
         st.session_state.comparison_results = {}
         
-        # Initialize progress tracking for advanced metrics
+        # Initialize progress tracking
         total_models = len(EMBEDDING_MODELS.keys())
-        if enable_advanced_metrics:
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
         for i, model_key in enumerate(EMBEDDING_MODELS.keys()):
-            model_display_name = f"{model_key} {'+ Advanced' if enable_advanced_metrics else ''}"
+            model_display_name = f"{model_key}"
+            if enable_retrieval_metrics:
+                model_display_name += " + Retrieval Metrics"
+            if enable_advanced_metrics:
+                model_display_name += " + Advanced Metrics"
             
             with st.spinner(f"Consultando con el modelo: {model_display_name}..."):
                 try:
                     start_time = time.time()
                     weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'llama-3.1-8b'))
                     
-                    if enable_advanced_metrics and generate_answers:
-                        # Use advanced evaluation pipeline
-                        if enable_advanced_metrics:
-                            status_text.text(f"Evaluando {model_key} con métricas avanzadas...")
+                    # Use unified pipeline with retrieval metrics
+                    if enable_retrieval_metrics:
+                        status_text.text(f"Evaluando {model_key} con métricas de recuperación...")
+                        
+                        # Calculate retrieval metrics using the specialized pipeline
+                        result = answer_question_with_retrieval_metrics(
+                            question=question_to_ask,
+                            weaviate_wrapper=weaviate_wrapper,
+                            embedding_client=embedding_client,
+                            openai_client=openai_client,
+                            gemini_client=gemini_client,
+                            local_llama_client=local_llama_client,
+                            local_mistral_client=local_mistral_client,
+                            top_k=top_k,
+                            use_llm_reranker=use_reranker,
+                            generate_answer=enable_advanced_metrics and generate_answers,
+                            calculate_metrics=True,
+                            ground_truth_answer=selected_question.get('accepted_answer', ''),
+                            ms_links=selected_question.get('ms_links', []),
+                            generative_model_name=st.session_state.get('generative_model_name', 'llama-3.1-8b')
+                        )
+                        
+                        # Extract results based on whether answer generation was enabled
+                        if enable_advanced_metrics and generate_answers:
+                            results, debug_info, generated_answer, rag_metrics, retrieval_metrics = result
+                        else:
+                            results, debug_info, retrieval_metrics = result
+                            generated_answer = ""
+                            rag_metrics = {}
+                        
+                        # Calculate additional advanced metrics if enabled
+                        advanced_metrics = {}
+                        if enable_advanced_metrics and generate_answers:
+                            try:
+                                eval_result = evaluate_rag_with_advanced_metrics(
+                                    question=question_to_ask,
+                                    weaviate_wrapper=weaviate_wrapper,
+                                    embedding_client=embedding_client,
+                                    openai_client=openai_client,
+                                    gemini_client=gemini_client,
+                                    local_llama_client=local_llama_client,
+                                    local_mistral_client=local_mistral_client,
+                                    generative_model_name=st.session_state.get('generative_model_name', 'llama-3.1-8b'),
+                                    top_k=top_k
+                                )
+                                advanced_metrics = eval_result.get('advanced_metrics', {})
+                            except Exception as e:
+                                advanced_metrics = {"error": str(e)}
+                        
+                    elif enable_advanced_metrics and generate_answers:
+                        # Use advanced evaluation pipeline only
+                        status_text.text(f"Evaluando {model_key} con métricas avanzadas...")
                         
                         eval_result = evaluate_rag_with_advanced_metrics(
                             question=question_to_ask,
@@ -194,9 +395,7 @@ def show_comparison_page():
                             top_k=top_k
                         )
                         
-                        # Extract data for compatibility with existing code  
-                        # The evaluate_rag_with_advanced_metrics returns the RAG pipeline results
-                        # We need to run the pipeline separately to get documents for display
+                        # Get documents for display
                         results, debug_info = answer_question_documents_only(
                             question_to_ask, weaviate_wrapper, embedding_client, openai_client,
                             top_k=top_k, use_llm_reranker=use_reranker, use_questions_collection=True
@@ -204,58 +403,49 @@ def show_comparison_page():
                         
                         generated_answer = eval_result.get('generated_answer', '')
                         advanced_metrics = eval_result.get('advanced_metrics', {})
+                        retrieval_metrics = {}
                         
-                        # Calculate traditional metrics
-                        summary = generate_summary(question_to_ask, results, local_mistral_client)
-                        content_metrics = calculate_content_metrics(results, selected_question.get("accepted_answer", ""))
-                        
-                        end_time = time.time()
-                        elapsed_time = end_time - start_time
-                        
-                        st.session_state.comparison_results[model_key] = {
-                            "results": results, 
-                            "debug_info": debug_info, 
-                            "summary": summary, 
-                            "time": elapsed_time, 
-                            "content_metrics": content_metrics,
-                            "generated_answer": generated_answer,
-                            "advanced_metrics": advanced_metrics,
-                            "response_time": eval_result.get('response_time', elapsed_time)
-                        }
                     else:
                         # Standard evaluation pipeline
                         results, debug_info = answer_question_documents_only(
                             question_to_ask, weaviate_wrapper, embedding_client, openai_client,
                             top_k=top_k, use_llm_reranker=use_reranker, use_questions_collection=True
                         )
-                        
-                        end_time = time.time()
-                        elapsed_time = end_time - start_time
-                        
-                        summary = generate_summary(question_to_ask, results, local_mistral_client)
-                        content_metrics = calculate_content_metrics(results, selected_question.get("accepted_answer", ""))
-                        
-                        st.session_state.comparison_results[model_key] = {
-                            "results": results, 
-                            "debug_info": debug_info, 
-                            "summary": summary, 
-                            "time": elapsed_time, 
-                            "content_metrics": content_metrics
-                        }
+                        generated_answer = ""
+                        advanced_metrics = {}
+                        retrieval_metrics = {}
                     
-                    # Update progress for advanced metrics
-                    if enable_advanced_metrics:
-                        progress_bar.progress((i + 1) / total_models)
+                    # Common processing for all paths
+                    end_time = time.time()
+                    elapsed_time = end_time - start_time
+                    
+                    # Calculate summary and content metrics
+                    summary = generate_summary(question_to_ask, results, local_mistral_client)
+                    content_metrics = calculate_content_metrics(results, selected_question.get("accepted_answer", ""))
+                    
+                    # Store all results
+                    st.session_state.comparison_results[model_key] = {
+                        "results": results, 
+                        "debug_info": debug_info, 
+                        "summary": summary, 
+                        "time": elapsed_time, 
+                        "content_metrics": content_metrics,
+                        "generated_answer": generated_answer,
+                        "advanced_metrics": advanced_metrics,
+                        "retrieval_metrics": retrieval_metrics
+                    }
+                    
+                    # Update progress
+                    progress_bar.progress((i + 1) / total_models)
                         
                 except Exception as e:
                     st.session_state.comparison_results[model_key] = {"results": [], "error": str(e)}
         
         # Clear progress indicators
-        if enable_advanced_metrics:
-            status_text.text("✅ Evaluación completada!")
-            time.sleep(1)
-            status_text.empty()
-            progress_bar.empty()
+        status_text.text("✅ Evaluación completada!")
+        time.sleep(1)
+        status_text.empty()
+        progress_bar.empty()
 
     if 'comparison_results' in st.session_state:
         # --- Performance Data Calculation ---
@@ -375,555 +565,587 @@ def show_comparison_page():
                     
                     st.markdown(html_card, unsafe_allow_html=True)
 
-        # --- 4. Performance and Quality Metrics ---
+        # --- 4. Retrieval Metrics (Before/After Reranking) ---
         st.markdown("---")
-        st.markdown("### 📈 Métricas de Rendimiento y Calidad")
-
-        if perf_data:
-            p_col1, p_col2 = st.columns(2)
-
-            with p_col1:
-                st.markdown("#### Latencia por Modelo")
-                fig_latency = px.bar(
-                    perf_df, x="Modelo", y="Latencia (s)", color="Modelo",
-                    title="Latencia de Consulta (End-to-End)",
-                    labels={"Latencia (s)": "Tiempo (segundos)"}
-                )
-                st.plotly_chart(fig_latency, use_container_width=True)
-
-            with p_col2:
-                st.markdown("#### Throughput por Modelo")
-                fig_throughput = px.bar(
-                    perf_df, x="Modelo", y="Throughput Est. (QPS)", color="Modelo",
-                    title="Throughput Estimado (Consultas por Segundo)",
-                    labels={"Throughput Est. (QPS)": "Consultas / Segundo"}
-                )
-                st.plotly_chart(fig_throughput, use_container_width=True)
+        st.markdown("### 📊 Métricas de Recuperación (Before/After Reranking)")
+        
+        # Check if retrieval metrics are available
+        has_retrieval_metrics = any(
+            data.get("retrieval_metrics") and "before_reranking" in data.get("retrieval_metrics", {})
+            for data in st.session_state.comparison_results.values()
+            if data and not data.get("error")
+        )
+        
+        if has_retrieval_metrics:
+            st.info("🔍 **Evaluación del Impacto del Reranking**: Estas métricas muestran cómo el reranking mejora la calidad de recuperación de documentos relevantes para cada modelo de embedding.")
             
-            st.markdown("#### Distribución de Scores de Relevancia")
-            st.info("Este gráfico muestra la distribución de los scores de similitud para los documentos recuperados por cada modelo. Un buen modelo debería tener scores altos (cercanos a 1.0) y una distribución compacta en la parte superior.")
-            score_data = []
-            for model, data in st.session_state.comparison_results.items():
-                if data and not data.get("error"):
-                    for doc in data["results"]:
-                        score_data.append({"Modelo": model, "Score": doc.get("score", 0)})
+            # Create tabs for comprehensive metrics analysis
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+                "🎯 Resumen Ejecutivo", 
+                "⏱️ Tiempo y Rendimiento", 
+                "🔍 Métricas de Recuperación", 
+                "📊 Calidad de Contenido",
+                "📈 Visualizaciones",
+                "📚 Guía e Interpretación"
+            ])
             
-            if score_data:
-                score_df = pd.DataFrame(score_data)
-                fig_box = px.box(score_df, x="Modelo", y="Score", color="Modelo", title="Distribución de Scores por Modelo")
-                st.plotly_chart(fig_box, use_container_width=True)
-
-            # Nuevas métricas específicas para RAG
-            st.markdown("#### Métricas Adicionales de Calidad RAG")
+            # Prepare data for all tabs
+            retrieval_comparison_data = []
             
-            rag_col1, rag_col2 = st.columns(2)
+            for model_key, data in st.session_state.comparison_results.items():
+                if data and not data.get("error") and data.get("retrieval_metrics"):
+                    metrics = data["retrieval_metrics"]
+                    if "before_reranking" in metrics and "after_reranking" in metrics:
+                        before = metrics["before_reranking"]
+                        after = metrics["after_reranking"]
+                        
+                        row = {
+                            'Modelo': model_key,
+                            'Ground Truth': metrics.get('ground_truth_links_count', 0),
+                            'Docs Before': metrics.get('docs_before_count', 0),
+                            'Docs After': metrics.get('docs_after_count', 0)
+                        }
+                        
+                        # Key metrics (including accuracy metrics for all k values)
+                        metrics_list = ['MRR']
+                        
+                        # Add all metrics for k=1,3,5,10
+                        for k in [1, 3, 5, 10]:
+                            metrics_list.extend([
+                                f'Recall@{k}', f'Precision@{k}', f'F1@{k}',
+                                f'Accuracy@{k}', f'BinaryAccuracy@{k}', f'RankingAccuracy@{k}'
+                            ])
+                        
+                        for metric in metrics_list:
+                            before_val = before.get(metric, 0)
+                            after_val = after.get(metric, 0)
+                            improvement = after_val - before_val
+                            pct_improvement = (improvement / before_val * 100) if before_val > 0 else 0
+                            
+                            row[f'{metric}_Before'] = before_val
+                            row[f'{metric}_After'] = after_val
+                            row[f'{metric}_Δ'] = improvement
+                            row[f'{metric}_%'] = pct_improvement
+                        
+                        retrieval_comparison_data.append(row)
             
-            with rag_col1:
-                st.markdown("##### Métricas de Consistencia y Diversidad")
-                consistency_fig = px.bar(
-                    perf_df, x="Modelo", y="Consistencia", color="Modelo",
-                    title="Consistencia de Scores (1 = muy consistente)",
-                    labels={"Consistencia": "Índice de Consistencia"}
-                )
-                st.plotly_chart(consistency_fig, use_container_width=True)
+            # TAB 1: 🎯 Resumen Ejecutivo
+            with tab1:
+                if retrieval_comparison_data:
+                    retrieval_df = pd.DataFrame(retrieval_comparison_data)
+                    
+                    st.markdown("### 📊 Resumen Ejecutivo de la Comparación")
+                    
+                    # Key metrics cards
+                    key_metrics = ['MRR', 'Recall@5', 'Precision@5', 'Accuracy@5']
+                    summary_cols = st.columns(len(key_metrics))
+                    
+                    for i, metric in enumerate(key_metrics):
+                        with summary_cols[i]:
+                            before_col = f'{metric}_Before'
+                            after_col = f'{metric}_After'
+                            delta_col = f'{metric}_Δ'
+                            
+                            if before_col in retrieval_df.columns and after_col in retrieval_df.columns:
+                                avg_before = retrieval_df[before_col].mean()
+                                avg_after = retrieval_df[after_col].mean()
+                                avg_improvement = retrieval_df[delta_col].mean()
+                                
+                                st.metric(
+                                    label=f"📊 {metric}",
+                                    value=f"{avg_after:.3f}",
+                                    delta=f"{avg_improvement:+.3f}"
+                                )
+                    
+                    # Model ranking
+                    st.markdown("#### 🏆 Ranking de Modelos")
+                    
+                    if 'MRR_After' in retrieval_df.columns:
+                        ranking_df = retrieval_df[['Modelo', 'MRR_After', 'Recall@5_After', 'Precision@5_After']].sort_values('MRR_After', ascending=False)
+                        
+                        for idx, (_, row) in enumerate(ranking_df.iterrows(), 1):
+                            icon = "🥇" if idx == 1 else "🥈" if idx == 2 else "🥉" if idx == 3 else f"{idx}️⃣"
+                            st.write(f"{icon} **{row['Modelo']}** - MRR: {row['MRR_After']:.3f}")
+                    
+                    # Automated analysis
+                    st.markdown("#### 🔍 Análisis Automático")
+                    analysis_text = generate_retrieval_metrics_analysis(retrieval_comparison_data)
+                    if analysis_text:
+                        st.markdown(analysis_text)
+                else:
+                    st.warning("No hay datos de métricas disponibles para el resumen ejecutivo.")
             
-            with rag_col2:
-                st.markdown("##### Calidad Promedio vs Variabilidad")
-                scatter_fig = px.scatter(
-                    perf_df, x="Score Promedio", y="Desviación Score", 
-                    color="Modelo", size="Docs Recuperados",
-                    title="Calidad vs Variabilidad de Resultados",
-                    labels={
-                        "Score Promedio": "Calidad Promedio",
-                        "Desviación Score": "Variabilidad"
-                    }
-                )
-                st.plotly_chart(scatter_fig, use_container_width=True)
-
-            st.markdown("#### Métricas de Calidad de Contenido (BERTScore y ROUGE)")
-            st.info("Estas métricas comparan el contenido de los documentos recuperados con la **Respuesta Aceptada (Ground Truth)**. Miden la superposición semántica (BERTScore) y de palabras clave (ROUGE).")
-            content_metrics_data = []
-            for model, data in st.session_state.comparison_results.items():
-                if data and data.get("content_metrics"):
-                    metrics = data["content_metrics"]
-                    metrics["Modelo"] = model
-                    content_metrics_data.append(metrics)
-            
-            if content_metrics_data:
-                content_df = pd.DataFrame(content_metrics_data).set_index("Modelo")
+            # TAB 2: ⏱️ Tiempo y Rendimiento
+            with tab2:
+                st.markdown("### ⏱️ Métricas de Tiempo y Rendimiento")
                 
-                def color_content_metrics(val, column_name):
-                    """Color cells based on content metric thresholds."""
-                    if pd.isna(val) or isinstance(val, str):  # Handle errors
-                        return ''
-                    
-                    # Define thresholds for content metrics
-                    content_thresholds = {
-                        "BERT_P": {"excellent": 0.7, "good": 0.5},
-                        "BERT_R": {"excellent": 0.7, "good": 0.5},
-                        "BERT_F1": {"excellent": 0.7, "good": 0.5},
-                        "ROUGE1": {"excellent": 0.4, "good": 0.25},
-                        "ROUGE2": {"excellent": 0.2, "good": 0.12},
-                        "ROUGE-L": {"excellent": 0.35, "good": 0.22}
-                    }
-                    
-                    if column_name not in content_thresholds:
-                        return ''
-                    
-                    threshold = content_thresholds[column_name]
-                    excellent_thresh = threshold["excellent"]
-                    good_thresh = threshold["good"]
-                    
-                    if val >= excellent_thresh:
-                        return 'background-color: #90EE90'  # Light green
-                    elif val >= good_thresh:
-                        return 'background-color: #FFFFE0'  # Light yellow
-                    else:
-                        return 'background-color: #FFB6C1'  # Light red
+                # Performance data from the main comparison results
+                perf_data = []
+                for model, data in st.session_state.comparison_results.items():
+                    if data and not data.get("error"):
+                        scores = [doc.get('score', 0) for doc in data.get("results", [])]
+                        if scores:
+                            perf_data.append({
+                                "Modelo": model,
+                                "Latencia (s)": data.get('time', 0),
+                                "Throughput Est. (QPS)": 1 / data.get('time', 1) if data.get('time', 0) > 0 else 0,
+                                "Docs Recuperados": len(data.get("results", [])),
+                                "Score Promedio": np.mean(scores),
+                                "Score Máximo": np.max(scores),
+                                "Score Mínimo": np.min(scores),
+                                "Desviación Score": np.std(scores),
+                                "Consistencia": 1 - (np.std(scores) / np.mean(scores)) if np.mean(scores) > 0 else 0
+                            })
                 
-                # Apply styling to content metrics
-                styled_content_df = content_df.style.format("{:.4f}")
+                if perf_data:
+                    perf_df = pd.DataFrame(perf_data)
+                    
+                    # Performance metrics cards
+                    perf_cols = st.columns(4)
+                    with perf_cols[0]:
+                        st.metric("Latencia Promedio", f"{perf_df['Latencia (s)'].mean():.3f}s")
+                    with perf_cols[1]:
+                        st.metric("Throughput Promedio", f"{perf_df['Throughput Est. (QPS)'].mean():.2f} QPS")
+                    with perf_cols[2]:
+                        st.metric("Score Promedio", f"{perf_df['Score Promedio'].mean():.3f}")
+                    with perf_cols[3]:
+                        st.metric("Consistencia Promedio", f"{perf_df['Consistencia'].mean():.3f}")
+                    
+                    # Performance comparison table
+                    st.markdown("#### 📊 Comparación de Rendimiento")
+                    st.dataframe(perf_df, use_container_width=True)
+                    
+                    # Performance insights
+                    fastest_model = perf_df.loc[perf_df['Latencia (s)'].idxmin(), 'Modelo']
+                    most_consistent = perf_df.loc[perf_df['Consistencia'].idxmax(), 'Modelo']
+                    highest_score = perf_df.loc[perf_df['Score Promedio'].idxmax(), 'Modelo']
+                    
+                    st.markdown("#### 🏆 Insights de Rendimiento")
+                    st.write(f"🚀 **Modelo más rápido:** {fastest_model}")
+                    st.write(f"📊 **Modelo más consistente:** {most_consistent}")
+                    st.write(f"⭐ **Mejor score promedio:** {highest_score}")
+                else:
+                    st.warning("No hay datos de rendimiento disponibles.")
+            
+            # TAB 3: 🔍 Métricas de Recuperación
+            with tab3:
+                st.markdown("### 🔍 Métricas de Recuperación (Information Retrieval)")
                 
-                # Apply colors to each content metric column
-                for col in content_df.columns:
-                    if col in ["BERT_P", "BERT_R", "BERT_F1", "ROUGE1", "ROUGE2", "ROUGE-L"]:
-                        styled_content_df = styled_content_df.apply(
-                            lambda x: [color_content_metrics(val, col) for val in x], 
-                            subset=[col]
+                if retrieval_comparison_data:
+                    retrieval_df = pd.DataFrame(retrieval_comparison_data)
+                    
+                    # Create sub-tabs for different metric types
+                    sub_tab1, sub_tab2, sub_tab3, sub_tab4 = st.tabs(["📊 MRR", "🔍 Recall@k", "🎯 Precision@k", "⚖️ F1@k & Accuracy@k"])
+                    
+                    with sub_tab1:
+                        st.markdown("#### 📊 Mean Reciprocal Rank (MRR)")
+                        st.info("MRR mide la posición del primer documento relevante. Valores más altos = mejor rendimiento.")
+                        
+                        mrr_cols = ['Modelo', 'MRR_Before', 'MRR_After', 'MRR_Δ', 'MRR_%']
+                        if all(col in retrieval_df.columns for col in mrr_cols):
+                            mrr_df = retrieval_df[mrr_cols].copy()
+                            for col in ['MRR_Before', 'MRR_After']:
+                                mrr_df[col] = mrr_df[col].apply(lambda x: f"{x:.4f}")
+                            for col in ['MRR_Δ']:
+                                mrr_df[col] = mrr_df[col].apply(lambda x: f"{x:+.4f}")
+                            for col in ['MRR_%']:
+                                mrr_df[col] = mrr_df[col].apply(lambda x: f"{x:.1f}%")
+                            st.dataframe(mrr_df, use_container_width=True)
+                    
+                    with sub_tab2:
+                        st.markdown("#### 🔍 Recall@k - Cobertura de Documentos Relevantes")
+                        st.info("Recall@k mide qué proporción de documentos relevantes se recuperaron en los top k.")
+                        
+                        recall_cols = ['Modelo']
+                        for k in [1, 3, 5, 10]:
+                            recall_cols.extend([f'Recall@{k}_Before', f'Recall@{k}_After', f'Recall@{k}_Δ', f'Recall@{k}_%'])
+                        
+                        available_recall_cols = [col for col in recall_cols if col in retrieval_df.columns]
+                        if len(available_recall_cols) > 1:
+                            recall_df = retrieval_df[available_recall_cols].copy()
+                            for col in recall_df.columns:
+                                if col != 'Modelo':
+                                    if '%' in col:
+                                        recall_df[col] = recall_df[col].apply(lambda x: f"{x:.1f}%")
+                                    elif 'Δ' in col:
+                                        recall_df[col] = recall_df[col].apply(lambda x: f"{x:+.4f}")
+                                    else:
+                                        recall_df[col] = recall_df[col].apply(lambda x: f"{x:.4f}")
+                            st.dataframe(recall_df, use_container_width=True)
+                    
+                    with sub_tab3:
+                        st.markdown("#### 🎯 Precision@k - Precisión de Recuperación")
+                        st.info("Precision@k mide qué proporción de los documentos recuperados son relevantes.")
+                        
+                        precision_cols = ['Modelo']
+                        for k in [1, 3, 5, 10]:
+                            precision_cols.extend([f'Precision@{k}_Before', f'Precision@{k}_After', f'Precision@{k}_Δ', f'Precision@{k}_%'])
+                        
+                        available_precision_cols = [col for col in precision_cols if col in retrieval_df.columns]
+                        if len(available_precision_cols) > 1:
+                            precision_df = retrieval_df[available_precision_cols].copy()
+                            for col in precision_df.columns:
+                                if col != 'Modelo':
+                                    if '%' in col:
+                                        precision_df[col] = precision_df[col].apply(lambda x: f"{x:.1f}%")
+                                    elif 'Δ' in col:
+                                        precision_df[col] = precision_df[col].apply(lambda x: f"{x:+.4f}")
+                                    else:
+                                        precision_df[col] = precision_df[col].apply(lambda x: f"{x:.4f}")
+                            st.dataframe(precision_df, use_container_width=True)
+                    
+                    with sub_tab4:
+                        st.markdown("#### ⚖️ F1@k y Accuracy@k")
+                        st.info("F1@k combina Precision y Recall. Accuracy@k mide la proporción de documentos correctamente clasificados.")
+                        
+                        # F1 metrics section
+                        st.markdown("##### 🎯 F1@k - Balance entre Precision y Recall")
+                        f1_cols = ['Modelo']
+                        for k in [1, 3, 5, 10]:
+                            f1_cols.extend([f'F1@{k}_Before', f'F1@{k}_After', f'F1@{k}_Δ', f'F1@{k}_%'])
+                        
+                        available_f1_cols = [col for col in f1_cols if col in retrieval_df.columns]
+                        if len(available_f1_cols) > 1:
+                            f1_df = retrieval_df[available_f1_cols].copy()
+                            for col in f1_df.columns:
+                                if col != 'Modelo':
+                                    if '%' in col:
+                                        f1_df[col] = f1_df[col].apply(lambda x: f"{x:.1f}%")
+                                    elif 'Δ' in col:
+                                        f1_df[col] = f1_df[col].apply(lambda x: f"{x:+.4f}")
+                                    else:
+                                        f1_df[col] = f1_df[col].apply(lambda x: f"{x:.4f}")
+                            st.dataframe(f1_df, use_container_width=True)
+                        
+                        st.markdown("##### ⚖️ Accuracy@k - Exactitud de Clasificación")
+                        accuracy_cols = ['Modelo']
+                        for k in [1, 3, 5, 10]:
+                            accuracy_cols.extend([f'Accuracy@{k}_Before', f'Accuracy@{k}_After', f'Accuracy@{k}_Δ', f'Accuracy@{k}_%'])
+                        
+                        available_accuracy_cols = [col for col in accuracy_cols if col in retrieval_df.columns]
+                        if len(available_accuracy_cols) > 1:
+                            accuracy_df = retrieval_df[available_accuracy_cols].copy()
+                            for col in accuracy_df.columns:
+                                if col != 'Modelo':
+                                    if '%' in col:
+                                        accuracy_df[col] = accuracy_df[col].apply(lambda x: f"{x:.1f}%")
+                                    elif 'Δ' in col:
+                                        accuracy_df[col] = accuracy_df[col].apply(lambda x: f"{x:+.4f}")
+                                    else:
+                                        accuracy_df[col] = accuracy_df[col].apply(lambda x: f"{x:.4f}")
+                            st.dataframe(accuracy_df, use_container_width=True)
+                else:
+                    st.warning("No hay datos de métricas de recuperación disponibles.")
+            
+            # TAB 4: 📊 Calidad de Contenido  
+            with tab4:
+                st.markdown("### 📊 Métricas de Calidad de Contenido")
+                st.info("Estas métricas comparan el contenido de los documentos recuperados con la **Respuesta Aceptada (Ground Truth)**.")
+                
+                content_metrics_data = []
+                for model, data in st.session_state.comparison_results.items():
+                    if data and data.get("content_metrics"):
+                        metrics = data["content_metrics"]
+                        metrics["Modelo"] = model
+                        content_metrics_data.append(metrics)
+                
+                if content_metrics_data:
+                    content_df = pd.DataFrame(content_metrics_data).set_index("Modelo")
+                    
+                    # Content quality cards
+                    if not content_df.empty:
+                        content_cols = st.columns(len(content_df.columns))
+                        for i, metric in enumerate(content_df.columns):
+                            with content_cols[i]:
+                                avg_value = content_df[metric].mean()
+                                st.metric(f"📊 {metric}", f"{avg_value:.3f}")
+                    
+                    # Content metrics table
+                    st.markdown("#### 📊 Métricas de Calidad por Modelo")
+                    st.dataframe(content_df, use_container_width=True)
+                    
+                    # Content insights
+                    if 'BERT_F1' in content_df.columns:
+                        best_bert = content_df['BERT_F1'].idxmax()
+                        st.write(f"🏆 **Mejor BERTScore F1:** {best_bert} ({content_df.loc[best_bert, 'BERT_F1']:.3f})")
+                    
+                    if 'ROUGE1' in content_df.columns:
+                        best_rouge = content_df['ROUGE1'].idxmax()
+                        st.write(f"📝 **Mejor ROUGE-1:** {best_rouge} ({content_df.loc[best_rouge, 'ROUGE1']:.3f})")
+                else:
+                    st.warning("No hay datos de métricas de calidad de contenido disponibles.")
+            
+            # TAB 5: 📈 Visualizaciones
+            with tab5:
+                st.markdown("### 📈 Visualizaciones Interactivas")
+                
+                if retrieval_comparison_data:
+                    retrieval_df = pd.DataFrame(retrieval_comparison_data)
+                    
+                    # MRR Improvement Chart
+                    st.markdown("#### 📊 MRR: Before vs After Reranking")
+                    mrr_fig = go.Figure()
+                    
+                    models = retrieval_df['Modelo'].tolist()
+                    mrr_before = retrieval_df['MRR_Before'].tolist()
+                    mrr_after = retrieval_df['MRR_After'].tolist()
+                    
+                    mrr_fig.add_trace(go.Bar(
+                        name='Before Reranking',
+                        x=models,
+                        y=mrr_before,
+                        marker_color='lightcoral'
+                    ))
+                    
+                    mrr_fig.add_trace(go.Bar(
+                        name='After Reranking',
+                        x=models,
+                        y=mrr_after,
+                        marker_color='lightgreen'
+                    ))
+                    
+                    mrr_fig.update_layout(
+                        title='MRR: Before vs After Reranking',
+                        barmode='group',
+                        xaxis_title='Modelo de Embedding',
+                        yaxis_title='MRR Value'
+                    )
+                    
+                    st.plotly_chart(mrr_fig, use_container_width=True)
+                    
+                    # Improvement heatmap
+                    st.markdown("#### 🔥 Heatmap de Mejoras por Métrica")
+                    
+                    heatmap_data = []
+                    for _, row in retrieval_df.iterrows():
+                        model = row['Modelo']
+                        heatmap_metrics = ['MRR', 'Recall@1', 'Recall@5', 'Precision@1', 'Precision@5', 'Accuracy@1', 'Accuracy@5']
+                        for metric in heatmap_metrics:
+                            improvement = row.get(f'{metric}_Δ', 0)
+                            heatmap_data.append({
+                                'Modelo': model,
+                                'Métrica': metric,
+                                'Mejora': improvement
+                            })
+                    
+                    if heatmap_data:
+                        heatmap_df = pd.DataFrame(heatmap_data)
+                        heatmap_pivot = heatmap_df.pivot(index='Modelo', columns='Métrica', values='Mejora')
+                        
+                        heatmap_fig = px.imshow(
+                            heatmap_pivot.values,
+                            x=heatmap_pivot.columns,
+                            y=heatmap_pivot.index,
+                            color_continuous_scale='RdYlGn',
+                            aspect='auto',
+                            title='Mejora por Modelo y Métrica (After - Before)'
                         )
-                
-                st.dataframe(styled_content_df)
-            else:
-                st.info("No hay métricas de calidad de contenido para mostrar.")
-            
-            # Performance metrics table moved here
-            st.markdown("#### Tabla de Métricas de Rendimiento Completas")
-            
-            def color_performance_metrics(val, column_name):
-                """Color cells based on performance thresholds."""
-                if pd.isna(val) or val == 0:
-                    return ''
-                
-                # Define thresholds for each metric
-                thresholds = {
-                    "Latencia (s)": {"excellent": 2.0, "good": 5.0, "reverse": True},  # Lower is better
-                    "Throughput Est. (QPS)": {"excellent": 1.0, "good": 0.5, "reverse": False},  # Higher is better
-                    "Score Promedio": {"excellent": 0.8, "good": 0.6, "reverse": False},
-                    "Desviación Score": {"excellent": 0.1, "good": 0.2, "reverse": True},  # Lower is better
-                    "Consistencia": {"excellent": 0.8, "good": 0.6, "reverse": False}
-                }
-                
-                if column_name not in thresholds:
-                    return ''
-                
-                threshold = thresholds[column_name]
-                excellent_thresh = threshold["excellent"]
-                good_thresh = threshold["good"]
-                is_reverse = threshold["reverse"]
-                
-                if is_reverse:
-                    # For metrics where lower is better (latency, deviation)
-                    if val <= excellent_thresh:
-                        return 'background-color: #90EE90'  # Light green
-                    elif val <= good_thresh:
-                        return 'background-color: #FFFFE0'  # Light yellow
-                    else:
-                        return 'background-color: #FFB6C1'  # Light red
-                else:
-                    # For metrics where higher is better (throughput, score, consistency)
-                    if val >= excellent_thresh:
-                        return 'background-color: #90EE90'  # Light green
-                    elif val >= good_thresh:
-                        return 'background-color: #FFFFE0'  # Light yellow
-                    else:
-                        return 'background-color: #FFB6C1'  # Light red
-            
-            # Apply styling to the dataframe
-            styled_df = perf_df.style.format({
-                "Latencia (s)": "{:.3f}",
-                "Throughput Est. (QPS)": "{:.2f}",
-                "Score Promedio": "{:.4f}",
-                "Desviación Score": "{:.4f}",
-                "Consistencia": "{:.3f}"
-            })
-            
-            # Apply colors to each column
-            for col in ["Latencia (s)", "Throughput Est. (QPS)", "Score Promedio", "Desviación Score", "Consistencia"]:
-                if col in perf_df.columns:
-                    styled_df = styled_df.apply(lambda x: [color_performance_metrics(val, col) for val in x], subset=[col])
-            
-            st.dataframe(styled_df)
-            
-            # Advanced RAG metrics table - Same style as performance metrics
-            if any(result.get('advanced_metrics') for result in st.session_state.comparison_results.values()):
-                st.markdown("#### Tabla de Métricas Avanzadas RAG")
-                
-                def color_advanced_rag_metrics(val, column_name):
-                    """Color cells based on advanced RAG metric thresholds."""
-                    # Handle various data types and edge cases
-                    if pd.isna(val):
-                        return ''
-                    
-                    # Convert to float if possible
-                    try:
-                        numeric_val = float(val)
-                    except (ValueError, TypeError):
-                        return ''
-                    
-                    # Skip zero values
-                    if numeric_val == 0:
-                        return ''
-                    
-                    # Define thresholds for advanced RAG metrics
-                    thresholds = {
-                        "🚫 Alucinación": {"excellent": 0.1, "good": 0.2, "reverse": True},  # Lower is better
-                        "🎯 Utilización": {"excellent": 0.8, "good": 0.6, "reverse": False},  # Higher is better
-                        "✅ Completitud": {"excellent": 0.9, "good": 0.7, "reverse": False},  # Higher is better
-                        "😊 Satisfacción": {"excellent": 0.8, "good": 0.6, "reverse": False}  # Higher is better
-                    }
-                    
-                    if column_name not in thresholds:
-                        return ''
-                    
-                    threshold = thresholds[column_name]
-                    excellent_thresh = threshold["excellent"]
-                    good_thresh = threshold["good"]
-                    is_reverse = threshold["reverse"]
-                    
-                    if is_reverse:
-                        # For metrics where lower is better (hallucination)
-                        if numeric_val <= excellent_thresh:
-                            return 'background-color: #90EE90'  # Light green
-                        elif numeric_val <= good_thresh:
-                            return 'background-color: #FFFFE0'  # Light yellow
-                        else:
-                            return 'background-color: #FFB6C1'  # Light red
-                    else:
-                        # For metrics where higher is better (utilization, completeness, satisfaction)
-                        if numeric_val >= excellent_thresh:
-                            return 'background-color: #90EE90'  # Light green
-                        elif numeric_val >= good_thresh:
-                            return 'background-color: #FFFFE0'  # Light yellow
-                        else:
-                            return 'background-color: #FFB6C1'  # Light red
-                
-                # Create advanced metrics dataframe
-                advanced_metrics_data = []
-                for model_key, data in st.session_state.comparison_results.items():
-                    if data and data.get("advanced_metrics") and not data.get("error"):
-                        adv_metrics = data["advanced_metrics"]
                         
-                        row = {"Modelo": str(model_key)}
-                        
-                        # Extract advanced metrics values with proper type conversion
-                        if 'hallucination' in adv_metrics and isinstance(adv_metrics['hallucination'], dict):
-                            hall_score = adv_metrics['hallucination'].get('hallucination_score', 0.0)
-                            row["🚫 Alucinación"] = float(hall_score) if hall_score is not None else 0.0
-                        else:
-                            row["🚫 Alucinación"] = 0.0
-                        
-                        if 'context_utilization' in adv_metrics and isinstance(adv_metrics['context_utilization'], dict):
-                            util_score = adv_metrics['context_utilization'].get('utilization_score', 0.0)
-                            row["🎯 Utilización"] = float(util_score) if util_score is not None else 0.0
-                        else:
-                            row["🎯 Utilización"] = 0.0
-                        
-                        if 'completeness' in adv_metrics and isinstance(adv_metrics['completeness'], dict):
-                            comp_score = adv_metrics['completeness'].get('completeness_score', 0.0)
-                            row["✅ Completitud"] = float(comp_score) if comp_score is not None else 0.0
-                        else:
-                            row["✅ Completitud"] = 0.0
-                        
-                        if 'satisfaction' in adv_metrics and isinstance(adv_metrics['satisfaction'], dict):
-                            sat_score = adv_metrics['satisfaction'].get('satisfaction_score', 0.0)
-                            row["😊 Satisfacción"] = float(sat_score) if sat_score is not None else 0.0
-                        else:
-                            row["😊 Satisfacción"] = 0.0
-                        
-                        advanced_metrics_data.append(row)
-                
-                if advanced_metrics_data:
-                    # Create DataFrame with explicit data types
-                    advanced_df = pd.DataFrame(advanced_metrics_data)
+                        st.plotly_chart(heatmap_fig, use_container_width=True)
                     
-                    # Ensure all numeric columns are float64
-                    numeric_cols = ["🚫 Alucinación", "🎯 Utilización", "✅ Completitud", "😊 Satisfacción"]
-                    for col in numeric_cols:
-                        if col in advanced_df.columns:
-                            advanced_df[col] = pd.to_numeric(advanced_df[col], errors='coerce').fillna(0.0)
-                    
-                    # Apply styling to the advanced metrics dataframe
-                    styled_advanced_df = advanced_df.style.format({
-                        "🚫 Alucinación": "{:.3f}",
-                        "🎯 Utilización": "{:.3f}",
-                        "✅ Completitud": "{:.3f}",
-                        "😊 Satisfacción": "{:.3f}"
-                    })
-                    
-                    # Apply colors to each advanced metric column
-                    for col in numeric_cols:
-                        if col in advanced_df.columns:
-                            styled_advanced_df = styled_advanced_df.apply(
-                                lambda x: [color_advanced_rag_metrics(val, col) for val in x], 
-                                subset=[col]
+                    # Performance scatter plot (if performance data available)
+                    if perf_data:
+                        perf_df = pd.DataFrame(perf_data)
+                        st.markdown("#### ⚡ Rendimiento vs Calidad")
+                        
+                        # Merge with retrieval data for scatter plot
+                        merged_df = pd.merge(perf_df, retrieval_df[['Modelo', 'MRR_After']], on='Modelo', how='inner')
+                        
+                        scatter_fig = px.scatter(
+                            merged_df, 
+                            x='Latencia (s)', 
+                            y='MRR_After',
+                            color='Modelo',
+                            size='Score Promedio',
+                            hover_data=['Throughput Est. (QPS)', 'Consistencia'],
+                            title='Trade-off: Latencia vs Calidad (MRR)',
+                            labels={'MRR_After': 'MRR (Post-Reranking)', 'Latencia (s)': 'Latencia (segundos)'}
+                        )
+                        
+                        st.plotly_chart(scatter_fig, use_container_width=True)
+                        
+                        # Additional performance visualizations
+                        st.markdown("#### 📊 Métricas de Rendimiento Detalladas")
+                        
+                        perf_viz_col1, perf_viz_col2 = st.columns(2)
+                        
+                        with perf_viz_col1:
+                            # Latency chart
+                            latency_fig = px.bar(
+                                perf_df, x="Modelo", y="Latencia (s)", color="Modelo",
+                                title="Latencia de Consulta (End-to-End)",
+                                labels={"Latencia (s)": "Tiempo (segundos)"}
                             )
-                    
-                    st.dataframe(styled_advanced_df)
+                            st.plotly_chart(latency_fig, use_container_width=True)
+                            
+                            # Consistency chart
+                            consistency_fig = px.bar(
+                                perf_df, x="Modelo", y="Consistencia", color="Modelo",
+                                title="Consistencia de Scores (1 = muy consistente)",
+                                labels={"Consistencia": "Índice de Consistencia"}
+                            )
+                            st.plotly_chart(consistency_fig, use_container_width=True)
+                        
+                        with perf_viz_col2:
+                            # Throughput chart
+                            throughput_fig = px.bar(
+                                perf_df, x="Modelo", y="Throughput Est. (QPS)", color="Modelo",
+                                title="Throughput Estimado (Consultas por Segundo)",
+                                labels={"Throughput Est. (QPS)": "Consultas / Segundo"}
+                            )
+                            st.plotly_chart(throughput_fig, use_container_width=True)
+                            
+                            # Quality vs Variability scatter
+                            quality_scatter_fig = px.scatter(
+                                perf_df, x="Score Promedio", y="Desviación Score", 
+                                color="Modelo", size="Docs Recuperados",
+                                title="Calidad vs Variabilidad de Resultados",
+                                labels={
+                                    "Score Promedio": "Calidad Promedio",
+                                    "Desviación Score": "Variabilidad"
+                                }
+                            )
+                            st.plotly_chart(quality_scatter_fig, use_container_width=True)
+                        
+                        # Score distribution
+                        st.markdown("#### 📈 Distribución de Scores de Relevancia")
+                        st.info("Este gráfico muestra la distribución de los scores de similitud para los documentos recuperados por cada modelo. Un buen modelo debería tener scores altos (cercanos a 1.0) y una distribución compacta en la parte superior.")
+                        
+                        # Prepare score distribution data
+                        score_data = []
+                        for model, data in st.session_state.comparison_results.items():
+                            if data and not data.get("error"):
+                                for doc in data["results"]:
+                                    score_data.append({"Modelo": model, "Score": doc.get("score", 0)})
+                        
+                        if score_data:
+                            score_df = pd.DataFrame(score_data)
+                            score_box_fig = px.box(score_df, x="Modelo", y="Score", color="Modelo", title="Distribución de Scores por Modelo")
+                            st.plotly_chart(score_box_fig, use_container_width=True)
                 else:
-                    st.info("No hay métricas avanzadas RAG para mostrar. Asegúrate de habilitar la evaluación avanzada.")
+                    st.warning("No hay datos disponibles para visualizaciones.")
             
-            # Guía completa de métricas movida aquí
-            st.markdown("##### 📋 Guía Completa de Métricas y Umbrales")
-            
-            # Función para crear tooltips detallados
-            def get_metric_tooltip(metric_name):
-                """Return detailed tooltip information for each metric."""
-                tooltips = {
-                    "Latencia (s)": {
-                        "explanation": "Tiempo total transcurrido desde que se recibe la consulta del usuario hasta que se entrega la respuesta final. Incluye tiempo de embedding, búsqueda vectorial, reranking y generación de respuesta.",
-                        "formula": "Latencia = t_fin - t_inicio (donde t_inicio es timestamp al recibir consulta y t_fin es timestamp al entregar respuesta)",
-                        "reference": "Chen, J., et al. (2023). Performance evaluation of retrieval-augmented generation systems. *Journal of Information Retrieval*, 26(3), 45-62."
-                    },
-                    "Throughput Est. (QPS)": {
-                        "explanation": "Estimación de consultas por segundo que el sistema puede procesar basado en la latencia observada, ajustado por overhead del sistema y concurrencia.",
-                        "formula": "Throughput = (1 / Latencia) × Factor_Overhead × Factor_Concurrencia (Factor_Overhead ≈ 0.7)",
-                        "reference": "Wang, L., & Zhang, M. (2022). Scalability metrics for RAG systems. *ACM Computing Surveys*, 54(8), 1-35."
-                    },
-                    "Score Promedio": {
-                        "explanation": "Promedio de los scores de similitud coseno entre el vector de consulta y los vectores de documentos recuperados. Indica la relevancia semántica promedio de los resultados.",
-                        "formula": "Score_Promedio = (1/n) × Σ(cos_similarity(query_vector, doc_vector_i)) para i=1 a n",
-                        "reference": "Karpukhin, V., et al. (2020). Dense passage retrieval for open-domain question answering. *EMNLP 2020*, 6769-6781."
-                    },
-                    "Desviación Score": {
-                        "explanation": "Desviación estándar de los scores de similitud. Una desviación baja indica consistencia en la calidad de los documentos recuperados.",
-                        "formula": "Desviación = √[(1/n) × Σ(score_i - score_promedio)²] para i=1 a n",
-                        "reference": "Robertson, S., & Zaragoza, H. (2009). The probabilistic relevance framework: BM25 and beyond. *Foundations and Trends in Information Retrieval*, 3(4), 333-389."
-                    },
-                    "Consistencia": {
-                        "explanation": "Métrica de uniformidad en calidad calculada como 1 menos la desviación estándar normalizada. Valores altos indican resultados consistentemente relevantes.",
-                        "formula": "Consistencia = 1 - (Desviación_Score / max(1, Score_Promedio))",
-                        "reference": "Thakur, N., et al. (2021). BEIR: A heterogeneous benchmark for zero-shot evaluation of information retrieval models. *NeurIPS 2021*, 15-30."
-                    },
-                    "BERT_P": {
-                        "explanation": "Precisión de BERTScore que mide similitud semántica usando embeddings contextuales de BERT. Evalúa qué porcentaje de tokens en la respuesta tienen correspondencia semántica en la referencia.",
-                        "formula": "BERT_P = (1/|x|) × Σ max_y∈Y cos(h_x, h_y) donde h son embeddings BERT contextuales",
-                        "reference": "Zhang, T., et al. (2020). BERTScore: Evaluating text generation with BERT. *ICLR 2020*, 1-22."
-                    },
-                    "BERT_R": {
-                        "explanation": "Recall de BERTScore que mide cobertura semántica. Evalúa qué porcentaje de tokens en la referencia tienen correspondencia semántica en la respuesta generada.",
-                        "formula": "BERT_R = (1/|y|) × Σ max_x∈X cos(h_y, h_x) donde h son embeddings BERT contextuales",
-                        "reference": "Zhang, T., et al. (2020). BERTScore: Evaluating text generation with BERT. *ICLR 2020*, 1-22."
-                    },
-                    "BERT_F1": {
-                        "explanation": "F1-score de BERTScore que combina precisión y recall semántico. Proporciona una medida balanceada de similitud semántica bidireccional.",
-                        "formula": "BERT_F1 = 2 × (BERT_P × BERT_R) / (BERT_P + BERT_R)",
-                        "reference": "Zhang, T., et al. (2020). BERTScore: Evaluating text generation with BERT. *ICLR 2020*, 1-22."
-                    },
-                    "ROUGE1": {
-                        "explanation": "Superposición de unigramas entre respuesta y referencia. Mide similitud a nivel de palabras individuales, indicando cobertura de contenido básico.",
-                        "formula": "ROUGE-1 = |unigramas_comunes| / |unigramas_referencia|",
-                        "reference": "Lin, C. Y. (2004). ROUGE: A package for automatic evaluation of summaries. *Text Summarization Branches Out*, 74-81."
-                    },
-                    "ROUGE2": {
-                        "explanation": "Superposición de bigramas (pares de palabras consecutivas) entre respuesta y referencia. Captura mejor el orden y estructura del contenido que ROUGE-1.",
-                        "formula": "ROUGE-2 = |bigramas_comunes| / |bigramas_referencia|",
-                        "reference": "Lin, C. Y. (2004). ROUGE: A package for automatic evaluation of summaries. *Text Summarization Branches Out*, 74-81."
-                    },
-                    "ROUGE-L": {
-                        "explanation": "Longest Common Subsequence entre respuesta y referencia. Mide similitud estructural considerando secuencias de palabras no necesariamente consecutivas.",
-                        "formula": "ROUGE-L = LCS(respuesta, referencia) / length(referencia)",
-                        "reference": "Lin, C. Y. (2004). ROUGE: A package for automatic evaluation of summaries. *Text Summarization Branches Out*, 74-81."
-                    },
-                    "🚫 Alucinación": {
-                        "explanation": "Porcentaje de afirmaciones en la respuesta que no pueden ser verificadas o soportadas por el contexto recuperado. Detecta información inventada o incorrecta.",
-                        "formula": "Alucinación = |claims_no_soportadas| / |claims_totales| donde claims se extraen via NER y fact-checking",
-                        "reference": "Maynez, J., et al. (2020). On faithfulness and factuality in abstractive summarization. *ACL 2020*, 1906-1919."
-                    },
-                    "🎯 Utilización": {
-                        "explanation": "Efectividad en el aprovechamiento del contexto recuperado. Mide qué porcentaje de documentos y frases clave del contexto se utilizan en la respuesta generada.",
-                        "formula": "Utilización = (docs_utilizados / docs_totales) × (frases_utilizadas / frases_disponibles)",
-                        "reference": "Gao, L., et al. (2023). Context utilization in retrieval-augmented generation. *EMNLP 2023*, 2156-2171."
-                    },
-                    "✅ Completitud": {
-                        "explanation": "Medida de completitud de la respuesta basada en el tipo de pregunta y componentes esperados (pasos, ejemplos, prerrequisitos, etc.).",
-                        "formula": "Completitud = |componentes_presentes| / |componentes_esperados| donde componentes se determinan por tipo de pregunta",
-                        "reference": "Min, S., et al. (2022). Rethinking the role of demonstrations: What makes in-context learning work? *EMNLP 2022*, 11048-11064."
-                    },
-                    "😊 Satisfacción": {
-                        "explanation": "Proxy de satisfacción del usuario que combina claridad del texto, directness en responder la pregunta, actionabilidad de la información y confianza en el lenguaje usado.",
-                        "formula": "Satisfacción = (claridad + directness + actionabilidad + confianza) / 4 - penalización_tiempo",
-                        "reference": "Rashkin, H., et al. (2021). Measuring attribution in natural language generation models. *Computational Linguistics*, 47(4), 777-840."
-                    }
-                }
-                return tooltips.get(metric_name, {
-                    "explanation": "Información detallada no disponible",
-                    "formula": "N/A",
-                    "reference": "N/A"
-                })
-            
-            # Crear tabla con expandibles para detalles de métricas
-            st.markdown("**📊 Tabla de Métricas con Detalles Expandibles**")
-            
-            # Crear DataFrame básico para la tabla principal
-            consolidated_data = {
-                "Métrica": [
-                    "Latencia (s)",
-                    "Throughput Est. (QPS)", 
-                    "Score Promedio",
-                    "Desviación Score",
-                    "Consistencia",
-                    "BERT_P",
-                    "BERT_R", 
-                    "BERT_F1",
-                    "ROUGE1",
-                    "ROUGE2",
-                    "ROUGE-L",
-                    "🚫 Alucinación",
-                    "🎯 Utilización",
-                    "✅ Completitud",
-                    "😊 Satisfacción"
-                ],
-                "Descripción": [
-                    "Tiempo de respuesta end-to-end",
-                    "Consultas por segundo (con overhead)",
-                    "Calidad promedio de documentos recuperados",
-                    "Variabilidad en calidad de resultados",
-                    "Uniformidad en calidad (1-desviación)",
-                    "Precisión semántica (similitud contextual)",
-                    "Recall semántico (cobertura contextual)", 
-                    "F1 semántico (balance precisión/recall)",
-                    "Superposición de palabras (unigramas)",
-                    "Superposición de pares de palabras (bigramas)",
-                    "Superposición de subsecuencia más larga",
-                    "Porcentaje de información no soportada por contexto",
-                    "Efectividad en el uso del contexto recuperado",
-                    "Completitud basada en tipo de pregunta",
-                    "Proxy de satisfacción (claridad + directness + actionabilidad)"
-                ],
-                "🟢 Excelente": [
-                    "≤ 2.0s",
-                    "≥ 1.0 QPS",
-                    "≥ 0.8",
-                    "≤ 0.1",
-                    "≥ 0.8",
-                    "≥ 0.7",
-                    "≥ 0.7",
-                    "≥ 0.7", 
-                    "≥ 0.4",
-                    "≥ 0.2",
-                    "≥ 0.35",
-                    "≤ 0.1",
-                    "≥ 0.8",
-                    "≥ 0.9",
-                    "≥ 0.8"
-                ],
-                "🟡 Bueno": [
-                    "≤ 5.0s",
-                    "≥ 0.5 QPS",
-                    "≥ 0.6",
-                    "≤ 0.2", 
-                    "≥ 0.6",
-                    "≥ 0.5",
-                    "≥ 0.5",
-                    "≥ 0.5",
-                    "≥ 0.25",
-                    "≥ 0.12",
-                    "≥ 0.22",
-                    "≤ 0.2",
-                    "≥ 0.6",
-                    "≥ 0.7",
-                    "≥ 0.6"
-                ],
-                "🔴 Necesita Mejora": [
-                    "> 5.0s",
-                    "< 0.5 QPS",
-                    "< 0.6",
-                    "> 0.2",
-                    "< 0.6", 
-                    "< 0.5",
-                    "< 0.5",
-                    "< 0.5",
-                    "< 0.25",
-                    "< 0.12",
-                    "< 0.22",
-                    "> 0.2",
-                    "< 0.6",
-                    "< 0.7",
-                    "< 0.6"
-                ]
-            }
-            
-            consolidated_df = pd.DataFrame(consolidated_data)
-            st.dataframe(consolidated_df, use_container_width=True)
-            
-            # Sección expandible con detalles técnicos de cada métrica
-            with st.expander("🔬 Detalles Técnicos, Fórmulas y Referencias Académicas", expanded=False):
-                st.markdown("### 📖 Información Detallada por Métrica")
+            # TAB 6: 📚 Guía e Interpretación
+            with tab6:
+                st.markdown("### 📚 Guía de Interpretación de Métricas")
                 
-                # Organizar por categorías
-                st.markdown("#### ⚡ Métricas de Rendimiento")
+                # Create sub-sections for the guide
+                guide_tab1, guide_tab2, guide_tab3, guide_tab4 = st.tabs([
+                    "📊 Definiciones", "🎯 Umbrales", "🔄 Proceso RAG", "💡 Tips"
+                ])
                 
-                performance_metrics = [
-                    ("Latencia (s)", "Tiempo de respuesta end-to-end"),
-                    ("Throughput Est. (QPS)", "Consultas por segundo (con overhead)"),
-                    ("Score Promedio", "Calidad promedio de documentos recuperados"),
-                    ("Desviación Score", "Variabilidad en calidad de resultados"),
-                    ("Consistencia", "Uniformidad en calidad (1-desviación)")
-                ]
+                with guide_tab1:
+                    st.markdown("#### 📊 Definiciones de Métricas")
+                    
+                    st.markdown("""
+                    **🔍 Métricas de Recuperación:**
+                    - **MRR (Mean Reciprocal Rank)**: Posición promedio del primer documento relevante (1/rank). Valores más altos = mejor.
+                    - **Recall@k**: Proporción de documentos relevantes encontrados en top k. Mide "cobertura".
+                    - **Precision@k**: Proporción de documentos recuperados que son relevantes. Mide "precisión".
+                    - **F1@k**: Media armónica de Precision y Recall. Balance entre ambos.
+                    - **Accuracy@k**: Proporción de documentos correctamente clasificados.
+                    
+                    **⏱️ Métricas de Rendimiento:**
+                    - **Latencia**: Tiempo total de procesamiento por consulta.
+                    - **Throughput**: Consultas procesadas por segundo (estimado).
+                    - **Consistencia**: Uniformidad en los scores (1 - coef. variación).
+                    
+                    **📊 Métricas de Calidad:**
+                    - **BERTScore F1**: Similitud semántica usando embeddings BERT.
+                    - **ROUGE-1**: Superposición de unigrams con texto de referencia.
+                    """)
                 
-                for metric, desc in performance_metrics:
-                    tooltip_info = get_metric_tooltip(metric)
-                    with st.expander(f"📊 {metric} - {desc}", expanded=False):
-                        st.markdown(f"**Explicación Detallada:**")
-                        st.markdown(tooltip_info['explanation'])
-                        st.markdown(f"**Fórmula:**")
-                        st.code(tooltip_info['formula'])
-                        st.markdown(f"**Referencia Académica:**")
-                        st.markdown(f"*{tooltip_info['reference']}*")
+                with guide_tab2:
+                    st.markdown("#### 🎯 Umbrales de Calidad")
+                    
+                    st.markdown("""
+                    **📊 Umbrales Recomendados:**
+                    
+                    | Métrica | Excelente | Bueno | Aceptable | Mejorable |
+                    |---------|-----------|-------|-----------|-----------|
+                    | **MRR** | > 0.8 | 0.6-0.8 | 0.4-0.6 | < 0.4 |
+                    | **Recall@5** | > 0.9 | 0.7-0.9 | 0.5-0.7 | < 0.5 |
+                    | **Precision@5** | > 0.8 | 0.6-0.8 | 0.4-0.6 | < 0.4 |
+                    | **BERTScore F1** | > 0.85 | 0.75-0.85 | 0.65-0.75 | < 0.65 |
+                    | **Latencia** | < 1s | 1-2s | 2-3s | > 3s |
+                    
+                    **🎯 Objetivos por Caso de Uso:**
+                    - **Sistemas de producción**: MRR > 0.7, Latencia < 2s
+                    - **Investigación**: MRR > 0.8, Precision@5 > 0.7
+                    - **Tiempo real**: Latencia < 500ms, Recall@3 > 0.6
+                    """)
                 
-                st.markdown("#### 🧠 Métricas de Calidad de Contenido (BERT & ROUGE)")
+                with guide_tab3:
+                    st.markdown("#### 🔄 Diagrama del Proceso RAG")
+                    
+                    st.markdown("""
+                    ```
+                    📝 Pregunta Usuario
+                            ↓
+                    🔍 Embedding de la Pregunta
+                            ↓
+                    📊 Búsqueda Vectorial (Weaviate)
+                            ↓
+                    📋 Documentos Candidatos (Before)
+                            ↓
+                    🤖 Reranking con LLM (CrossEncoder)
+                            ↓
+                    📋 Documentos Rerankeados (After)
+                            ↓
+                    📊 Cálculo de Métricas
+                            ↓
+                    📈 Comparación Before/After
+                    ```
+                    
+                    **🔄 Proceso de Evaluación:**
+                    1. **Extracción Ground Truth**: Enlaces de Microsoft Learn de respuestas aceptadas
+                    2. **Normalización URLs**: Eliminación de parámetros y anclajes
+                    3. **Cálculo Métricas Before**: Evaluación después de búsqueda vectorial
+                    4. **Cálculo Métricas After**: Evaluación después de reranking
+                    5. **Análisis de Mejora**: Comparación y recomendaciones
+                    """)
                 
-                content_metrics = [
-                    ("BERT_P", "Precisión semántica (similitud contextual)"),
-                    ("BERT_R", "Recall semántico (cobertura contextual)"),
-                    ("BERT_F1", "F1 semántico (balance precisión/recall)"),
-                    ("ROUGE1", "Superposición de palabras (unigramas)"),
-                    ("ROUGE2", "Superposición de pares de palabras (bigramas)"),
-                    ("ROUGE-L", "Superposición de subsecuencia más larga")
-                ]
+                with guide_tab4:
+                    st.markdown("#### 💡 Tips de Interpretación")
+                    
+                    st.markdown("""
+                    **🎯 Cómo Interpretar Resultados:**
+                    
+                    **📊 MRR = 1.0**: El primer documento siempre es relevante (ideal)
+                    **📊 MRR = 0.5**: El primer documento relevante está en promedio en posición 2
+                    **📊 MRR = 0.33**: El primer documento relevante está en promedio en posición 3
+                    
+                    **🔍 Recall@5 = 0.8**: Se encuentran 80% de documentos relevantes en top 5
+                    **🎯 Precision@5 = 0.6**: 60% de los top 5 documentos son relevantes
+                    
+                    **⚡ Recomendaciones por Escenario:**
+                    
+                    **🟢 MRR mejora mucho (>50%)**: Reranking muy efectivo, mantener configuración
+                    **🟡 MRR mejora poco (<20%)**: Evaluar si vale la pena el costo computacional
+                    **🔴 MRR empeora**: Revisar configuración del reranker o modelo base
+                    
+                    **🏆 Selección de Modelo:**
+                    1. **Priorizar calidad**: Elegir mayor MRR y Precision@5
+                    2. **Priorizar velocidad**: Elegir menor latencia con calidad aceptable
+                    3. **Balanceado**: Usar scatter plot Latencia vs MRR
+                    
+                    **🔍 Debugging Tips:**
+                    - Si Recall bajo: Verificar diversidad en base de documentos
+                    - Si Precision bajo: Ajustar threshold de similitud
+                    - Si latencia alta: Considerar modelos más ligeros
+                    """)
                 
-                for metric, desc in content_metrics:
-                    tooltip_info = get_metric_tooltip(metric)
-                    with st.expander(f"📈 {metric} - {desc}", expanded=False):
-                        st.markdown(f"**Explicación Detallada:**")
-                        st.markdown(tooltip_info['explanation'])
-                        st.markdown(f"**Fórmula:**")
-                        st.code(tooltip_info['formula'])
-                        st.markdown(f"**Referencia Académica:**")
-                        st.markdown(f"*{tooltip_info['reference']}*")
-                
-                st.markdown("#### 🧪 Métricas Avanzadas RAG")
-                
-                advanced_metrics = [
-                    ("🚫 Alucinación", "Porcentaje de información no soportada por contexto"),
-                    ("🎯 Utilización", "Efectividad en el uso del contexto recuperado"),
-                    ("✅ Completitud", "Completitud basada en tipo de pregunta"),
-                    ("😊 Satisfacción", "Proxy de satisfacción (claridad + directness + actionabilidad)")
-                ]
-                
-                for metric, desc in advanced_metrics:
-                    tooltip_info = get_metric_tooltip(metric)
-                    with st.expander(f"🔬 {metric} - {desc}", expanded=False):
-                        st.markdown(f"**Explicación Detallada:**")
-                        st.markdown(tooltip_info['explanation'])
-                        st.markdown(f"**Fórmula:**")
-                        st.code(tooltip_info['formula'])
-                        st.markdown(f"**Referencia Académica:**")
-                        st.markdown(f"*{tooltip_info['reference']}*")
-                
+                st.markdown("---")
+                st.markdown("*💡 Para más detalles técnicos, consulta la documentación completa del sistema.*")
+        
         else:
-            st.info("No hay suficientes datos para generar gráficos de rendimiento.")
+            st.info("💡 **Habilita las Métricas de Recuperación** en la configuración para ver el análisis detallado del impacto del reranking en la calidad de recuperación.")
+            
+            if not enable_retrieval_metrics:
+                st.warning("🔧 Las métricas de recuperación están deshabilitadas. Habilítalas en la sección de configuración y ejecuta la comparación nuevamente.")
 
+
+        
         # --- 5. Process Flow Diagram ---
         st.markdown("---")
         st.markdown("### 🗺️ Diagrama del Proceso RAG")
@@ -957,4 +1179,5 @@ def show_comparison_page():
                 documentos -> resumen;
             }
         ''')
+
 
