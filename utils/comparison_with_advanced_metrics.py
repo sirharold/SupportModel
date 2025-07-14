@@ -21,7 +21,7 @@ def show_advanced_metrics_comparison(
     embedding_client,
     openai_client,
     gemini_client=None,
-    local_llama_client=None,
+    local_tinyllama_client=None,
     local_mistral_client=None,
     top_k: int = 10
 ):
@@ -52,7 +52,7 @@ def show_advanced_metrics_comparison(
                 embedding_client=embedding_client,
                 openai_client=openai_client,
                 gemini_client=gemini_client,
-                local_llama_client=local_llama_client,
+                local_tinyllama_client=local_tinyllama_client,
                 local_mistral_client=local_mistral_client,
                 generative_model_name=model_name,
                 top_k=top_k

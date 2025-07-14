@@ -5,14 +5,14 @@ Cost-free alternative to OpenAI and Gemini APIs.
 
 from typing import List, Dict, Tuple, Optional
 import logging
-from utils.local_models import get_llama_client, get_mistral_client
+from utils.local_models import get_tinyllama_client, get_mistral_client
 
 logger = logging.getLogger(__name__)
 
 def generate_final_answer_local(
     question: str,
     retrieved_docs: List[dict],
-    model_name: str = "llama-3.1-8b",
+    model_name: str = "tinyllama-1.1b",
     max_length: int = 512
 ) -> Tuple[str, Dict]:
     """
@@ -21,12 +21,15 @@ def generate_final_answer_local(
     Args:
         question: User's question
         retrieved_docs: List of relevant documents
-        model_name: Local model to use ('llama-3.1-8b' or 'mistral-7b')
+        model_name: Local model to use ('tinyllama-1.1b' or 'mistral-7b')
         max_length: Maximum response length
         
     Returns:
         Tuple of (generated_answer, generation_info)
     """
+    import time
+    start_time = time.time()
+    
     generation_info = {
         "status": "success",
         "model": model_name,
@@ -37,35 +40,76 @@ def generate_final_answer_local(
     
     try:
         # Prepare context from retrieved documents
+        # Build optimized context for faster generation
         context_parts = []
-        for i, doc in enumerate(retrieved_docs[:5]):  # Use top 5 documents
+        max_docs = 3 if model_name == "tinyllama-1.1b" else 5  # Fewer docs for TinyLlama
+        max_content_per_doc = 300 if model_name == "tinyllama-1.1b" else 500
+        
+        for i, doc in enumerate(retrieved_docs[:max_docs]):
             title = doc.get('title', 'N/A')
             content = doc.get('content', '')
             link = doc.get('link', '')
             
-            # Truncate content to avoid context overflow
-            if len(content) > 500:
-                content = content[:500] + "..."
+            # More aggressive truncation for TinyLlama speed
+            if len(content) > max_content_per_doc:
+                content = content[:max_content_per_doc] + "..."
             
-            context_parts.append(f"Document {i+1}:\nTitle: {title}\nContent: {content}\nSource: {link}\n")
+            # Simplified format for faster processing
+            context_parts.append(f"Doc {i+1}: {title}\n{content}\n")
         
         context = "\n".join(context_parts)
         
+        # Log context size for monitoring
+        logger.info(f"Context prepared: {len(context)} chars, {len(context_parts)} docs for {model_name}")
+        
         # Generate answer using the specified local model
-        if model_name == "llama-3.1-8b":
-            llama_client = get_llama_client()
-            answer = llama_client.generate_answer(question, context, max_length)
+        logger.info(f"Generating answer using {model_name} with {len(retrieved_docs)} documents")
+        
+        if model_name == "tinyllama-1.1b":
+            try:
+                tinyllama_client = get_tinyllama_client()
+                logger.info(f"TinyLlama client obtained, generating answer...")
+                answer = tinyllama_client.generate_answer(question, context, max_length)
+                logger.info(f"Answer generated successfully: {len(answer) if answer else 0} characters")
+            except Exception as e:
+                logger.error(f"Error with TinyLlama client: {e}")
+                answer = f"Error: {str(e)}"
         elif model_name == "mistral-7b":
-            mistral_client = get_mistral_client()
-            answer = mistral_client.generate_answer(question, context, max_length)
+            try:
+                mistral_client = get_mistral_client()
+                logger.info(f"Mistral client obtained, generating answer...")
+                answer = mistral_client.generate_answer(question, context, max_length)
+                logger.info(f"Answer generated successfully: {len(answer) if answer else 0} characters")
+            except Exception as e:
+                logger.error(f"Error with Mistral client: {e}")
+                if "gated repo" in str(e) or "Access to model" in str(e):
+                    answer = "Error: Mistral requiere autorización. Usa TinyLlama en su lugar."
+                elif "sentencepiece" in str(e):
+                    answer = "Error: Dependencias faltantes para Mistral. Usa TinyLlama en su lugar."
+                elif "timeout" in str(e).lower() or "connection" in str(e).lower():
+                    answer = "Error: Mistral es muy grande para descargar. Usa TinyLlama (más liviano)."
+                else:
+                    answer = f"Error: Mistral no disponible - {str(e)[:100]}. Usa TinyLlama."
         else:
             raise ValueError(f"Unknown local model: {model_name}")
         
         # Validate answer
         if not answer or answer.startswith("Error"):
+            error_msg = answer if answer else "Empty response"
+            logger.error(f"Local model generation failed: {error_msg}")
             generation_info["status"] = "error"
-            generation_info["error"] = answer if answer else "Empty response"
-            return "Lo siento, no pude generar una respuesta con el modelo local.", generation_info
+            generation_info["error"] = error_msg
+            return f"Lo siento, no pude generar una respuesta con el modelo local. Error: {error_msg}", generation_info
+        
+        # Calculate generation metrics
+        generation_time = time.time() - start_time
+        generation_info.update({
+            "generation_time": generation_time,
+            "context_length": len(context),
+            "answer_length": len(answer) if answer else 0
+        })
+        
+        logger.info(f"Answer generated in {generation_time:.2f}s (context: {len(context)} chars, answer: {len(answer) if answer else 0} chars)")
         
         # Clean up the answer
         answer = answer.strip()
@@ -129,7 +173,7 @@ def evaluate_answer_quality_local(
     question: str,
     answer: str,
     source_docs: List[dict],
-    model_name: str = "llama-3.1-8b"
+    model_name: str = "tinyllama-1.1b"
 ) -> Dict:
     """
     Evaluate answer quality using local models.

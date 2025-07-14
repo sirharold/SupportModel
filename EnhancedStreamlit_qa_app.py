@@ -13,6 +13,7 @@ import streamlit as st
 import plotly.express as px
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from utils.clients import initialize_clients
+from utils.local_models import preload_tinyllama_model
 from comparison_page import show_comparison_page
 from batch_queries_page import show_batch_queries_page
 from data_analysis_page import show_data_analysis_page
@@ -56,6 +57,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Cache del modelo TinyLlama para mejor performance
+@st.cache_resource
+def get_cached_tinyllama_client():
+    """Get cached TinyLlama client for better performance."""
+    from utils.local_models import get_tinyllama_client
+    return get_tinyllama_client()
+
+@st.cache_resource
+def preload_model_on_startup():
+    """Preload model when app starts."""
+    try:
+        success = preload_tinyllama_model()
+        if success:
+            st.success("✅ Modelo TinyLlama precargado exitosamente")
+        return success
+    except Exception as e:
+        st.error(f"❌ Error precargando modelo: {e}")
+        return False
+
+# Precargar modelo al iniciar la aplicación
+with st.spinner("🔄 Inicializando modelo TinyLlama..."):
+    model_preloaded = preload_model_on_startup()
+
 # Header principal
 st.markdown("""
 <div class="main-header">
@@ -87,7 +111,7 @@ generative_model_name = st.sidebar.selectbox(
     "Selecciona el modelo generativo:",
     options=list(GENERATIVE_MODELS.keys()),
     index=list(GENERATIVE_MODELS.keys()).index(DEFAULT_GENERATIVE_MODEL),
-    help="Llama 3.1 8B y Mistral 7B son modelos locales gratuitos (sin costos de API)"
+    help="TinyLlama es gratuito y funciona sin configuración. Mistral requiere autorización en Hugging Face."
 )
 
 # Mostrar información del modelo seleccionado
@@ -95,6 +119,22 @@ if generative_model_name in LOCAL_MODEL_DESCRIPTIONS:
     model_info = LOCAL_MODEL_DESCRIPTIONS[generative_model_name]
     st.sidebar.success(f"🎯 **{model_info['cost']}** - {model_info['description']}")
     st.sidebar.info(f"📋 **Requisitos**: {model_info['requirements']}")
+    
+    # Advertencia especial para Mistral
+    if generative_model_name == "mistral-7b":
+        st.sidebar.warning("⚠️ **Atención**: Mistral (7B) es muy pesado para laptops. Recomendamos usar TinyLlama (1.1B).")
+        st.sidebar.info("📁 Mistral requiere ~14GB de descarga y 6-8GB RAM.")
+        
+        # Verificar memoria disponible
+        try:
+            import psutil
+            available_memory = psutil.virtual_memory().available / (1024**3)
+            if available_memory < 6:
+                st.sidebar.error(f"🚫 Memoria insuficiente: {available_memory:.1f}GB disponible, 6GB+ requerido")
+            else:
+                st.sidebar.info(f"✅ Memoria disponible: {available_memory:.1f}GB")
+        except:
+            pass
 elif generative_model_name == "gemini-pro":
     st.sidebar.warning("💰 **Modelo de API** - Incurre en costos por uso")
 elif generative_model_name == "gpt-4":
@@ -119,6 +159,27 @@ if page == "🔍 Búsqueda Individual":
     with rag_params:
         enable_rag = st.checkbox("Activar RAG Completo", value=True, 
                                 help="Genera respuestas sintetizadas usando los documentos encontrados")
+        
+        # Opción para generar respuesta en búsqueda individual
+        if not enable_rag:
+            generate_individual_answer = st.checkbox("Generar Respuesta Individual", value=True,
+                                                    help="Genera respuesta usando documentos con score ≥ 0.8 o mínimo 3 documentos con TinyLlama")
+            if generate_individual_answer:
+                st.info("🎯 Criterio de selección: Documentos con score ≥ 0.8 o mínimo 3 documentos")
+                
+                # Opción de precarga manual
+                if generative_model_name == "tinyllama-1.1b":
+                    if st.button("🚀 Precargar TinyLlama (Más Rápido)", help="Carga el modelo en memoria para respuestas más rápidas"):
+                        with st.spinner("🔄 Precargando modelo..."):
+                            client = get_cached_tinyllama_client()
+                            success = client.ensure_loaded()
+                            if success:
+                                st.success("✅ Modelo precargado! Las próximas respuestas serán más rápidas.")
+                            else:
+                                st.error("❌ Error precargando modelo")
+        else:
+            generate_individual_answer = False
+            
         evaluate_rag_quality = st.checkbox("Evaluar Calidad RAG", value=False,
                                          help="Calcula métricas de faithfulness, relevancy y utilización del contexto")
         show_rag_metrics = st.checkbox("Mostrar Métricas RAG", value=True,
@@ -130,7 +191,7 @@ if page == "🔍 Búsqueda Individual":
         enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
         show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, client = initialize_clients(model_name, generative_model_name)
+    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, client = initialize_clients(model_name, generative_model_name)
     
     # Área principal
     col1, col2 = st.columns([2, 1])
@@ -219,7 +280,7 @@ if page == "🔍 Búsqueda Individual":
                         embedding_client,
                         openai_client,
                         gemini_client,
-                        local_llama_client,
+                        local_tinyllama_client,
                         local_mistral_client,
                         top_k=top_k,
                         diversity_threshold=diversity_threshold,
@@ -243,8 +304,55 @@ if page == "🔍 Búsqueda Individual":
                         documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"],
                         questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
                     )
+                    
+                    # Generate final answer using local model for individual search
                     generated_answer = None
                     rag_metrics = {}
+                    
+                    if results and generate_individual_answer:
+                        # Filter documents with score >= 0.8 or take at least 3 documents
+                        high_score_docs = [doc for doc in results if doc.get('score', 0) >= 0.8]
+                        
+                        if len(high_score_docs) >= 3:
+                            selected_docs = high_score_docs
+                        else:
+                            # Take at least 3 documents (or all if less than 3)
+                            selected_docs = results[:max(3, len(high_score_docs))]
+                        
+                        # Generate answer using selected local model
+                        if (generative_model_name == "tinyllama-1.1b" and local_tinyllama_client) or \
+                           (generative_model_name == "mistral-7b" and local_mistral_client):
+                            from utils.local_answer_generator import generate_final_answer_local
+                            
+                            try:
+                                # Optimized length for faster generation
+                                max_len = 256 if generative_model_name == "tinyllama-1.1b" else 512
+                                
+                                generated_answer, generation_info = generate_final_answer_local(
+                                    question=full_query,
+                                    retrieved_docs=selected_docs,
+                                    model_name=generative_model_name,
+                                    max_length=max_len
+                                )
+                                
+                                rag_metrics = {
+                                    'confidence': generation_info.get('confidence', 0.8),
+                                    'completeness': 'complete' if len(selected_docs) >= 3 else 'partial',
+                                    'docs_used': len(selected_docs),
+                                    'high_score_docs': len(high_score_docs),
+                                    'min_score': min([doc.get('score', 0) for doc in selected_docs]),
+                                    'max_score': max([doc.get('score', 0) for doc in selected_docs])
+                                }
+                            except Exception as e:
+                                st.error(f"Error generando respuesta con {generative_model_name}: {e}")
+                                generated_answer = None
+                                rag_metrics = {}
+                        else:
+                            # No hay cliente local disponible para el modelo seleccionado
+                            if generative_model_name in ["tinyllama-1.1b", "mistral-7b"]:
+                                st.warning(f"⚠️ Modelo local {generative_model_name} no está disponible. Asegúrate de que esté configurado correctamente.")
+                                generated_answer = None
+                                rag_metrics = {}
             
             # Actualizar métricas de sesión
             response_time = time.time() - start_time
@@ -258,15 +366,28 @@ if page == "🔍 Búsqueda Individual":
 
         # Mostrar resultados
         if results:
-            if enable_rag and generated_answer:
+            if generated_answer:
                 st.success(f"✅ Respuesta generada con {len(results)} documentos en {response_time:.2f}s")
             else:
                 st.success(f"✅ Encontrados {len(results)} documentos relevantes en {response_time:.2f}s")
             
-            # Mostrar respuesta generada RAG si está disponible
-            if enable_rag and generated_answer:
+            # Mostrar respuesta generada (RAG o búsqueda individual)
+            if generated_answer:
                 st.markdown("---")
-                st.markdown("### 🤖 **Respuesta Generada (RAG)**")
+                if enable_rag:
+                    st.markdown("### 🤖 **Respuesta Generada (RAG)**")
+                else:
+                    st.markdown("### 🤖 **Respuesta Generada (Búsqueda Individual)**")
+                    high_score_count = rag_metrics.get('high_score_docs', 0)
+                    docs_used = rag_metrics.get('docs_used', 0)
+                    min_score = rag_metrics.get('min_score', 0)
+                    max_score = rag_metrics.get('max_score', 0)
+                    
+                    if high_score_count >= 3:
+                        st.info(f"🎯 Usando {docs_used} documentos con score ≥ 0.8 (rango: {min_score:.3f} - {max_score:.3f})")
+                    else:
+                        st.info(f"🎯 Usando {docs_used} documentos ({high_score_count} con score ≥ 0.8, completado con top documentos)")
+                        st.warning(f"⚠️ Pocos documentos de alta calidad encontrados. Rango de scores: {min_score:.3f} - {max_score:.3f}")
                 
                 # Mostrar métricas RAG si están habilitadas
                 if show_rag_metrics and rag_metrics:
@@ -293,6 +414,14 @@ if page == "🔍 Búsqueda Individual":
                             faithfulness = rag_metrics.get('faithfulness', 0)
                             st.metric("🔍 Fidelidad", f"{faithfulness:.2f}", 
                                     help="Fidelidad de la respuesta a los documentos fuente")
+                        elif not enable_rag and 'generation_time' in rag_metrics:
+                            gen_time = rag_metrics.get('generation_time', 0)
+                            st.metric("⏱️ Tiempo Gen", f"{gen_time:.1f}s", 
+                                    help="Tiempo de generación de la respuesta")
+                        elif not enable_rag and 'max_score' in rag_metrics:
+                            max_score = rag_metrics.get('max_score', 0)
+                            st.metric("🎯 Score Máx", f"{max_score:.3f}", 
+                                    help="Score máximo de los documentos utilizados")
                         else:
                             st.metric("⚡ Estado", "✅ Generada", help="Respuesta generada exitosamente")
                 

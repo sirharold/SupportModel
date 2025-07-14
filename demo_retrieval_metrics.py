@@ -53,7 +53,7 @@ def demo_single_question_metrics():
         
         try:
             # Inicializar clientes
-            weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, _ = initialize_clients(model_key)
+            weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(model_key)
             
             # Ejecutar pipeline con métricas
             result = answer_question_with_retrieval_metrics(
@@ -62,7 +62,7 @@ def demo_single_question_metrics():
                 embedding_client=embedding_client,
                 openai_client=openai_client,
                 gemini_client=gemini_client,
-                local_llama_client=local_llama_client,
+                local_tinyllama_client=local_tinyllama_client,
                 local_mistral_client=local_mistral_client,
                 top_k=10,
                 use_llm_reranker=True,
@@ -70,7 +70,7 @@ def demo_single_question_metrics():
                 calculate_metrics=True,
                 ground_truth_answer=ground_truth_answer,
                 ms_links=ms_links,
-                generative_model_name='llama-3.1-8b'
+                generative_model_name='tinyllama-1.1b'
             )
             
             # Mostrar resultados
@@ -143,7 +143,7 @@ def demo_batch_metrics():
     
     try:
         # Inicializar clientes
-        weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, _ = initialize_clients(model_key)
+        weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(model_key)
         
         # Evaluar cada pregunta
         all_results = []
@@ -159,7 +159,7 @@ def demo_batch_metrics():
                     embedding_client=embedding_client,
                     openai_client=openai_client,
                     gemini_client=gemini_client,
-                    local_llama_client=local_llama_client,
+                    local_tinyllama_client=local_tinyllama_client,
                     local_mistral_client=local_mistral_client,
                     top_k=10,
                     use_llm_reranker=True,
@@ -167,7 +167,7 @@ def demo_batch_metrics():
                     calculate_metrics=True,
                     ground_truth_answer=qa_pair['accepted_answer'],
                     ms_links=qa_pair['ms_links'],
-                    generative_model_name='llama-3.1-8b'
+                    generative_model_name='tinyllama-1.1b'
                 )
                 
                 if len(result) >= 3:

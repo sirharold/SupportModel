@@ -22,7 +22,7 @@ def answer_question_with_retrieval_metrics(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
-    local_llama_client = None,
+    local_tinyllama_client = None,
     local_mistral_client = None,
     top_k: int = 10,
     *,
@@ -33,7 +33,7 @@ def answer_question_with_retrieval_metrics(
     evaluate_quality: bool = False,
     documents_class: str = "Documents",
     questions_class: str = "Questions",
-    generative_model_name: str = "llama-3.1-8b",
+    generative_model_name: str = "tinyllama-1.1b",
     use_local_refinement: bool = True,
     ground_truth_answer: str = "",
     ms_links: List[str] = None,
@@ -225,11 +225,11 @@ def answer_question_with_retrieval_metrics(
         
         # 12. Generación de respuesta final (NUEVO)
         if generate_answer:
-            if generative_model_name == "llama-3.1-8b" and local_llama_client:
+            if generative_model_name == "tinyllama-1.1b" and local_tinyllama_client:
                 generated_answer, generation_info = generate_final_answer_local(
                     question=question,
                     retrieved_docs=reranked,
-                    model_name="llama-3.1-8b"
+                    model_name="tinyllama-1.1b"
                 )
             elif generative_model_name == "mistral-7b" and local_mistral_client:
                 generated_answer, generation_info = generate_final_answer_local(
@@ -299,11 +299,11 @@ def batch_calculate_retrieval_metrics(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
-    local_llama_client = None,
+    local_tinyllama_client = None,
     local_mistral_client = None,
     top_k: int = 10,
     use_llm_reranker: bool = True,
-    generative_model_name: str = "llama-3.1-8b"
+    generative_model_name: str = "tinyllama-1.1b"
 ) -> List[Dict]:
     """
     Calcula métricas de recuperación para un lote de preguntas y respuestas.
@@ -332,7 +332,7 @@ def batch_calculate_retrieval_metrics(
                 embedding_client=embedding_client,
                 openai_client=openai_client,
                 gemini_client=gemini_client,
-                local_llama_client=local_llama_client,
+                local_tinyllama_client=local_tinyllama_client,
                 local_mistral_client=local_mistral_client,
                 top_k=top_k,
                 use_llm_reranker=use_llm_reranker,

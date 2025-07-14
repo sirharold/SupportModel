@@ -5,10 +5,10 @@ import google.generativeai as genai
 from config import EMBEDDING_MODELS, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
 from utils.embedding_safe import get_embedding_client
-from utils.local_models import get_llama_client, get_mistral_client
+from utils.local_models import get_tinyllama_client, get_mistral_client
 
 @st.cache_resource
-def initialize_clients(model_name: str, generative_model_name: str = "llama-3.1-8b"):
+def initialize_clients(model_name: str, generative_model_name: str = "tinyllama-1.1b"):
     """
     Initializes and caches all required clients based on the selected models.
     
@@ -18,7 +18,7 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-3.1-
         
     Returns:
         Tuple: A tuple containing the weaviate_wrapper, embedding_client,
-               openai_client, gemini_client, local_llama_client, local_mistral_client, and the raw weaviate client.
+               openai_client, gemini_client, local_tinyllama_client, local_mistral_client, and the raw weaviate client.
     """
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
@@ -50,12 +50,12 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-3.1-
         gemini_client = genai.GenerativeModel(GENERATIVE_MODELS[generative_model_name])
     
     # Initialize local model clients
-    local_llama_client = None
+    local_tinyllama_client = None
     local_mistral_client = None
     
-    if generative_model_name == "llama-3.1-8b":
-        local_llama_client = get_llama_client()
+    if generative_model_name == "tinyllama-1.1b":
+        local_tinyllama_client = get_tinyllama_client()
     elif generative_model_name == "mistral-7b":
         local_mistral_client = get_mistral_client()
     
-    return weaviate_wrapper, embedding_client, openai_client, gemini_client, local_llama_client, local_mistral_client, client
+    return weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, client
