@@ -11,13 +11,32 @@ os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 import streamlit as st
 import plotly.express as px
+import json
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from utils.clients import initialize_clients
 from utils.local_models import preload_tinyllama_model
 from comparison_page import show_comparison_page
 from batch_queries_page import show_batch_queries_page
 from data_analysis_page import show_data_analysis_page
-from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, LOCAL_MODEL_DESCRIPTIONS
+from cumulative_metrics_page import show_cumulative_metrics_page
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
+
+def _sanitize_json_string(json_string: str) -> str:
+    """Sanitiza una cadena JSON eliminando caracteres de control inválidos."""
+    import re
+    
+    # Método más robusto: usar regex para remover todos los caracteres de control
+    # ASCII control characters (0-31) except \t(9), \n(10), \r(13)
+    sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', json_string)
+    
+    # También remover caracteres Unicode problemáticos
+    sanitized = re.sub(r'[\u0080-\u009F]', '', sanitized)  # C1 control characters
+    sanitized = re.sub(r'[\u2028\u2029]', '', sanitized)   # Line/Paragraph separators
+    
+    # Remove any remaining non-printable characters
+    sanitized = re.sub(r'[^\x20-\x7E\t\n\r]', '', sanitized)
+    
+    return sanitized
 
 # Configuración de página
 st.set_page_config(
@@ -92,7 +111,7 @@ st.markdown("""
 st.sidebar.title("🧭 Navegación")
 page = st.sidebar.radio(
     "Selecciona una página:",
-    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos", "📈 Análisis de Datos"],
+    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos", "📈 Análisis de Datos", "📈 Métricas Acumulativas"],
     index=0
 )
 st.sidebar.markdown("---")
@@ -115,8 +134,8 @@ generative_model_name = st.sidebar.selectbox(
 )
 
 # Mostrar información del modelo seleccionado
-if generative_model_name in LOCAL_MODEL_DESCRIPTIONS:
-    model_info = LOCAL_MODEL_DESCRIPTIONS[generative_model_name]
+if generative_model_name in GENERATIVE_MODEL_DESCRIPTIONS:
+    model_info = GENERATIVE_MODEL_DESCRIPTIONS[generative_model_name]
     st.sidebar.success(f"🎯 **{model_info['cost']}** - {model_info['description']}")
     st.sidebar.info(f"📋 **Requisitos**: {model_info['requirements']}")
     
@@ -135,6 +154,9 @@ if generative_model_name in LOCAL_MODEL_DESCRIPTIONS:
                 st.sidebar.info(f"✅ Memoria disponible: {available_memory:.1f}GB")
         except:
             pass
+elif generative_model_name == "llama-4-scout":
+    st.sidebar.success("🌟 **Modelo de API Gratuito** - Llama-4-Scout via OpenRouter")
+    st.sidebar.info("ℹ️ Si el modelo no está disponible temporalmente, intenta con TinyLlama como alternativa local.")
 elif generative_model_name == "gemini-pro":
     st.sidebar.warning("💰 **Modelo de API** - Incurre en costos por uso")
 elif generative_model_name == "gpt-4":
@@ -163,7 +185,7 @@ if page == "🔍 Búsqueda Individual":
         # Opción para generar respuesta en búsqueda individual
         if not enable_rag:
             generate_individual_answer = st.checkbox("Generar Respuesta Individual", value=True,
-                                                    help="Genera respuesta usando documentos con score ≥ 0.8 o mínimo 3 documentos con TinyLlama")
+                                                    help="Genera respuesta usando documentos con score ≥ 0.8 o mínimo 3 documentos con el modelo seleccionado")
             if generate_individual_answer:
                 st.info("🎯 Criterio de selección: Documentos con score ≥ 0.8 o mínimo 3 documentos")
                 
@@ -191,7 +213,7 @@ if page == "🔍 Búsqueda Individual":
         enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
         show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, client = initialize_clients(model_name, generative_model_name)
+    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client = initialize_clients(model_name, generative_model_name)
     
     # Área principal
     col1, col2 = st.columns([2, 1])
@@ -319,8 +341,59 @@ if page == "🔍 Búsqueda Individual":
                             # Take at least 3 documents (or all if less than 3)
                             selected_docs = results[:max(3, len(high_score_docs))]
                         
-                        # Generate answer using selected local model
-                        if (generative_model_name == "tinyllama-1.1b" and local_tinyllama_client) or \
+                        # Generate answer using selected model
+                        if generative_model_name == "llama-4-scout" and openrouter_client:
+                            # Use OpenRouter client for Llama-4-Scout
+                            try:
+                                # Prepare context from selected documents with links
+                                context_parts = []
+                                for i, doc in enumerate(selected_docs):
+                                    title = doc.get('title', f'Documento {i+1}')
+                                    content = doc.get('content', '')
+                                    link = doc.get('link', '')
+                                    
+                                    context_part = f"Documento {i+1}:\nTítulo: {title}\n"
+                                    if link:
+                                        context_part += f"Enlace: {link}\n"
+                                    context_part += f"Contenido: {content}"
+                                    context_parts.append(context_part)
+                                
+                                context = "\n\n".join(context_parts)
+                                
+                                generated_answer = openrouter_client.generate_answer(
+                                    question=full_query,
+                                    context=context,
+                                    max_length=512
+                                )
+                                
+                                # Add Microsoft Learn links to the response
+                                if generated_answer and not generated_answer.startswith("Error"):
+                                    ms_links = []
+                                    for doc in selected_docs[:6]:
+                                        link = doc.get('link', '')
+                                        title = doc.get('title', 'Documento')
+                                        if link and 'learn.microsoft.com' in link:
+                                            ms_links.append(f"- **{title}**  \n  {link}")
+                                    
+                                    if ms_links:
+                                        generated_answer += "\n\n## Enlaces y Referencias\n\n"
+                                        generated_answer += "\n\n".join(ms_links[:max(3, len(ms_links))])
+                                        generated_answer += "\n\n*Consulta la documentación oficial de Microsoft Learn para información más detallada.*"
+                                
+                                rag_metrics = {
+                                    'confidence': 0.85,  # OpenRouter models are generally more reliable
+                                    'completeness': 'complete' if len(selected_docs) >= 3 else 'partial',
+                                    'docs_used': len(selected_docs),
+                                    'high_score_docs': len(high_score_docs),
+                                    'min_score': min([doc.get('score', 0) for doc in selected_docs]),
+                                    'max_score': max([doc.get('score', 0) for doc in selected_docs]),
+                                    'model_provider': 'OpenRouter'
+                                }
+                            except Exception as e:
+                                st.error(f"Error generando respuesta con OpenRouter: {e}")
+                                generated_answer = None
+                                rag_metrics = {}
+                        elif (generative_model_name == "tinyllama-1.1b" and local_tinyllama_client) or \
                            (generative_model_name == "mistral-7b" and local_mistral_client):
                             from utils.local_answer_generator import generate_final_answer_local
                             
@@ -341,18 +414,23 @@ if page == "🔍 Búsqueda Individual":
                                     'docs_used': len(selected_docs),
                                     'high_score_docs': len(high_score_docs),
                                     'min_score': min([doc.get('score', 0) for doc in selected_docs]),
-                                    'max_score': max([doc.get('score', 0) for doc in selected_docs])
+                                    'max_score': max([doc.get('score', 0) for doc in selected_docs]),
+                                    'model_provider': 'Local'
                                 }
                             except Exception as e:
                                 st.error(f"Error generando respuesta con {generative_model_name}: {e}")
                                 generated_answer = None
                                 rag_metrics = {}
                         else:
-                            # No hay cliente local disponible para el modelo seleccionado
-                            if generative_model_name in ["tinyllama-1.1b", "mistral-7b"]:
+                            # No hay cliente disponible para el modelo seleccionado
+                            if generative_model_name == "llama-4-scout":
+                                st.warning(f"⚠️ OpenRouter client no está disponible. Verifica tu API key OPEN_ROUTER_KEY.")
+                            elif generative_model_name in ["tinyllama-1.1b", "mistral-7b"]:
                                 st.warning(f"⚠️ Modelo local {generative_model_name} no está disponible. Asegúrate de que esté configurado correctamente.")
-                                generated_answer = None
-                                rag_metrics = {}
+                            else:
+                                st.warning(f"⚠️ Modelo {generative_model_name} no soportado para respuesta individual.")
+                            generated_answer = None
+                            rag_metrics = {}
             
             # Actualizar métricas de sesión
             response_time = time.time() - start_time
@@ -501,7 +579,15 @@ if page == "🔍 Búsqueda Individual":
                         if message.tool_calls:
                             tool_call = message.tool_calls[0]
                             if tool_call.function.name == "list_azure_documentation":
-                                tool_args = json.loads(tool_call.function.arguments)
+                                # Sanitize JSON arguments to handle control characters
+                                raw_arguments = tool_call.function.arguments
+                                sanitized_arguments = _sanitize_json_string(raw_arguments)
+                                
+                                try:
+                                    tool_args = json.loads(sanitized_arguments)
+                                except json.JSONDecodeError as e:
+                                    st.error(f"Error procesando respuesta de OpenAI: {e}")
+                                    tool_args = {"documents": []}
                                 documents_data = tool_args.get("documents", [])
                                 
                                 for doc in documents_data:
@@ -795,6 +881,9 @@ elif page == "🔬 Comparación de Modelos":
 
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()
+
+elif page == "📈 Métricas Acumulativas":
+    show_cumulative_metrics_page()
 
 # Footer común
 st.markdown("---")

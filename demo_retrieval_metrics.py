@@ -53,7 +53,7 @@ def demo_single_question_metrics():
         
         try:
             # Inicializar clientes
-            weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(model_key)
+            weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
             
             # Ejecutar pipeline con métricas
             result = answer_question_with_retrieval_metrics(
@@ -64,13 +64,14 @@ def demo_single_question_metrics():
                 gemini_client=gemini_client,
                 local_tinyllama_client=local_tinyllama_client,
                 local_mistral_client=local_mistral_client,
+                openrouter_client=openrouter_client,
                 top_k=10,
                 use_llm_reranker=True,
                 generate_answer=False,  # Solo documentos para métricas
                 calculate_metrics=True,
                 ground_truth_answer=ground_truth_answer,
                 ms_links=ms_links,
-                generative_model_name='tinyllama-1.1b'
+                generative_model_name='llama-4-scout'
             )
             
             # Mostrar resultados
@@ -143,7 +144,7 @@ def demo_batch_metrics():
     
     try:
         # Inicializar clientes
-        weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(model_key)
+        weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
         
         # Evaluar cada pregunta
         all_results = []
@@ -161,13 +162,14 @@ def demo_batch_metrics():
                     gemini_client=gemini_client,
                     local_tinyllama_client=local_tinyllama_client,
                     local_mistral_client=local_mistral_client,
+                    openrouter_client=openrouter_client,
                     top_k=10,
                     use_llm_reranker=True,
                     generate_answer=False,
                     calculate_metrics=True,
                     ground_truth_answer=qa_pair['accepted_answer'],
                     ms_links=qa_pair['ms_links'],
-                    generative_model_name='tinyllama-1.1b'
+                    generative_model_name='llama-4-scout'
                 )
                 
                 if len(result) >= 3:

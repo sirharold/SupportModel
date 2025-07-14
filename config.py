@@ -11,13 +11,14 @@ DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
 
 # Generative model configurations
 GENERATIVE_MODELS = {
+    "llama-4-scout": "llama-4-scout",
     "gpt-4": "gpt-4",
     "gemini-pro": "gemini-pro",
     "tinyllama-1.1b": "tinyllama-1.1b",
     "mistral-7b": "mistral-7b"
 }
 
-DEFAULT_GENERATIVE_MODEL = "tinyllama-1.1b"  # Changed to local model for cost savings
+DEFAULT_GENERATIVE_MODEL = "llama-4-scout"  # Changed to OpenRouter model for better performance
 
 # Weaviate class names for different models
 WEAVIATE_CLASS_CONFIG = {
@@ -54,8 +55,14 @@ MODEL_DESCRIPTIONS = {
     }
 }
 
-# Local model descriptions
-LOCAL_MODEL_DESCRIPTIONS = {
+# Generative model descriptions
+GENERATIVE_MODEL_DESCRIPTIONS = {
+    "llama-4-scout": {
+        "description": "Llama-4-Scout vía OpenRouter. Modelo avanzado gratuito con excelente rendimiento.",
+        "provider": "Meta (OpenRouter)",
+        "cost": "Gratuito",
+        "requirements": "API key de OpenRouter requerida"
+    },
     "tinyllama-1.1b": {
         "description": "Modelo local TinyLlama 1.1B. Extremadamente liviano y rápido sin costos de API.",
         "provider": "TinyLlama (Local)",
@@ -67,5 +74,23 @@ LOCAL_MODEL_DESCRIPTIONS = {
         "provider": "Mistral AI (Local)",
         "cost": "Gratuito", 
         "requirements": "6GB+ RAM, GPU recomendada"
+    },
+    "gpt-4": {
+        "description": "GPT-4 de OpenAI. Modelo de alta calidad con costos por uso.",
+        "provider": "OpenAI",
+        "cost": "Pagado",
+        "requirements": "API key de OpenAI requerida"
+    },
+    "gemini-pro": {
+        "description": "Gemini Pro de Google. Modelo multimodal con costos por uso.",
+        "provider": "Google",
+        "cost": "Pagado",
+        "requirements": "API key de Google requerida"
     }
+}
+
+# Legacy alias for backward compatibility
+LOCAL_MODEL_DESCRIPTIONS = {
+    k: v for k, v in GENERATIVE_MODEL_DESCRIPTIONS.items() 
+    if "Local" in v.get("provider", "")
 }

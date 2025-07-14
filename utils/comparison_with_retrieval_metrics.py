@@ -76,9 +76,9 @@ def show_retrieval_metrics_comparison(
             
             try:
                 # Inicializar cliente para este modelo
-                weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(
+                weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(
                     model_key, 
-                    st.session_state.get('generative_model_name', 'tinyllama-1.1b')
+                    st.session_state.get('generative_model_name', 'llama-4-scout')
                 )
                 
                 # Ejecutar pipeline con métricas
@@ -87,6 +87,10 @@ def show_retrieval_metrics_comparison(
                     weaviate_wrapper=weaviate_wrapper,
                     embedding_client=embedding_client,
                     openai_client=openai_client,
+                    gemini_client=gemini_client,
+                    local_tinyllama_client=local_tinyllama_client,
+                    local_mistral_client=local_mistral_client,
+                    openrouter_client=openrouter_client,
                     gemini_client=gemini_client,
                     local_tinyllama_client=local_tinyllama_client,
                     local_mistral_client=local_mistral_client,

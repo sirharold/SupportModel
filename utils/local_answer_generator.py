@@ -114,17 +114,32 @@ def generate_final_answer_local(
         # Clean up the answer
         answer = answer.strip()
         
-        # Add source information
+        # Add source information - ensure at least 3 Microsoft Learn links
         if retrieved_docs:
             source_links = []
-            for doc in retrieved_docs[:3]:  # Show top 3 sources
+            for doc in retrieved_docs[:6]:  # Check up to 6 documents
                 link = doc.get('link', '')
                 title = doc.get('title', 'N/A')
-                if link:
-                    source_links.append(f"- [{title}]({link})")
+                if link and 'learn.microsoft.com' in link:
+                    source_links.append(f"- **{title}**  \n  {link}")
             
+            # Ensure we have at least 3 links if available
             if source_links:
-                answer += "\n\n**Fuentes:**\n" + "\n".join(source_links)
+                answer += "\n\n## Enlaces y Referencias\n\n"
+                answer += "\n\n".join(source_links[:max(3, len(source_links))])
+                answer += "\n\n*Consulta la documentación oficial de Microsoft Learn para información más detallada.*"
+            elif retrieved_docs:
+                # Fallback: show any available links even if not from learn.microsoft.com
+                fallback_links = []
+                for doc in retrieved_docs[:3]:
+                    link = doc.get('link', '')
+                    title = doc.get('title', 'N/A')
+                    if link:
+                        fallback_links.append(f"- **{title}**  \n  {link}")
+                
+                if fallback_links:
+                    answer += "\n\n## Enlaces y Referencias\n\n"
+                    answer += "\n\n".join(fallback_links)
         
         generation_info["answer_length"] = len(answer)
         return answer, generation_info

@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple
 from openai import OpenAI
 import json
 import re
+from utils.json_utils import robust_json_parse
 
 def generate_final_answer(
     question: str, 
@@ -56,12 +57,13 @@ def generate_final_answer(
             ],
             tools=tools,
             tool_choice={"type": "function", "function": {"name": "provide_comprehensive_answer"}},
-            temperature=0.3,  # Temperatura baja para respuestas más consistentes
-            max_tokens=1500
+            temperature=0.1,  # Temperatura muy baja para JSON más consistente
+            max_tokens=1500,
+            seed=42  # Añadir seed para más consistencia
         )
         
         # 4. Extraer respuesta estructurada
-        answer, generation_info = _extract_generated_answer(response)
+        answer, generation_info = _extract_generated_answer(response, retrieved_docs)
         
         # 5. Compilar información de debug
         debug_info = {
@@ -112,7 +114,7 @@ def _prepare_context(docs: List[Dict], max_length: int, include_citations: bool)
             doc_section = f"""
 [DOCUMENTO {i+1}] - Score: {score:.3f}
 Título: {title}
-URL: {link}
+**ENLACE OFICIAL**: {link}
 Contenido: {content}
 ---"""
         else:
@@ -160,7 +162,9 @@ REGLAS IMPORTANTES:
     if include_citations:
         base_prompt += """
 6. SIEMPRE incluye citas usando el formato [DOCUMENTO X] donde X es el número del documento
-7. Al final, incluye una sección "Referencias" con los enlaces de los documentos utilizados"""
+7. OBLIGATORIO: Al final, incluye una sección "Enlaces y Referencias" con AL MENOS 3 enlaces de los documentos utilizados
+8. Formato de enlaces: Usa el URL completo proporcionado en cada documento
+9. Los enlaces deben ser funcionales y corresponder a los documentos citados en la respuesta"""
     
     return base_prompt
 
@@ -175,6 +179,84 @@ DOCUMENTACIÓN DISPONIBLE:
 
 Por favor, proporciona una respuesta comprehensiva basada en la documentación anterior."""
 
+def _sanitize_json_string(json_string: str) -> str:
+    """
+    Sanitiza una cadena JSON eliminando caracteres de control inválidos.
+    
+    Args:
+        json_string: Cadena JSON potencialmente con caracteres de control
+        
+    Returns:
+        Cadena JSON sanitizada
+    """
+    import re
+    
+    # Método más robusto: usar regex para remover todos los caracteres de control
+    # excepto los permitidos en JSON (\t, \n, \r)
+    # ASCII control characters (0-31) except \t(9), \n(10), \r(13)
+    sanitized = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', json_string)
+    
+    # También remover caracteres Unicode problemáticos
+    sanitized = re.sub(r'[\u0080-\u009F]', '', sanitized)  # C1 control characters
+    sanitized = re.sub(r'[\u2028\u2029]', '', sanitized)   # Line/Paragraph separators
+    
+    # Fix common JSON issues without breaking valid JSON
+    # Remove any remaining non-printable characters
+    sanitized = re.sub(r'[^\x20-\x7E\t\n\r]', '', sanitized)
+    
+    return sanitized
+
+def _ensure_links_included(answer: str, retrieved_docs: List[Dict], references_used: List[int]) -> str:
+    """
+    Asegura que la respuesta incluya al menos 3 enlaces oficiales de Microsoft Learn.
+    
+    Args:
+        answer: Respuesta generada
+        retrieved_docs: Documentos recuperados
+        references_used: Números de documentos utilizados según el modelo
+        
+    Returns:
+        Respuesta con enlaces garantizados
+    """
+    # Verificar si ya hay una sección de enlaces en la respuesta
+    has_links_section = any(keyword in answer.lower() for keyword in [
+        "enlaces", "referencias", "links", "documentación oficial"
+    ])
+    
+    # Extraer enlaces de los documentos utilizados
+    available_links = []
+    for i, doc in enumerate(retrieved_docs[:6]):  # Tomar máximo 6 documentos
+        link = doc.get('link', '')
+        title = doc.get('title', f'Documento {i+1}')
+        if link and 'learn.microsoft.com' in link:
+            available_links.append({
+                'title': title,
+                'link': link,
+                'doc_num': i + 1
+            })
+    
+    # Si no hay sección de enlaces o hay menos de 3 enlaces, añadir/completar
+    links_in_answer = answer.count('learn.microsoft.com')
+    
+    if not has_links_section or links_in_answer < 3:
+        # Seleccionar los mejores enlaces
+        links_to_add = available_links[:max(3, len(available_links))]
+        
+        if links_to_add:
+            if not has_links_section:
+                answer += "\n\n## Enlaces y Referencias\n\n"
+            else:
+                # Si ya hay una sección pero faltan enlaces, añadir antes del final
+                answer += "\n\n**Enlaces adicionales:**\n\n"
+            
+            for link_info in links_to_add:
+                answer += f"- **{link_info['title']}**  \n"
+                answer += f"  {link_info['link']}\n\n"
+            
+            answer += "*Consulta la documentación oficial de Microsoft Learn para información más detallada.*"
+    
+    return answer
+
 def _get_answer_generation_tools():
     """Define las herramientas para la generación estructurada de respuestas."""
     return [
@@ -188,7 +270,7 @@ def _get_answer_generation_tools():
                     "properties": {
                         "answer": {
                             "type": "string",
-                            "description": "La respuesta principal detallada y bien estructurada."
+                            "description": "La respuesta principal detallada y bien estructurada. DEBE incluir al final una sección 'Enlaces y Referencias' con al menos 3 enlaces oficiales de Microsoft Learn de los documentos utilizados."
                         },
                         "key_points": {
                             "type": "array",
@@ -218,14 +300,38 @@ def _get_answer_generation_tools():
         }
     ]
 
-def _extract_generated_answer(response) -> Tuple[str, Dict]:
+def _extract_generated_answer(response, retrieved_docs: List[Dict] = None) -> Tuple[str, Dict]:
     """Extrae la respuesta generada de la respuesta de OpenAI."""
     try:
         message = response.choices[0].message
         if message.tool_calls:
             tool_call = message.tool_calls[0]
             if tool_call.function.name == "provide_comprehensive_answer":
-                tool_args = json.loads(tool_call.function.arguments)
+                # Use robust JSON parsing
+                raw_arguments = tool_call.function.arguments
+                tool_args, success, error = robust_json_parse(raw_arguments, {})
+                
+                if not success:
+                    print(f"[DEBUG] All JSON parsing strategies failed: {error}")
+                    print(f"[DEBUG] Original JSON: {raw_arguments[:200]}...")
+                    
+                    # Final fallback: try to extract content directly
+                    fallback_content = message.content or ""
+                    if not fallback_content and hasattr(message, 'text'):
+                        fallback_content = message.text or ""
+                    
+                    if fallback_content:
+                        return fallback_content, {
+                            "error": f"JSON parsing failed: {error}",
+                            "fallback": True,
+                            "confidence": 0.3
+                        }
+                    else:
+                        return "No se pudo procesar la respuesta del modelo. Por favor, intenta nuevamente.", {
+                            "error": f"JSON parsing failed and no fallback content: {error}",
+                            "fallback": True,
+                            "confidence": 0.1
+                        }
                 
                 answer = tool_args.get("answer", "")
                 key_points = tool_args.get("key_points", [])
@@ -238,6 +344,10 @@ def _extract_generated_answer(response) -> Tuple[str, Dict]:
                     answer += "\n\n**Puntos Clave:**\n"
                     for i, point in enumerate(key_points, 1):
                         answer += f"{i}. {point}\n"
+                
+                # Asegurar que los enlaces estén incluidos
+                if retrieved_docs:
+                    answer = _ensure_links_included(answer, retrieved_docs, references_used)
                 
                 generation_info = {
                     "confidence": confidence,
@@ -256,7 +366,26 @@ def _extract_generated_answer(response) -> Tuple[str, Dict]:
             
     except Exception as e:
         print(f"[DEBUG] Error extracting generated answer: {e}")
-        return "Error procesando la respuesta generada.", {"error": str(e)}
+        print(f"[DEBUG] Exception type: {type(e).__name__}")
+        
+        # Try to get any available content from the response
+        try:
+            message = response.choices[0].message
+            fallback_content = message.content or ""
+            if fallback_content:
+                return fallback_content, {
+                    "error": f"Extraction failed but content available: {str(e)}",
+                    "fallback": True,
+                    "confidence": 0.3
+                }
+        except:
+            pass
+        
+        return "Error procesando la respuesta generada. Por favor, intenta nuevamente.", {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "fallback": True
+        }
 
 def _create_fallback_answer(question: str, docs: List[Dict]) -> str:
     """Crea una respuesta de fallback cuando falla la generación."""
@@ -361,12 +490,18 @@ Evalúa:
         
         if response.choices[0].message.tool_calls:
             tool_call = response.choices[0].message.tool_calls[0]
-            tool_args = json.loads(tool_call.function.arguments)
-            return {
-                "faithfulness": tool_args.get("faithfulness", 0.5),
-                "answer_relevancy": tool_args.get("answer_relevancy", 0.5),
-                "context_utilization": tool_args.get("context_utilization", 0.5)
-            }
+            # Use robust JSON parsing
+            raw_arguments = tool_call.function.arguments
+            tool_args, success, error = robust_json_parse(raw_arguments, {})
+            
+            if success:
+                return {
+                    "faithfulness": tool_args.get("faithfulness", 0.5),
+                    "answer_relevancy": tool_args.get("answer_relevancy", 0.5),
+                    "context_utilization": tool_args.get("context_utilization", 0.5)
+                }
+            else:
+                print(f"[DEBUG] JSON parsing failed in evaluation: {error}")
     
     except Exception as e:
         print(f"[DEBUG] Error in answer quality evaluation: {e}")
