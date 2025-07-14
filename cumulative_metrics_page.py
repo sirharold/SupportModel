@@ -121,6 +121,33 @@ def calculate_average_metrics(all_metrics: List[Dict]) -> Dict[str, float]:
     
     return average_metrics
 
+
+def run_cumulative_metrics_for_models(
+    questions_and_answers: List[Dict],
+    num_questions: int,
+    model_names: List[str],
+    generative_model_name: str,
+    top_k: int = 10,
+    use_llm_reranker: bool = True,
+) -> Dict[str, Dict[str, Any]]:
+    """Run cumulative evaluation for several embedding models."""
+    results = {}
+    total_models = len(model_names)
+
+    for i, model in enumerate(model_names):
+        with st.spinner(f"Evaluando {model} ({i+1}/{total_models})..."):
+            model_result = run_cumulative_metrics_evaluation(
+                questions_and_answers=questions_and_answers,
+                num_questions=num_questions,
+                model_name=model,
+                generative_model_name=generative_model_name,
+                top_k=top_k,
+                use_llm_reranker=use_llm_reranker,
+            )
+            results[model] = model_result
+
+    return results
+
 def run_cumulative_metrics_evaluation(
     questions_and_answers: List[Dict],
     num_questions: int,
@@ -411,6 +438,24 @@ def display_cumulative_metrics(results: Dict[str, Any], model_name: str, use_llm
                 'F1@5 (Después)': '{:.3f}'
             }), use_container_width=True)
 
+
+def display_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool) -> None:
+    """Display a side-by-side comparison of multiple models."""
+    st.subheader("📈 Comparación Entre Modelos")
+
+    metrics_to_plot = ['Precision@5', 'Recall@5', 'F1@5', 'MRR@5', 'nDCG@5']
+
+    data = []
+    for model_name, res in results.items():
+        metrics = res['avg_after_metrics'] if use_llm_reranker else res['avg_before_metrics']
+        for m in metrics_to_plot:
+            data.append({'Modelo': model_name, 'Métrica': m, 'Valor': metrics.get(m, 0)})
+
+    df = pd.DataFrame(data)
+    fig = px.bar(df, x='Métrica', y='Valor', color='Modelo', barmode='group')
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, use_container_width=True)
+
 def load_questions_from_json(file_path: str) -> List[Dict]:
     """
     Carga preguntas desde archivo JSON.
@@ -511,13 +556,18 @@ def show_cumulative_metrics_page():
             value=5,
             help="Cantidad de preguntas para evaluar (seleccionadas aleatoriamente)"
         )
-        
+
         # Modelo de embedding
         model_name = st.selectbox(
             "Modelo de Embedding",
             options=list(EMBEDDING_MODELS.keys()),
             index=0,
             help="Modelo para generar embeddings de documentos"
+        )
+        evaluate_all_models = st.checkbox(
+            "Evaluar los 3 modelos",
+            value=False,
+            help="Ejecuta la evaluación para MiniLM, ada y Mpnet en una sola corrida"
         )
     
     with col2:
@@ -553,84 +603,100 @@ def show_cumulative_metrics_page():
         
         with st.spinner(f"🔍 Evaluando {num_questions} preguntas..."):
             start_time = time.time()
-            
-            results = run_cumulative_metrics_evaluation(
-                questions_and_answers=filtered_questions,
-                num_questions=num_questions,
-                model_name=model_name,
-                generative_model_name=generative_model_name,
-                top_k=top_k,
-                use_llm_reranker=use_llm_reranker
-            )
-            
+
+            if evaluate_all_models:
+                model_list = list(EMBEDDING_MODELS.keys())
+                results = run_cumulative_metrics_for_models(
+                    questions_and_answers=filtered_questions,
+                    num_questions=num_questions,
+                    model_names=model_list,
+                    generative_model_name=generative_model_name,
+                    top_k=top_k,
+                    use_llm_reranker=use_llm_reranker,
+                )
+            else:
+                results = run_cumulative_metrics_evaluation(
+                    questions_and_answers=filtered_questions,
+                    num_questions=num_questions,
+                    model_name=model_name,
+                    generative_model_name=generative_model_name,
+                    top_k=top_k,
+                    use_llm_reranker=use_llm_reranker,
+                )
+
             evaluation_time = time.time() - start_time
+
+            if evaluate_all_models:
+                display_models_comparison(results, use_llm_reranker)
+                for m_name, res in results.items():
+                    st.markdown(f"### {m_name}")
+                    display_cumulative_metrics(res, m_name, use_llm_reranker)
+            else:
+                display_cumulative_metrics(results, model_name, use_llm_reranker)
             
-            # Mostrar resultados
-            display_cumulative_metrics(results, model_name, use_llm_reranker)
-            
-            # Estadísticas adicionales
-            st.markdown("---")
-            st.subheader("📊 Estadísticas de Evaluación")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric(
-                    "📝 Preguntas Evaluadas",
-                    f"{results['num_questions_evaluated']}",
-                    help="Número total de preguntas procesadas"
-                )
-            
-            with col2:
-                if results['all_questions_data']:
-                    avg_gt_links = np.mean([q['ground_truth_links'] for q in results['all_questions_data']])
+            if not evaluate_all_models:
+                # Estadísticas adicionales
+                st.markdown("---")
+                st.subheader("📊 Estadísticas de Evaluación")
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
                     st.metric(
-                        "🔗 Links GT Promedio",
-                        f"{avg_gt_links:.1f}",
-                        help="Número promedio de links de ground truth por pregunta"
+                        "📝 Preguntas Evaluadas",
+                        f"{results['num_questions_evaluated']}",
+                        help="Número total de preguntas procesadas"
                     )
-            
-            with col3:
-                st.metric(
-                    "⏱️ Tiempo Total",
-                    f"{evaluation_time:.1f}s",
-                    help="Tiempo total de evaluación"
-                )
-            
-            # Opción para descargar resultados
-            st.markdown("---")
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                if st.button("💾 Descargar Resultados Detallados"):
-                    results_df = pd.DataFrame(results['all_questions_data'])
-                    csv = results_df.to_csv(index=False)
-                    st.download_button(
-                        label="Descargar CSV Detallado",
-                        data=csv,
-                        file_name=f"cumulative_metrics_detailed_{model_name}_{num_questions}q.csv",
-                        mime="text/csv"
+
+                with col2:
+                    if results['all_questions_data']:
+                        avg_gt_links = np.mean([q['ground_truth_links'] for q in results['all_questions_data']])
+                        st.metric(
+                            "🔗 Links GT Promedio",
+                            f"{avg_gt_links:.1f}",
+                            help="Número promedio de links de ground truth por pregunta"
+                        )
+
+                with col3:
+                    st.metric(
+                        "⏱️ Tiempo Total",
+                        f"{evaluation_time:.1f}s",
+                        help="Tiempo total de evaluación"
                     )
-            
-            with col2:
-                if st.button("📊 Descargar Métricas Promedio"):
-                    # Crear CSV con métricas promedio
-                    avg_metrics_data = {
-                        'Metric': [],
-                        'Before_Reranking': [],
-                        'After_Reranking': []
-                    }
-                    
-                    for metric in ['Precision@5', 'Recall@5', 'F1@5', 'MRR@5', 'nDCG@5']:
-                        avg_metrics_data['Metric'].append(metric)
-                        avg_metrics_data['Before_Reranking'].append(results['avg_before_metrics'].get(metric, 0))
-                        avg_metrics_data['After_Reranking'].append(results['avg_after_metrics'].get(metric, 0))
-                    
-                    avg_df = pd.DataFrame(avg_metrics_data)
-                    csv = avg_df.to_csv(index=False)
-                    st.download_button(
-                        label="Descargar CSV Promedio",
-                        data=csv,
-                        file_name=f"cumulative_metrics_avg_{model_name}_{num_questions}q.csv",
-                        mime="text/csv"
-                    )
+
+                # Opción para descargar resultados
+                st.markdown("---")
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    if st.button("💾 Descargar Resultados Detallados"):
+                        results_df = pd.DataFrame(results['all_questions_data'])
+                        csv = results_df.to_csv(index=False)
+                        st.download_button(
+                            label="Descargar CSV Detallado",
+                            data=csv,
+                            file_name=f"cumulative_metrics_detailed_{model_name}_{num_questions}q.csv",
+                            mime="text/csv"
+                        )
+
+                with col2:
+                    if st.button("📊 Descargar Métricas Promedio"):
+                        avg_metrics_data = {
+                            'Metric': [],
+                            'Before_Reranking': [],
+                            'After_Reranking': []
+                        }
+
+                        for metric in ['Precision@5', 'Recall@5', 'F1@5', 'MRR@5', 'nDCG@5']:
+                            avg_metrics_data['Metric'].append(metric)
+                            avg_metrics_data['Before_Reranking'].append(results['avg_before_metrics'].get(metric, 0))
+                            avg_metrics_data['After_Reranking'].append(results['avg_after_metrics'].get(metric, 0))
+
+                        avg_df = pd.DataFrame(avg_metrics_data)
+                        csv = avg_df.to_csv(index=False)
+                        st.download_button(
+                            label="Descargar CSV Promedio",
+                            data=csv,
+                            file_name=f"cumulative_metrics_avg_{model_name}_{num_questions}q.csv",
+                            mime="text/csv"
+                        )
