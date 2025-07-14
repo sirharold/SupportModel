@@ -36,9 +36,16 @@ La página de **Métricas Acumulativas** permite evaluar múltiples preguntas de
 | **LLM Reranking** | Habilitado | Usar GPT-4 para reordenar documentos |
 
 ### Fuente de Datos
-- **Archivo**: `data/val_set.json` (1,035 preguntas)
+- **Archivos disponibles**: 
+  - `data/val_set.json` (1,035 preguntas de validación)
+  - `data/train_set.json` (2,000 preguntas de entrenamiento)
+  - **Total combinado**: 3,035 preguntas
 - **Formato**: JSON con structure `{title, question_content, accepted_answer, tags, url}`
-- **Filtrado**: Solo preguntas con enlaces de Microsoft Learn
+- **Filtrado**: Solo preguntas con enlaces de Microsoft Learn (100% del dataset)
+- **Opciones de dataset**: 
+  - Dataset Completo (train + val): 3,035 preguntas
+  - Solo Validación: 1,035 preguntas  
+  - Solo Entrenamiento: 2,000 preguntas
 
 ## Uso Paso a Paso
 

@@ -384,17 +384,63 @@ def show_cumulative_metrics_page():
     del rendimiento del sistema. Solo se evalúan preguntas que tienen links en la respuesta aceptada.
     """)
     
-    # Cargar preguntas desde JSON
-    questions_and_answers = load_questions_from_json('data/val_set.json')
+    # Opción para seleccionar dataset
+    dataset_option = st.selectbox(
+        "Seleccionar dataset:",
+        ["📊 Dataset Completo (train + val)", "📋 Solo Validación", "🎯 Solo Entrenamiento"],
+        index=0,
+        help="Elige qué conjunto de datos usar para la evaluación"
+    )
+    
+    # Cargar preguntas según la selección del usuario
+    val_questions = load_questions_from_json('data/val_set.json')
+    train_questions = load_questions_from_json('data/train_set.json')
+    
+    # Seleccionar dataset basado en la opción del usuario
+    questions_and_answers = []
+    if dataset_option == "📊 Dataset Completo (train + val)":
+        if val_questions:
+            questions_and_answers.extend(val_questions)
+        if train_questions:
+            questions_and_answers.extend(train_questions)
+    elif dataset_option == "📋 Solo Validación":
+        if val_questions:
+            questions_and_answers = val_questions
+        else:
+            st.error("❌ No se pudo cargar el dataset de validación")
+            st.stop()
+    elif dataset_option == "🎯 Solo Entrenamiento":
+        if train_questions:
+            questions_and_answers = train_questions
+        else:
+            st.error("❌ No se pudo cargar el dataset de entrenamiento")
+            st.stop()
     
     if not questions_and_answers:
-        st.error("❌ No se pudieron cargar las preguntas")
+        st.error("❌ No hay preguntas disponibles en el dataset seleccionado")
         st.stop()
     
     # Filtrar preguntas con links
     filtered_questions = filter_questions_with_links(questions_and_answers)
     
-    st.info(f"📊 {len(filtered_questions)} preguntas disponibles con links en respuesta aceptada")
+    # Mostrar estadísticas del dataset
+    if dataset_option == "📊 Dataset Completo (train + val)":
+        dataset_info = []
+        if val_questions:
+            dataset_info.append(f"Validación: {len(val_questions)}")
+        if train_questions:
+            dataset_info.append(f"Entrenamiento: {len(train_questions)}")
+        st.info(f"📊 **Dataset seleccionado**: {len(questions_and_answers)} preguntas total ({', '.join(dataset_info)})")
+    elif dataset_option == "📋 Solo Validación":
+        st.info(f"📊 **Dataset seleccionado**: {len(questions_and_answers)} preguntas del conjunto de validación")
+    elif dataset_option == "🎯 Solo Entrenamiento":
+        st.info(f"📊 **Dataset seleccionado**: {len(questions_and_answers)} preguntas del conjunto de entrenamiento")
+    
+    st.info(f"🔗 **Preguntas con enlaces MS Learn**: {len(filtered_questions)} preguntas disponibles para evaluación")
+    
+    if len(filtered_questions) == 0:
+        st.error("❌ No hay preguntas con enlaces de Microsoft Learn para evaluar")
+        st.stop()
     
     # Configuración
     st.subheader("⚙️ Configuración de Evaluación")
