@@ -24,6 +24,7 @@ def answer_question_with_retrieval_metrics(
     gemini_client: genai.GenerativeModel = None,
     local_tinyllama_client = None,
     local_mistral_client = None,
+    openrouter_client = None,
     top_k: int = 10,
     *,
     diversity_threshold: float = 0.85,

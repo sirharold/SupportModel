@@ -236,7 +236,7 @@ def show_comparison_page():
     st.markdown("Ejecuta una consulta en los tres modelos de embedding y compara los resultados y métricas lado a lado.")
 
     # --- 1. User Input ---
-    weaviate_wrapper, _, _, _, _, _, _ = initialize_clients("multi-qa-mpnet-base-dot-v1")
+    weaviate_wrapper, _, _, _, _, _, _, _ = initialize_clients("multi-qa-mpnet-base-dot-v1")
     
     if 'questions_for_dropdown' not in st.session_state:
         with st.spinner("Cargando preguntas de ejemplo..."):
@@ -328,7 +328,7 @@ def show_comparison_page():
             with st.spinner(f"Consultando con el modelo: {model_display_name}..."):
                 try:
                     start_time = time.time()
-                    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'tinyllama-1.1b'))
+                    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'llama-4-scout'))
                     
                     # Use unified pipeline with retrieval metrics
                     if enable_retrieval_metrics:
@@ -343,13 +343,14 @@ def show_comparison_page():
                             gemini_client=gemini_client,
                             local_tinyllama_client=local_tinyllama_client,
                             local_mistral_client=local_mistral_client,
+                            openrouter_client=openrouter_client,
                             top_k=top_k,
                             use_llm_reranker=use_reranker,
                             generate_answer=enable_advanced_metrics and generate_answers,
                             calculate_metrics=True,
                             ground_truth_answer=selected_question.get('accepted_answer', ''),
                             ms_links=selected_question.get('ms_links', []),
-                            generative_model_name=st.session_state.get('generative_model_name', 'tinyllama-1.1b')
+                            generative_model_name=st.session_state.get('generative_model_name', 'llama-4-scout')
                         )
                         
                         # Extract results based on whether answer generation was enabled
@@ -372,7 +373,7 @@ def show_comparison_page():
                                     gemini_client=gemini_client,
                                     local_tinyllama_client=local_tinyllama_client,
                                     local_mistral_client=local_mistral_client,
-                                    generative_model_name=st.session_state.get('generative_model_name', 'tinyllama-1.1b'),
+                                    generative_model_name=st.session_state.get('generative_model_name', 'llama-4-scout'),
                                     top_k=top_k
                                 )
                                 advanced_metrics = eval_result.get('advanced_metrics', {})
@@ -391,7 +392,7 @@ def show_comparison_page():
                             gemini_client=gemini_client,
                             local_tinyllama_client=local_tinyllama_client,
                             local_mistral_client=local_mistral_client,
-                            generative_model_name=st.session_state.get('generative_model_name', 'tinyllama-1.1b'),
+                            generative_model_name=st.session_state.get('generative_model_name', 'llama-4-scout'),
                             top_k=top_k
                         )
                         
