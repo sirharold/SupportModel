@@ -13,11 +13,11 @@ DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
 GENERATIVE_MODELS = {
     "gpt-4": "gpt-4",
     "gemini-pro": "gemini-pro",
-    "llama-3.1-8b": "llama-3.1-8b",
+    "tinyllama-1.1b": "tinyllama-1.1b",
     "mistral-7b": "mistral-7b"
 }
 
-DEFAULT_GENERATIVE_MODEL = "llama-3.1-8b"  # Changed to local model for cost savings
+DEFAULT_GENERATIVE_MODEL = "tinyllama-1.1b"  # Changed to local model for cost savings
 
 # Weaviate class names for different models
 WEAVIATE_CLASS_CONFIG = {
@@ -56,11 +56,11 @@ MODEL_DESCRIPTIONS = {
 
 # Local model descriptions
 LOCAL_MODEL_DESCRIPTIONS = {
-    "llama-3.1-8b": {
-        "description": "Modelo local Llama 3.1 8B. Generación de respuestas de alta calidad sin costos de API.",
-        "provider": "Meta (Local)",
+    "tinyllama-1.1b": {
+        "description": "Modelo local TinyLlama 1.1B. Extremadamente liviano y rápido sin costos de API.",
+        "provider": "TinyLlama (Local)",
         "cost": "Gratuito",
-        "requirements": "8GB+ RAM, GPU recomendada"
+        "requirements": "1GB RAM, perfecto para laptops antiguos"
     },
     "mistral-7b": {
         "description": "Modelo local Mistral 7B. Eficiente para refinamiento de queries y tareas de NLP.",

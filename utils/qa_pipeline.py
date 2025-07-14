@@ -88,7 +88,7 @@ def answer_question(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
-    local_llama_client = None,
+    local_tinyllama_client = None,
     local_mistral_client = None,
     top_k: int = 10,
     *,
@@ -99,7 +99,7 @@ def answer_question(
     evaluate_quality: bool = False,
     documents_class: str = "Documents",
     questions_class: str = "Questions",
-    generative_model_name: str = "llama-3.1-8b",
+    generative_model_name: str = "tinyllama-1.1b",
     use_local_refinement: bool = True
 ) -> Union[Tuple[List[dict], str], Tuple[List[dict], str, str, Dict]]:
     print("[DEBUG] Entering answer_question function.")
@@ -258,11 +258,11 @@ def answer_question(
         
         # 9. Generación de respuesta final (NUEVO)
         if generate_answer:
-            if generative_model_name == "llama-3.1-8b" and local_llama_client:
+            if generative_model_name == "tinyllama-1.1b" and local_tinyllama_client:
                 generated_answer, generation_info = generate_final_answer_local(
                     question=question,
                     retrieved_docs=reranked,
-                    model_name="llama-3.1-8b"
+                    model_name="tinyllama-1.1b"
                 )
             elif generative_model_name == "mistral-7b" and local_mistral_client:
                 generated_answer, generation_info = generate_final_answer_local(
@@ -337,7 +337,7 @@ def answer_question_documents_only(
         embedding_client=embedding_client,
         openai_client=openai_client,
         gemini_client=None,
-        local_llama_client=None,
+        local_tinyllama_client=None,
         local_mistral_client=None,
         top_k=top_k,
         diversity_threshold=diversity_threshold,
@@ -354,7 +354,7 @@ def answer_question_with_rag(
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
-    local_llama_client = None,
+    local_tinyllama_client = None,
     local_mistral_client = None,
     top_k: int = 10,
     *,
@@ -364,7 +364,7 @@ def answer_question_with_rag(
     evaluate_quality: bool = True,
     documents_class: str = "Documents",
     questions_class: str = "Questions",
-    generative_model_name: str = "llama-3.1-8b"
+    generative_model_name: str = "tinyllama-1.1b"
 ) -> Tuple[List[dict], str, str, Dict]:
     """
     Función que ejecuta el pipeline RAG completo con generación de respuesta.
@@ -378,7 +378,7 @@ def answer_question_with_rag(
         embedding_client=embedding_client,
         openai_client=openai_client,
         gemini_client=gemini_client,
-        local_llama_client=local_llama_client,
+        local_tinyllama_client=local_tinyllama_client,
         local_mistral_client=local_mistral_client,
         top_k=top_k,
         diversity_threshold=diversity_threshold,

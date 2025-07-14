@@ -19,9 +19,9 @@ def evaluate_rag_with_advanced_metrics(
     embedding_client,
     openai_client,
     gemini_client=None,
-    local_llama_client=None,
+    local_tinyllama_client=None,
     local_mistral_client=None,
-    generative_model_name: str = "llama-3.1-8b",
+    generative_model_name: str = "tinyllama-1.1b",
     top_k: int = 10
 ) -> Dict:
     """
@@ -33,7 +33,7 @@ def evaluate_rag_with_advanced_metrics(
         embedding_client: Embedding client
         openai_client: OpenAI client
         gemini_client: Gemini client (optional)
-        local_llama_client: Local Llama client (optional)
+        local_tinyllama_client: Local Llama client (optional)
         local_mistral_client: Local Mistral client (optional)
         generative_model_name: Name of generative model
         top_k: Number of documents to retrieve
@@ -51,7 +51,7 @@ def evaluate_rag_with_advanced_metrics(
             embedding_client=embedding_client,
             openai_client=openai_client,
             gemini_client=gemini_client,
-            local_llama_client=local_llama_client,
+            local_tinyllama_client=local_tinyllama_client,
             local_mistral_client=local_mistral_client,
             top_k=top_k,
             generative_model_name=generative_model_name,
@@ -135,9 +135,9 @@ def batch_evaluate_with_advanced_metrics(
     embedding_client,
     openai_client,
     gemini_client=None,
-    local_llama_client=None,
+    local_tinyllama_client=None,
     local_mistral_client=None,
-    generative_model_name: str = "llama-3.1-8b",
+    generative_model_name: str = "tinyllama-1.1b",
     top_k: int = 10
 ) -> List[Dict]:
     """
@@ -161,7 +161,7 @@ def batch_evaluate_with_advanced_metrics(
             embedding_client=embedding_client,
             openai_client=openai_client,
             gemini_client=gemini_client,
-            local_llama_client=local_llama_client,
+            local_tinyllama_client=local_tinyllama_client,
             local_mistral_client=local_mistral_client,
             generative_model_name=generative_model_name,
             top_k=top_k
