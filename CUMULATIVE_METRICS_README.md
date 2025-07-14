@@ -12,11 +12,11 @@ La página de **Métricas Acumulativas** permite evaluar múltiples preguntas de
 - **Validación de calidad**: Asegura que cada pregunta tenga ground truth válido
 
 ### 📊 **Métricas Calculadas**
-- **Precision@5**: Precisión en los primeros 5 documentos
-- **Recall@5**: Cobertura en los primeros 5 documentos  
-- **F1@5**: Balance entre precisión y cobertura
-- **MRR@5**: Mean Reciprocal Rank en top-5
-- **nDCG@5**: Normalized Discounted Cumulative Gain
+- **MRR**: Mean Reciprocal Rank global
+- **Recall@k**: Cobertura para k=1,3,5,10
+- **Precision@k**: Precisión para k=1,3,5,10
+- **F1@k**: Balance entre precisión y recall para k=1,3,5,10
+- **Accuracy@k**: Exactitud de clasificación para k=1,3,5,10
 
 ### 🔄 **Antes y Después del Reranking**
 - **Métricas base**: Resultados usando solo similarity search
@@ -30,7 +30,7 @@ La página de **Métricas Acumulativas** permite evaluar múltiples preguntas de
 
 | Parámetro | Valor Por Defecto | Descripción |
 |-----------|-------------------|-------------|
-| **Número de preguntas** | 5 | Cantidad de preguntas a evaluar (rango: 1-50) |
+| **Número de preguntas** | 5 | Cantidad de preguntas a evaluar (rango: 5-3035) |
 | **Modelo de Embedding** | multi-qa-mpnet-base-dot-v1 | Modelo para generar embeddings |
 | **Top-K documentos** | 10 | Número de documentos a recuperar |
 | **LLM Reranking** | Habilitado | Usar GPT-4 para reordenar documentos |
@@ -108,11 +108,11 @@ def calculate_average_metrics(all_metrics):
 ## Interpretación de Resultados
 
 ### 📊 **Métricas Principales**
-- **Precision@5 > 0.5**: Buena precisión en top-5
-- **Recall@5 > 0.3**: Buena cobertura del ground truth
-- **F1@5 > 0.4**: Buen balance precision/recall
-- **MRR@5 > 0.6**: Primer resultado relevante aparece temprano
-- **nDCG@5 > 0.5**: Buen ranking general
+- **Valores ≥ 0.7**: 🟢 *Muy buenos*
+- **Valores 0.4 - 0.7**: 🟡 *Buenos*
+- **Valores < 0.4**: 🔴 *Malos*
+- **MRR** evalúa la posición del primer relevante
+- **Recall/Precision/F1/Accuracy@k** se reportan para k=1,3,5,10
 
 ### 🔄 **Impacto del Reranking**
 - **Delta positivo**: El reranking LLM mejora la métrica

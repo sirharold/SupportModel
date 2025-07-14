@@ -16,6 +16,33 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# Helper functions to interpret metric quality
+def grade_metric(value: float) -> str:
+    """Return a qualitative label for a metric value."""
+    if value >= 0.7:
+        return "🟢 Muy bueno"
+    elif value >= 0.4:
+        return "🟡 Bueno"
+    else:
+        return "🔴 Malo"
+
+
+def color_metric(val: float) -> str:
+    """Return background color for dataframe styling."""
+    if pd.isna(val):
+        return ""
+    if val >= 0.7:
+        return "background-color: #c6f5c6"  # light green
+    elif val >= 0.4:
+        return "background-color: #fff4b3"  # light yellow
+    else:
+        return "background-color: #f7c6c6"  # light red
+
+
+def style_metrics_df(df: pd.DataFrame) -> pd.DataFrame:
+    """Apply coloring to before/after metric columns."""
+    return df.style.applymap(color_metric, subset=["Before", "After"])
+
 def extract_ms_links(accepted_answer: str) -> List[str]:
     """
     Extrae links de Microsoft Learn de la respuesta aceptada.
@@ -301,7 +328,35 @@ def display_cumulative_metrics(results: Dict[str, Any], model_name: str, use_llm
         )
         
         st.plotly_chart(fig, use_container_width=True)
-    
+
+    # Tabla resumen con interpretación
+    summary_metrics = ['MRR']
+    for k in [1, 3, 5, 10]:
+        summary_metrics.extend([
+            f'Recall@{k}', f'Precision@{k}', f'F1@{k}', f'Accuracy@{k}'
+        ])
+
+    rows = []
+    for metric in summary_metrics:
+        before_val = avg_before.get(metric, np.nan)
+        after_val = avg_after.get(metric, np.nan) if use_llm_reranker else before_val
+        delta_val = after_val - before_val if use_llm_reranker else 0
+        rows.append({
+            'Métrica': metric,
+            'Before': before_val,
+            'After': after_val,
+            'Δ': delta_val,
+            'Interpretación': grade_metric(after_val)
+        })
+
+    metrics_df = pd.DataFrame(rows)
+
+    st.markdown("### 📋 Resumen de Métricas")
+    st.dataframe(
+        style_metrics_df(metrics_df).format({'Before': '{:.3f}', 'After': '{:.3f}', 'Δ': '{:+.3f}'}),
+        use_container_width=True
+    )
+
     # Métricas adicionales en expander
     with st.expander("📋 Métricas Detalladas"):
         col1, col2 = st.columns(2)
@@ -451,10 +506,10 @@ def show_cumulative_metrics_page():
         # Número de preguntas
         num_questions = st.slider(
             "Número de preguntas a evaluar",
-            min_value=1,
-            max_value=min(50, len(filtered_questions)),
+            min_value=min(5, len(filtered_questions)),
+            max_value=len(filtered_questions),
             value=5,
-            help="Cantidad de preguntas para evaluar (tomadas aleatoriamente)"
+            help="Cantidad de preguntas para evaluar (seleccionadas aleatoriamente)"
         )
         
         # Modelo de embedding
