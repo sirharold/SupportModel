@@ -144,6 +144,7 @@ F1@5,0.310,0.410
 1. Ejecutar con multi-qa-mpnet-base-dot-v1
 2. Ejecutar con all-MiniLM-L6-v2
 3. Comparar métricas promedio
+4. También puedes habilitar **Evaluar los 3 modelos** para ejecutarlos en una sola corrida
 ```
 
 ### 📈 **Análisis de Rendimiento**
