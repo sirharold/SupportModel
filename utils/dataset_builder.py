@@ -3,6 +3,12 @@ import random
 import json
 import os
 from typing import List, Tuple
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 AZURE_DOCS_PATTERN = r"https://learn\.microsoft\.com[\w/\-\?=&%.]+"
 
@@ -29,14 +35,14 @@ def save_to_json(data: List[dict], filename: str):
 
 def build_and_save_dataset(weaviate_wrapper, output_dir: str = "data"):
     try:
-        print("Fetching questions from 'Questions' collection...")
+        debug_print("[INFO] Fetching questions from 'Questions' collection...")
         questions_collection = weaviate_wrapper.client.collections.get("Questions")
         all_data = questions_collection.query.fetch_objects(limit=15000)
         items = [obj.properties for obj in all_data.objects]
 
-        print(f"Total retrieved: {len(items)}")
+        debug_print(f"[INFO] Total retrieved: {len(items)}")
         filtered = filter_questions_with_links(items)
-        print(f"Questions with Azure links: {len(filtered)}")
+        debug_print(f"[INFO] Questions with Azure links: {len(filtered)}")
 
         train_set, val_set = split_dataset(filtered, train_size=2000)
 
@@ -44,11 +50,11 @@ def build_and_save_dataset(weaviate_wrapper, output_dir: str = "data"):
         save_to_json(train_set, f"{output_dir}/train_set.json")
         save_to_json(val_set, f"{output_dir}/val_set.json")
 
-        print(f"Train set saved to {output_dir}/train_set.json ({len(train_set)} items)")
-        print(f"Validation set saved to {output_dir}/val_set.json ({len(val_set)} items)")
+        debug_print(f"[INFO] Train set saved to {output_dir}/train_set.json ({len(train_set)} items)")
+        debug_print(f"[INFO] Validation set saved to {output_dir}/val_set.json ({len(val_set)} items)")
 
     except Exception as e:
-        print("Error building dataset:", e)
+        debug_print(f"[ERROR] Error building dataset: {e}")
 
 def is_successful_match(retrieved_docs: List[dict], ground_truth_links: List[str]) -> bool:
     """
@@ -121,7 +127,7 @@ def build_embedding_train_set(train_json_path: str, weaviate_wrapper, embedding_
 
     with open(output_path, "w") as f:
         json.dump(labeled_data, f, indent=2)
-    print(f"✅ Labeled embedding dataset saved to: {output_path}")
+    debug_print(f"[INFO] ✅ Labeled embedding dataset saved to: {output_path}")
 
 def generate_embedding_dataset(labeled_data: List[dict], embedding_client, output_path: str):
     result = []
@@ -137,4 +143,4 @@ def generate_embedding_dataset(labeled_data: List[dict], embedding_client, outpu
             })
     with open(output_path, "w") as f:
         json.dump(result, f, indent=2)
-    print(f"✅ Embedding dataset saved to {output_path} ({len(result)} samples)")
+    debug_print(f"[INFO] ✅ Embedding dataset saved to {output_path} ({len(result)} samples)")

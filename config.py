@@ -20,6 +20,9 @@ GENERATIVE_MODELS = {
 
 DEFAULT_GENERATIVE_MODEL = "llama-4-scout"  # Changed to OpenRouter model for better performance
 
+# Debug configuration
+DEBUG_MODE = False  # Set to True to enable debug messages, False to disable them
+
 # Weaviate class names for different models
 WEAVIATE_CLASS_CONFIG = {
     "multi-qa-mpnet-base-dot-v1": {

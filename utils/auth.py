@@ -1,5 +1,11 @@
 # utils/auth.py
 import os
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 from huggingface_hub import login, whoami
 from huggingface_hub.utils import HfHubHTTPError
 
@@ -21,13 +27,13 @@ def ensure_huggingface_login(token: str | None = None):
             token = os.getenv("HUGGINGFACE_API_KEY") or os.getenv("HF_TOKEN")
 
         if token:
-            print("[DEBUG] Found token. Logging in.")
+            debug_print("[DEBUG] Found token. Logging in.")
             login(token=token, add_to_git_credential=False)
             
             # Verify login was successful
             try:
                 whoami()
-                print("[DEBUG] Hugging Face login successful.")
+                debug_print("[DEBUG] Hugging Face login successful.")
             except HfHubHTTPError:
                 raise RuntimeError("Hugging Face login failed. The provided token may be invalid.")
         else:

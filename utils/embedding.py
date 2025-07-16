@@ -2,6 +2,12 @@ from typing import List, Dict, Optional
 import os
 import gc
 import threading
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 class EmbeddingClient:
     def __init__(self, 
@@ -30,9 +36,9 @@ class EmbeddingClient:
         self._document_model = None
         self._model_lock = threading.Lock()
         
-        print(f"[DEBUG] EmbeddingClient initialized with lazy loading")
-        print(f"[DEBUG] Query model: {model_name}")
-        print(f"[DEBUG] Document model: {document_model_name}")
+        debug_print(f"[DEBUG] EmbeddingClient initialized with lazy loading")
+        debug_print(f"[DEBUG] Query model: {model_name}")
+        debug_print(f"[DEBUG] Document model: {document_model_name}")
 
     @property
     def query_model(self):
@@ -41,9 +47,9 @@ class EmbeddingClient:
             with self._model_lock:
                 if self._query_model is None:
                     from sentence_transformers import SentenceTransformer
-                    print(f"[DEBUG] Loading query model: {self.model_name}")
+                    debug_print(f"[DEBUG] Loading query model: {self.model_name}")
                     self._query_model = SentenceTransformer(self.model_name)
-                    print(f"[DEBUG] Query model loaded successfully")
+                    debug_print(f"[DEBUG] Query model loaded successfully")
         return self._query_model
 
     @property
@@ -53,9 +59,9 @@ class EmbeddingClient:
             with self._model_lock:
                 if self._document_model is None:
                     from sentence_transformers import SentenceTransformer
-                    print(f"[DEBUG] Loading document model: {self.document_model_name}")
+                    debug_print(f"[DEBUG] Loading document model: {self.document_model_name}")
                     self._document_model = SentenceTransformer(self.document_model_name)
-                    print(f"[DEBUG] Document model loaded successfully")
+                    debug_print(f"[DEBUG] Document model loaded successfully")
         return self._document_model
 
     @property
@@ -96,17 +102,17 @@ class EmbeddingClient:
                 if self._query_model is not None:
                     del self._query_model
                     self._query_model = None
-                    print("[DEBUG] Query model cleaned up")
+                    debug_print("[DEBUG] Query model cleaned up")
                 
                 if self._document_model is not None:
                     del self._document_model
                     self._document_model = None
-                    print("[DEBUG] Document model cleaned up")
+                    debug_print("[DEBUG] Document model cleaned up")
                 
                 gc.collect()
-                print("[DEBUG] Garbage collection completed")
+                debug_print("[DEBUG] Garbage collection completed")
         except Exception as e:
-            print(f"[DEBUG] Error during cleanup: {e}")
+            debug_print(f"[DEBUG] Error during cleanup: {e}")
     
     def __del__(self):
         """Destructor to ensure cleanup on object deletion."""

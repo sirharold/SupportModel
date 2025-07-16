@@ -13,8 +13,15 @@ from utils.answer_generator import generate_final_answer, evaluate_answer_qualit
 from utils.gemini_answer_generator import generate_final_answer_gemini
 from utils.local_answer_generator import generate_final_answer_local, refine_query_local
 from utils.retrieval_metrics import calculate_before_after_reranking_metrics, format_metrics_for_display
+from config import DEBUG_MODE
 import copy
 import gc
+
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 
 def answer_question_with_retrieval_metrics(
@@ -58,7 +65,7 @@ def answer_question_with_retrieval_metrics(
     # Importar la función original del pipeline
     from utils.qa_pipeline import refine_and_prepare_query
     
-    print("[DEBUG] Entering answer_question_with_retrieval_metrics function.")
+    debug_print("[DEBUG] Entering answer_question_with_retrieval_metrics function.")
     debug_logs = []
     
     # Variables para almacenar documentos antes y después del reranking
@@ -78,23 +85,23 @@ def answer_question_with_retrieval_metrics(
             )
         
         debug_logs.append(refinement_log)
-        print(f"[DEBUG] Query used for embedding: {refined_query}")
+        debug_print(f"[DEBUG] Query used for embedding: {refined_query}")
 
         # 2. Embedding of the prepared question
         query_vector = embedding_client.generate_query_embedding(refined_query)
         if "ada" in embedding_client.model_name:
-            print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
+            debug_print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
         
-        print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
+        debug_print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
         debug_logs.append(f"🔹 Query vector length: {len(query_vector)}")
         debug_logs.append(f"🔹 top_k: {top_k}")
 
         # 3. Buscar preguntas similares (Questions)
         if use_questions_collection:
-            print(f"[DEBUG] Searching for similar questions in collection: {questions_class}")
+            debug_print(f"[DEBUG] Searching for similar questions in collection: {questions_class}")
             similar_questions = weaviate_wrapper.search_questions_by_vector(query_vector, top_k=min(top_k*3, 30))
             debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
-            print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
+            debug_print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
 
             # 4. Extraer links desde respuestas aceptadas con deduplicación temprana
             unique_links = set()
@@ -104,19 +111,19 @@ def answer_question_with_retrieval_metrics(
 
             all_links = list(unique_links)
             debug_logs.append(f"🔹 Links extracted from answers: {len(all_links)}")
-            print(f"[DEBUG] Extracted {len(all_links)} unique links from similar questions.")
+            debug_print(f"[DEBUG] Extracted {len(all_links)} unique links from similar questions.")
             debug_logs.append(f"🔹 Sample links: {all_links[:3]}")
 
             # 5. Recuperar documentos vinculados usando batch operation when available
             if hasattr(weaviate_wrapper, "lookup_docs_by_links_batch"):
-                print(f"[DEBUG] Looking up documents by links in collection: {documents_class}")
+                debug_print(f"[DEBUG] Looking up documents by links in collection: {documents_class}")
                 linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(
                     all_links, batch_size=50
                 )
             else:
                 linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
             debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
-            print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
+            debug_print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
         else:
             debug_logs.append("🔹 Skipping Questions collection search.")
             similar_questions = []
@@ -124,10 +131,10 @@ def answer_question_with_retrieval_metrics(
 
         # 6. Buscar documentos directamente por vector
         document_vector = embedding_client.generate_document_embedding(refined_query)
-        print(f"[DEBUG] Document vector generated. Length: {len(document_vector)}")
+        debug_print(f"[DEBUG] Document vector generated. Length: {len(document_vector)}")
         debug_logs.append(f"🔹 Document vector length: {len(document_vector)}")
         
-        print(f"[DEBUG] Searching for documents by vector in collection: {documents_class}")
+        debug_print(f"[DEBUG] Searching for documents by vector in collection: {documents_class}")
         vector_docs = weaviate_wrapper.search_docs_by_vector(
             vector=document_vector,
             top_k=max(top_k * 2, 20),
@@ -135,7 +142,7 @@ def answer_question_with_retrieval_metrics(
             include_distance=True
         )
         if "ada" in embedding_client.model_name:
-            print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
+            debug_print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
 
         # 7. Combinar y deduplicar con prioridad a documentos linked
         unique_docs_dict = {}
@@ -154,11 +161,11 @@ def answer_question_with_retrieval_metrics(
 
         unique_docs = list(unique_docs_dict.values())
         debug_logs.append(f"🔹 Unique documents after optimized deduplication: {len(unique_docs)}")
-        print(f"[DEBUG] Total unique documents after deduplication: {len(unique_docs)}")
+        debug_print(f"[DEBUG] Total unique documents after deduplication: {len(unique_docs)}")
 
         if not unique_docs:
             debug_logs.append("⚠️ No unique documents retrieved.")
-            print("[DEBUG] No unique documents found. Returning empty list.")
+            debug_print("[DEBUG] No unique documents found. Returning empty list.")
             if calculate_metrics:
                 return [], "\n".join(debug_logs), "", {}, {}
             elif generate_answer:
@@ -166,7 +173,7 @@ def answer_question_with_retrieval_metrics(
             else:
                 return [], "\n".join(debug_logs)
 
-        print("[DEBUG] Documents retrieved from Weaviate (before reranking):")
+        debug_print("[DEBUG] Documents retrieved from Weaviate (before reranking):")
         
         # 8. Guardar documentos ANTES del reranking para métricas
         if calculate_metrics:
@@ -175,28 +182,28 @@ def answer_question_with_retrieval_metrics(
 
         # 9. Reranking (condicional)
         debug_logs.append(f"🔹 Preparing for reranking. LLM Reranker enabled: {use_llm_reranker}")
-        print(f"[DEBUG] In qa_pipeline: LLM Reranker enabled: {use_llm_reranker}")
-        print(f"[DEBUG] In qa_pipeline: Number of unique_docs to rerank: {len(unique_docs)}")
+        debug_print(f"[DEBUG] In qa_pipeline: LLM Reranker enabled: {use_llm_reranker}")
+        debug_print(f"[DEBUG] In qa_pipeline: Number of unique_docs to rerank: {len(unique_docs)}")
         max_docs_to_rerank = min(len(unique_docs), 40 if use_llm_reranker else top_k * 3)
         docs_to_rerank = unique_docs[:max_docs_to_rerank]
 
         if use_llm_reranker:
             try:
                 debug_logs.append(f"🔹 Using LLM to rerank {len(docs_to_rerank)} documents...")
-                print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with LLM.")
+                debug_print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with LLM.")
                 reranked = rerank_with_llm(question, docs_to_rerank, openai_client, top_k=top_k, embedding_model=embedding_client.model_name)
             except Exception as e:
-                print(f"[DEBUG] ERROR during LLM reranking: {e}")
+                debug_print(f"[DEBUG] ERROR during LLM reranking: {e}")
                 debug_logs.append(f"❌ Error during LLM reranking: {e}. Falling back to standard reranking.")
-                print("[DEBUG] Falling back to standard reranking after LLM error.")
+                debug_print("[DEBUG] Falling back to standard reranking after LLM error.")
                 reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
         else:
             debug_logs.append(f"🔹 Using standard embedding similarity to rerank {len(docs_to_rerank)} documents...")
-            print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with standard reranker.")
+            debug_print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with standard reranker.")
             reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
         
         debug_logs.append(f"🔹 Documents after reranking: {len(reranked)}")
-        print(f"[DEBUG] Documents after reranking: {len(reranked)}")
+        debug_print(f"[DEBUG] Documents after reranking: {len(reranked)}")
         
         # 10. Guardar documentos DESPUÉS del reranking para métricas
         if calculate_metrics:
@@ -289,7 +296,7 @@ def answer_question_with_retrieval_metrics(
 
     except Exception as e:
         debug_logs.append(f"❌ Error: {e}")
-        print(f"[DEBUG] Unhandled error in answer_question_with_retrieval_metrics: {e}")
+        debug_print(f"[DEBUG] Unhandled error in answer_question_with_retrieval_metrics: {e}")
         if calculate_metrics:
             if generate_answer:
                 return [], "\n".join(debug_logs), f"Error en el pipeline: {e}", {"status": "pipeline_error", "error": str(e)}, {"error": str(e)}
@@ -326,7 +333,7 @@ def batch_calculate_retrieval_metrics(
     all_metrics = []
     
     for i, qa_pair in enumerate(questions_and_answers):
-        print(f"\n[BATCH] Processing question {i+1}/{len(questions_and_answers)}")
+        debug_print(f"\n[BATCH] Processing question {i+1}/{len(questions_and_answers)}", force=True)
         
         question = qa_pair.get('question', '')
         accepted_answer = qa_pair.get('accepted_answer', '')
@@ -367,10 +374,10 @@ def batch_calculate_retrieval_metrics(
                 if retrieval_metrics.get('before_reranking'):
                     mrr_before = retrieval_metrics['before_reranking'].get('MRR', 0)
                     mrr_after = retrieval_metrics['after_reranking'].get('MRR', 0)
-                    print(f"[BATCH] Q{i+1} MRR: {mrr_before:.4f} → {mrr_after:.4f}")
+                    debug_print(f"[BATCH] Q{i+1} MRR: {mrr_before:.4f} → {mrr_after:.4f}", force=True)
                 
         except Exception as e:
-            print(f"[BATCH] Error processing question {i+1}: {e}")
+            debug_print(f"[BATCH] Error processing question {i+1}: {e}", force=True)
             all_metrics.append({
                 'question': question,
                 'question_index': i,
@@ -388,26 +395,26 @@ def print_batch_metrics_summary(all_metrics: List[Dict]):
         all_metrics: Lista de métricas calculadas por batch_calculate_retrieval_metrics
     """
     if not all_metrics:
-        print("No metrics to display.")
+        debug_print("No metrics to display.", force=True)
         return
     
     # Filtrar métricas válidas (sin errores)
     valid_metrics = [m for m in all_metrics if 'before_reranking' in m and 'after_reranking' in m]
     
     if not valid_metrics:
-        print("No valid metrics found.")
+        debug_print("No valid metrics found.", force=True)
         return
     
-    print(f"\n📊 RESUMEN DE MÉTRICAS - {len(valid_metrics)} CONSULTAS PROCESADAS")
-    print("=" * 80)
+    debug_print(f"\n📊 RESUMEN DE MÉTRICAS - {len(valid_metrics)} CONSULTAS PROCESADAS", force=True)
+    debug_print("=" * 80, force=True)
     
     # Calcular promedios
     from utils.retrieval_metrics import calculate_aggregated_metrics
     aggregated = calculate_aggregated_metrics(valid_metrics)
     
     if aggregated:
-        print(f"{'Métrica':<15} {'Before (μ)':<12} {'After (μ)':<12} {'Mejora (μ)':<12} {'% Mejora':<12}")
-        print("-" * 80)
+        debug_print(f"{'Métrica':<15} {'Before (μ)':<12} {'After (μ)':<12} {'Mejora (μ)':<12} {'% Mejora':<12}", force=True)
+        debug_print("-" * 80, force=True)
         
         for metric_key in ['MRR', 'Recall@1', 'Recall@3', 'Recall@5', 'Recall@10', 
                           'Precision@1', 'Precision@3', 'Precision@5', 'Precision@10',
@@ -419,22 +426,22 @@ def print_batch_metrics_summary(all_metrics: List[Dict]):
                 
                 pct_improvement = (improvement_mean / before_mean * 100) if before_mean > 0 else 0
                 
-                print(f"{metric_key:<15} {before_mean:<12.4f} {after_mean:<12.4f} {improvement_mean:<12.4f} {pct_improvement:<12.2f}%")
+                debug_print(f"{metric_key:<15} {before_mean:<12.4f} {after_mean:<12.4f} {improvement_mean:<12.4f} {pct_improvement:<12.2f}%", force=True)
     
     # Mostrar casos destacados
-    print("\n🎯 CASOS DESTACADOS:")
-    print("-" * 50)
+    debug_print("\n🎯 CASOS DESTACADOS:", force=True)
+    debug_print("-" * 50, force=True)
     
     # Mejor mejora en MRR
     best_mrr_improvement = max(valid_metrics, 
                               key=lambda x: x['after_reranking']['MRR'] - x['before_reranking']['MRR'])
     mrr_improvement = best_mrr_improvement['after_reranking']['MRR'] - best_mrr_improvement['before_reranking']['MRR']
-    print(f"Mayor mejora MRR: +{mrr_improvement:.4f} (Q{best_mrr_improvement.get('question_index', 'N/A')})")
+    debug_print(f"Mayor mejora MRR: +{mrr_improvement:.4f} (Q{best_mrr_improvement.get('question_index', 'N/A')})", force=True)
     
     # Mejor mejora en Precision@5
     best_p5_improvement = max(valid_metrics, 
                              key=lambda x: x['after_reranking'].get('Precision@5', 0) - x['before_reranking'].get('Precision@5', 0))
     p5_improvement = best_p5_improvement['after_reranking'].get('Precision@5', 0) - best_p5_improvement['before_reranking'].get('Precision@5', 0)
-    print(f"Mayor mejora Precision@5: +{p5_improvement:.4f} (Q{best_p5_improvement.get('question_index', 'N/A')})")
+    debug_print(f"Mayor mejora Precision@5: +{p5_improvement:.4f} (Q{best_p5_improvement.get('question_index', 'N/A')})", force=True)
     
-    print("-" * 80)
+    debug_print("-" * 80, force=True)

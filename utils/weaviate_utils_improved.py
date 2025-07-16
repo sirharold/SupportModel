@@ -7,6 +7,12 @@ from weaviate.collections.classes.filters import Filter as WeaviateFilter
 from functools import lru_cache
 import time
 from dataclasses import dataclass
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 logger = logging.getLogger(__name__)
 
@@ -112,14 +118,14 @@ class WeaviateClientWrapper:
         include_distance: bool = False
     ) -> List[Dict]:
         """Search questions by vector similarity."""
-        print(f"[DEBUG] search_questions_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
+        debug_print(f"[DEBUG] search_questions_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
         if not vector:
             raise ValueError("Vector cannot be empty")
         if top_k <= 0:
             raise ValueError("top_k must be positive")
         
         def _search_questions():
-            print(f"[DEBUG] search_questions_by_vector: Searching in collection: {self._questions_collection.name}")
+            debug_print(f"[DEBUG] search_questions_by_vector: Searching in collection: {self._questions_collection.name}")
             if include_distance:
                 results = self._questions_collection.query.near_vector(
                     near_vector=vector,
@@ -132,7 +138,7 @@ class WeaviateClientWrapper:
                     limit=top_k
                 )
             
-            print(f"[DEBUG] search_questions_by_vector: Weaviate returned {len(results.objects)} objects.")
+            debug_print(f"[DEBUG] search_questions_by_vector: Weaviate returned {len(results.objects)} objects.")
             questions = []
             for obj in results.objects:
                 question_data = obj.properties.copy()
@@ -146,7 +152,7 @@ class WeaviateClientWrapper:
             return self._retry_operation(_search_questions)
         except Exception as e:
             logger.error(f"Error searching questions by vector: {e}")
-            print(f"[DEBUG] search_questions_by_vector: Error: {e}")
+            debug_print(f"[DEBUG] search_questions_by_vector: Error: {e}")
             return []
     
     def search_docs_by_vector(
@@ -157,36 +163,36 @@ class WeaviateClientWrapper:
         include_distance: bool = False
     ) -> List[Dict]:
         """Enhanced document search with diversity control."""
-        print(f"[DEBUG] search_docs_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
+        debug_print(f"[DEBUG] search_docs_by_vector: Called with vector length {len(vector)}, top_k {top_k}")
         if not vector:
             raise ValueError("Vector cannot be empty")
         if top_k <= 0:
             raise ValueError("top_k must be positive")
         
         def _search_docs():
-            print(f"[DEBUG] search_docs_by_vector: Searching in collection: {self._docs_collection.name}")
+            debug_print(f"[DEBUG] search_docs_by_vector: Searching in collection: {self._docs_collection.name}")
             # Fetch more documents for better diversity
             fetch_limit = max(top_k * 3, 30)
 
             try:
                 # Try the new API with filters parameter
-                print("[DEBUG] Attempting near_vector query with filters.")
+                debug_print("[DEBUG] Attempting near_vector query with filters.")
                 results = self._docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
                     return_metadata=['distance'] if include_distance else None
                 )
-                print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects.")
+                debug_print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects.")
             except TypeError as e:
                 # Fallback to old API without filters parameter (if TypeError is due to filters)
                 logger.warning(f"Using fallback API without filters parameter due to: {e}")
-                print(f"[DEBUG] Fallback to old API: {e}")
+                debug_print(f"[DEBUG] Fallback to old API: {e}")
                 results = self._docs_collection.query.near_vector(
                     near_vector=vector,
                     limit=fetch_limit,
                     return_metadata=['distance'] if include_distance else None
                 )
-                print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects (fallback).")
+                debug_print(f"[DEBUG] search_docs_by_vector: Weaviate returned {len(results.objects)} objects (fallback).")
                 # Filter results manually
                 filtered_objects = []
                 for obj in results.objects:
@@ -198,7 +204,7 @@ class WeaviateClientWrapper:
                         self.objects = objects
                 results = MockResults(filtered_objects)
             
-            print("[DEBUG] Applying diversity filtering.")
+            debug_print("[DEBUG] Applying diversity filtering.")
             return self._apply_diversity_filtering(
                 results.objects,
                 top_k,
@@ -210,7 +216,7 @@ class WeaviateClientWrapper:
             return self._retry_operation(_search_docs)
         except Exception as e:
             logger.error(f"Error searching docs by vector: {e}")
-            print(f"[DEBUG] search_docs_by_vector: Top-level error: {e}")
+            debug_print(f"[DEBUG] search_docs_by_vector: Top-level error: {e}")
             return []
     
     def _apply_diversity_filtering(
@@ -352,9 +358,9 @@ class WeaviateClientWrapper:
         limit: int = 10
     ) -> List[Dict]:
         """Search documents by keyword (BM25) in the Documentation collection."""
-        print(f"[DEBUG] search_docs_by_keyword: Searching for keyword: '{keyword}'")
+        debug_print(f"[DEBUG] search_docs_by_keyword: Searching for keyword: '{keyword}'")
         if not keyword:
-            print("[DEBUG] search_docs_by_keyword: Keyword is empty.")
+            debug_print("[DEBUG] search_docs_by_keyword: Keyword is empty.")
             return []
         
         def _search():
@@ -365,14 +371,14 @@ class WeaviateClientWrapper:
             docs = []
             for obj in results.objects:
                 docs.append(obj.properties.copy())
-            print(f"[DEBUG] search_docs_by_keyword: Found {len(docs)} documents for keyword '{keyword}'.")
+            debug_print(f"[DEBUG] search_docs_by_keyword: Found {len(docs)} documents for keyword '{keyword}'.")
             return docs
         
         try:
             return self._retry_operation(_search)
         except Exception as e:
             logger.error(f"Error searching docs by keyword: {e}")
-            print(f"[DEBUG] search_docs_by_keyword: Error: {e}")
+            debug_print(f"[DEBUG] search_docs_by_keyword: Error: {e}")
             return []
 
     def search_questions_by_keyword(
@@ -381,9 +387,9 @@ class WeaviateClientWrapper:
         limit: int = 10
     ) -> List[Dict]:
         """Search questions by keyword (BM25) in the Questions collection."""
-        print(f"[DEBUG] search_questions_by_keyword: Searching for keyword: '{keyword}'")
+        debug_print(f"[DEBUG] search_questions_by_keyword: Searching for keyword: '{keyword}'")
         if not keyword:
-            print("[DEBUG] search_questions_by_keyword: Keyword is empty.")
+            debug_print("[DEBUG] search_questions_by_keyword: Keyword is empty.")
             return []
         
         def _search():
@@ -394,14 +400,14 @@ class WeaviateClientWrapper:
             questions = []
             for obj in results.objects:
                 questions.append(obj.properties.copy())
-            print(f"[DEBUG] search_questions_by_keyword: Found {len(questions)} questions for keyword '{keyword}'.")
+            debug_print(f"[DEBUG] search_questions_by_keyword: Found {len(questions)} questions for keyword '{keyword}'.")
             return questions
         
         try:
             return self._retry_operation(_search)
         except Exception as e:
             logger.error(f"Error searching questions by keyword: {e}")
-            print(f"[DEBUG] search_questions_by_keyword: Error: {e}")
+            debug_print(f"[DEBUG] search_questions_by_keyword: Error: {e}")
             return []
 
     def get_sample_questions(
@@ -410,7 +416,7 @@ class WeaviateClientWrapper:
         random_sample: bool = False
     ) -> List[Dict]:
         """Get sample questions from the collection."""
-        print(f"[DEBUG] get_sample_questions: Getting {limit} questions, random: {random_sample}")
+        debug_print(f"[DEBUG] get_sample_questions: Getting {limit} questions, random: {random_sample}")
         
         def _get_questions():
             properties_to_return = ["title", "question_content", "accepted_answer"]
@@ -437,14 +443,14 @@ class WeaviateClientWrapper:
                     question_data['id'] = str(obj.uuid)
                 questions.append(question_data)
             
-            print(f"[DEBUG] get_sample_questions: Found {len(questions)} questions")
+            debug_print(f"[DEBUG] get_sample_questions: Found {len(questions)} questions")
             return questions
         
         try:
             return self._retry_operation(_get_questions)
         except Exception as e:
             logger.error(f"Error getting sample questions: {e}")
-            print(f"[DEBUG] get_sample_questions: Error: {e}")
+            debug_print(f"[DEBUG] get_sample_questions: Error: {e}")
             return []
 
 # Convenience functions for backward compatibility

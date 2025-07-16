@@ -6,6 +6,12 @@ import numpy as np
 from utils.qa_pipeline import answer_question
 from utils.metrics import compute_ndcg, compute_mrr, compute_precision_recall_f1
 import re
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 class EvaluationSystem:
     """Sistema de evaluación continua para el QA system."""
@@ -66,7 +72,7 @@ class EvaluationSystem:
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(evaluation_questions, f, indent=2, ensure_ascii=False)
         
-        print(f"✅ Evaluation dataset created: {output_path}")
+        debug_print(f"[INFO] ✅ Evaluation dataset created: {output_path}")
         return evaluation_questions
     
     def run_evaluation(self, evaluation_file: str = "data/evaluation_set.json") -> Dict:
@@ -77,7 +83,7 @@ class EvaluationSystem:
             with open(evaluation_file, 'r', encoding='utf-8') as f:
                 eval_data = json.load(f)
         except FileNotFoundError:
-            print("Creating evaluation dataset...")
+            debug_print("[INFO] Creating evaluation dataset...", force=True)
             eval_data = self.create_evaluation_dataset(evaluation_file)
         
         results = []
@@ -88,7 +94,7 @@ class EvaluationSystem:
             category = item.get("category", "general")
             difficulty = item.get("difficulty", "intermediate")
             
-            print(f"Evaluating: {question[:50]}...")
+            debug_print(f"[INFO] Evaluating: {question[:50]}...", force=True)
             
             # Ejecutar búsqueda
             retrieved_docs, debug_info = answer_question(
@@ -253,7 +259,7 @@ class EvaluationSystem:
         """Guarda reporte de evaluación."""
         with open(output_path, 'w', encoding='utf-8') as f:
             json.dump(report, f, indent=2, ensure_ascii=False)
-        print(f"✅ Evaluation report saved: {output_path}")
+        debug_print(f"[INFO] ✅ Evaluation report saved: {output_path}")
     
     def compare_with_baseline(self, current_results: Dict, baseline_path: str = "data/baseline_results.json"):
         """Compara resultados actuales con baseline."""
@@ -261,7 +267,7 @@ class EvaluationSystem:
             with open(baseline_path, 'r', encoding='utf-8') as f:
                 baseline = json.load(f)
         except FileNotFoundError:
-            print("No baseline found. Current results will be saved as baseline.")
+            debug_print("[INFO] No baseline found. Current results will be saved as baseline.", force=True)
             self.save_evaluation_report(current_results, baseline_path)
             return None
         
@@ -358,7 +364,7 @@ class PerformanceMonitor:
 def run_full_evaluation(weaviate_wrapper, embedding_client, save_results: bool = True):
     """Ejecuta evaluación completa del sistema."""
     
-    print("🔍 Starting comprehensive evaluation...")
+    debug_print("🔍 Starting comprehensive evaluation...", force=True)
     
     # Inicializar sistema de evaluación
     eval_system = EvaluationSystem(weaviate_wrapper, embedding_client)
@@ -367,25 +373,25 @@ def run_full_evaluation(weaviate_wrapper, embedding_client, save_results: bool =
     report = eval_system.run_evaluation()
     
     # Mostrar resultados
-    print("\n📊 EVALUATION RESULTS")
-    print("=" * 50)
-    print(f"Total queries evaluated: {report['total_queries']}")
-    print(f"Overall F1@10: {report['summary']['avg_f1']:.3f}")
-    print(f"Overall nDCG@10: {report['summary']['avg_ndcg']:.3f}")
-    print(f"Overall MRR@10: {report['summary']['avg_mrr']:.3f}")
-    print(f"Performance rating: {report['summary']['performance_rating']}")
+    debug_print("\n📊 EVALUATION RESULTS", force=True)
+    debug_print("=" * 50, force=True)
+    debug_print(f"Total queries evaluated: {report['total_queries']}", force=True)
+    debug_print(f"Overall F1@10: {report['summary']['avg_f1']:.3f}", force=True)
+    debug_print(f"Overall nDCG@10: {report['summary']['avg_ndcg']:.3f}", force=True)
+    debug_print(f"Overall MRR@10: {report['summary']['avg_mrr']:.3f}", force=True)
+    debug_print(f"Performance rating: {report['summary']['performance_rating']}", force=True)
     
     # Análisis por categoría
-    print("\n📈 Performance by Category:")
+    debug_print("\n📈 Performance by Category:", force=True)
     for category, data in report['category_analysis'].items():
         f1_score = data['metrics'].get('avg_f1@10', 0)
-        print(f"  {category}: F1={f1_score:.3f} ({data['count']} queries)")
+        debug_print(f"  {category}: F1={f1_score:.3f} ({data['count']} queries)", force=True)
     
     # Consultas problemáticas
     if report['problematic_queries']:
-        print(f"\n⚠️ Problematic queries ({len(report['problematic_queries'])}):")
+        debug_print(f"\n⚠️ Problematic queries ({len(report['problematic_queries'])}):", force=True)
         for pq in report['problematic_queries'][:3]:  # Mostrar solo las primeras 3
-            print(f"  - {pq['question'][:60]}... (F1: {pq['f1_score']:.3f})")
+            debug_print(f"  - {pq['question'][:60]}... (F1: {pq['f1_score']:.3f})", force=True)
     
     # Guardar resultados
     if save_results:
@@ -394,8 +400,8 @@ def run_full_evaluation(weaviate_wrapper, embedding_client, save_results: bool =
         # Comparar con baseline
         comparison = eval_system.compare_with_baseline(report)
         if comparison:
-            print(f"\n📊 Comparison with baseline:")
-            print(f"  F1 improvement: {comparison['f1_improvement']:+.3f} ({comparison['f1_improvement_pct']:+.1f}%)")
-            print(f"  nDCG improvement: {comparison['ndcg_improvement']:+.3f} ({comparison['ndcg_improvement_pct']:+.1f}%)")
+            debug_print(f"\n📊 Comparison with baseline:", force=True)
+            debug_print(f"  F1 improvement: {comparison['f1_improvement']:+.3f} ({comparison['f1_improvement_pct']:+.1f}%))", force=True)
+            debug_print(f"  nDCG improvement: {comparison['ndcg_improvement']:+.3f} ({comparison['ndcg_improvement_pct']:+.1f}%))", force=True)
     
     return report

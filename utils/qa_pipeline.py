@@ -8,6 +8,12 @@ from utils.weaviate_utils_improved import WeaviateClientWrapper
 from utils.answer_generator import generate_final_answer, evaluate_answer_quality
 from utils.gemini_answer_generator import generate_final_answer_gemini
 from utils.local_answer_generator import generate_final_answer_local, refine_query_local
+from config import DEBUG_MODE
+
+def debug_print(message: str, force: bool = False):
+    """Print debug message only if DEBUG_MODE is enabled or force is True."""
+    if DEBUG_MODE or force:
+        print(message)
 
 def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel, model_name: str, 
                            local_mistral_client=None, use_local_refinement: bool = True) -> Tuple[str, str]:
@@ -102,7 +108,7 @@ def answer_question(
     generative_model_name: str = "tinyllama-1.1b",
     use_local_refinement: bool = True
 ) -> Union[Tuple[List[dict], str], Tuple[List[dict], str, str, Dict]]:
-    print("[DEBUG] Entering answer_question function.")
+    debug_print("[DEBUG] Entering answer_question function.")
     """
     Realiza el pipeline completo RAG para responder una pregunta:
     1. Expansión de la pregunta con LLM
@@ -136,23 +142,23 @@ def answer_question(
             )
         
         debug_logs.append(refinement_log)
-        print(f"[DEBUG] Query used for embedding: {refined_query}")
+        debug_print(f"[DEBUG] Query used for embedding: {refined_query}")
 
         # 2. Embedding of the prepared question
         query_vector = embedding_client.generate_query_embedding(refined_query)
         if "ada" in embedding_client.model_name:
-            print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
+            debug_print(f"[DEBUG-ADA] Generated Ada query vector. Length: {len(query_vector)}. First 5 dims: {query_vector[:5]}")
         
-        print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
+        debug_print(f"[DEBUG] Query vector generated. Length: {len(query_vector)}")
         debug_logs.append(f"🔹 Query vector length: {len(query_vector)}")
         debug_logs.append(f"🔹 top_k: {top_k}")
 
         # 3. Buscar preguntas similares (Questions)
         if use_questions_collection:
-            print(f"[DEBUG] Searching for similar questions in collection: {questions_class}")
+            debug_print(f"[DEBUG] Searching for similar questions in collection: {questions_class}")
             similar_questions = weaviate_wrapper.search_questions_by_vector(query_vector, top_k=min(top_k*3, 30))
             debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
-            print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
+            debug_print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
             #for i, q in enumerate(similar_questions):
             #    print(f"[DEBUG]   Q {i+1}: Title: {q.get('title', 'N/A')}, Accepted Answer: {q.get('accepted_answer', 'N/A')[:100]}...")
 
@@ -164,19 +170,19 @@ def answer_question(
 
             all_links = list(unique_links)
             debug_logs.append(f"🔹 Links extracted from answers: {len(all_links)}")
-            print(f"[DEBUG] Extracted {len(all_links)} unique links from similar questions.")
+            debug_print(f"[DEBUG] Extracted {len(all_links)} unique links from similar questions.")
             debug_logs.append(f"🔹 Sample links: {all_links[:3]}")
 
             # 5. Recuperar documentos vinculados usando batch operation when available
             if hasattr(weaviate_wrapper, "lookup_docs_by_links_batch"):
-                print(f"[DEBUG] Looking up documents by links in collection: {documents_class}")
+                debug_print(f"[DEBUG] Looking up documents by links in collection: {documents_class}")
                 linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(
                     all_links, batch_size=50
                 )
             else:
                 linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
             debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
-            print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
+            debug_print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
             #for i, doc in enumerate(linked_docs):
             #    print(f"[DEBUG]   Linked Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
         else:
@@ -186,10 +192,10 @@ def answer_question(
 
         # 6. Buscar documentos directamente por vector
         document_vector = embedding_client.generate_document_embedding(refined_query)
-        print(f"[DEBUG] Document vector generated. Length: {len(document_vector)}")
+        debug_print(f"[DEBUG] Document vector generated. Length: {len(document_vector)}")
         debug_logs.append(f"🔹 Document vector length: {len(document_vector)}")
         
-        print(f"[DEBUG] Searching for documents by vector in collection: {documents_class}")
+        debug_print(f"[DEBUG] Searching for documents by vector in collection: {documents_class}")
         vector_docs = weaviate_wrapper.search_docs_by_vector(
             vector=document_vector,
             top_k=max(top_k * 2, 20),
@@ -197,7 +203,7 @@ def answer_question(
             include_distance=True
         )
         if "ada" in embedding_client.model_name:
-            print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
+            debug_print(f"[DEBUG-ADA] Weaviate search returned {len(vector_docs)} documents.")
         #debug_logs.append(f"🔹 Vector-retrieved documents: {len(vector_docs)}")
         #print(f"[DEBUG] Vector-Retrieved Documents: {len(vector_docs)}")
         #for i, doc in enumerate(vector_docs):
@@ -220,41 +226,41 @@ def answer_question(
 
         unique_docs = list(unique_docs_dict.values())
         debug_logs.append(f"🔹 Unique documents after optimized deduplication: {len(unique_docs)}")
-        print(f"[DEBUG] Total unique documents after deduplication: {len(unique_docs)}")
+        debug_print(f"[DEBUG] Total unique documents after deduplication: {len(unique_docs)}")
 
         if not unique_docs:
             debug_logs.append("⚠️ No unique documents retrieved.")
-            print("[DEBUG] No unique documents found. Returning empty list.")
+            debug_print("[DEBUG] No unique documents found. Returning empty list.")
             return [], "\n".join(debug_logs)
 
-        print("[DEBUG] Documents retrieved from Weaviate (before reranking):")
+        debug_print("[DEBUG] Documents retrieved from Weaviate (before reranking):")
         #for i, doc in enumerate(unique_docs):
         #    print(f"[DEBUG]   Doc {i+1}: Title: {doc.get('title', 'N/A')}, Link: {doc.get('link', 'N/A')}")
 
         # 8. Reranking (condicional)
         debug_logs.append(f"🔹 Preparing for reranking. LLM Reranker enabled: {use_llm_reranker}")
-        print(f"[DEBUG] In qa_pipeline: LLM Reranker enabled: {use_llm_reranker}")
-        print(f"[DEBUG] In qa_pipeline: Number of unique_docs to rerank: {len(unique_docs)}")
+        debug_print(f"[DEBUG] In qa_pipeline: LLM Reranker enabled: {use_llm_reranker}")
+        debug_print(f"[DEBUG] In qa_pipeline: Number of unique_docs to rerank: {len(unique_docs)}")
         max_docs_to_rerank = min(len(unique_docs), 40 if use_llm_reranker else top_k * 3)
         docs_to_rerank = unique_docs[:max_docs_to_rerank]
 
         if use_llm_reranker:
             try:
                 debug_logs.append(f"🔹 Using LLM to rerank {len(docs_to_rerank)} documents...")
-                print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with LLM.")
+                debug_print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with LLM.")
                 reranked = rerank_with_llm(question, docs_to_rerank, openai_client, top_k=top_k, embedding_model=embedding_client.model_name)
             except Exception as e:
-                print(f"[DEBUG] ERROR during LLM reranking: {e}")
+                debug_print(f"[DEBUG] ERROR during LLM reranking: {e}")
                 debug_logs.append(f"❌ Error during LLM reranking: {e}. Falling back to standard reranking.")
-                print("[DEBUG] Falling back to standard reranking after LLM error.")
+                debug_print("[DEBUG] Falling back to standard reranking after LLM error.")
                 reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
         else:
             debug_logs.append(f"🔹 Using standard embedding similarity to rerank {len(docs_to_rerank)} documents...")
-            print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with standard reranker.")
+            debug_print(f"[DEBUG] Reranking {len(docs_to_rerank)} documents with standard reranker.")
             reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
         
         debug_logs.append(f"🔹 Documents after reranking: {len(reranked)}")
-        print(f"[DEBUG] Documents after reranking: {len(reranked)}")
+        debug_print(f"[DEBUG] Documents after reranking: {len(reranked)}")
         
         # 9. Generación de respuesta final (NUEVO)
         if generate_answer:
@@ -308,7 +314,7 @@ def answer_question(
 
     except Exception as e:
         debug_logs.append(f"❌ Error: {e}")
-        print(f"[DEBUG] Unhandled error in answer_question: {e}")
+        debug_print(f"[DEBUG] Unhandled error in answer_question: {e}")
         if generate_answer:
             return [], "\n".join(debug_logs), f"Error en el pipeline: {e}", {"status": "pipeline_error", "error": str(e)}
         else:
