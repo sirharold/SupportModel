@@ -14,6 +14,7 @@ from utils.gemini_answer_generator import generate_final_answer_gemini
 from utils.local_answer_generator import generate_final_answer_local, refine_query_local
 from utils.retrieval_metrics import calculate_before_after_reranking_metrics, format_metrics_for_display
 import copy
+import gc
 
 
 def answer_question_with_retrieval_metrics(
@@ -169,7 +170,8 @@ def answer_question_with_retrieval_metrics(
         
         # 8. Guardar documentos ANTES del reranking para métricas
         if calculate_metrics:
-            docs_before_reranking = copy.deepcopy(unique_docs)
+            # Crear copia superficial solo con datos necesarios para métricas
+            docs_before_reranking = [{'link': doc.get('link', ''), 'title': doc.get('title', '')} for doc in unique_docs]
 
         # 9. Reranking (condicional)
         debug_logs.append(f"🔹 Preparing for reranking. LLM Reranker enabled: {use_llm_reranker}")
@@ -198,7 +200,8 @@ def answer_question_with_retrieval_metrics(
         
         # 10. Guardar documentos DESPUÉS del reranking para métricas
         if calculate_metrics:
-            docs_after_reranking = copy.deepcopy(reranked)
+            # Crear copia superficial solo con datos necesarios para métricas
+            docs_after_reranking = [{'link': doc.get('link', ''), 'title': doc.get('title', '')} for doc in reranked]
 
         # 11. Calcular métricas de recuperación si se solicita
         if calculate_metrics and ground_truth_answer:
@@ -275,6 +278,10 @@ def answer_question_with_retrieval_metrics(
         else:
             # Modo tradicional: solo documentos
             debug_logs.append("🔹 Skipping answer generation (generate_answer=False)")
+            
+            # Forzar limpieza de memoria antes de retornar
+            gc.collect()
+            
             if calculate_metrics:
                 return reranked, "\n".join(debug_logs), retrieval_metrics
             else:
