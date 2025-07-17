@@ -6,7 +6,7 @@ from config import EMBEDDING_MODELS, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS
 from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
 from utils.embedding_safe import get_embedding_client
 from utils.local_models import get_tinyllama_client, get_mistral_client
-from utils.openrouter_client import get_cached_llama4_scout_client
+from utils.openrouter_client import get_cached_llama4_scout_client, get_cached_deepseek_openrouter_client
 
 @st.cache_resource
 def initialize_clients(model_name: str, generative_model_name: str = "llama-4-scout"):
@@ -57,12 +57,27 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-4-sc
     
     if generative_model_name == "tinyllama-1.1b":
         local_tinyllama_client = get_tinyllama_client()
+    elif generative_model_name == "deepseek-v3-chat":
+        # Use OpenRouter DeepSeek V3 Chat instead of local
+        try:
+            openrouter_client = get_cached_deepseek_openrouter_client()
+            if openrouter_client and hasattr(openrouter_client, 'test_connection'):
+                if not openrouter_client.test_connection():
+                    st.warning("⚠️ OpenRouter DeepSeek client inicializado pero la conexión falló. Verifica tu API key.")
+        except Exception as e:
+            st.error(f"❌ No se pudo inicializar OpenRouter client para DeepSeek: {e}")
+            st.info("💡 **Solución**: Verifica que OPEN_ROUTER_KEY esté configurado en tu archivo .env")
+            import os
+            if os.getenv('OPEN_ROUTER_KEY'):
+                st.info("✅ OPEN_ROUTER_KEY encontrado en variables de entorno")
+            else:
+                st.error("❌ OPEN_ROUTER_KEY no encontrado en variables de entorno")
     elif generative_model_name == "mistral-7b":
         local_mistral_client = get_mistral_client()
     
     # Initialize OpenRouter client
     openrouter_client = None
-    if generative_model_name == "llama-4-scout":
+    if generative_model_name == "llama-3.3-70b":
         try:
             openrouter_client = get_cached_llama4_scout_client()
             # Test the connection

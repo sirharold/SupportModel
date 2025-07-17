@@ -16,7 +16,7 @@ def debug_print(message: str, force: bool = False):
         print(message)
 
 def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel, model_name: str, 
-                           local_mistral_client=None, use_local_refinement: bool = True) -> Tuple[str, str]:
+                           local_mistral_client=None, openrouter_client=None, use_local_refinement: bool = True) -> Tuple[str, str]:
     """
     Cleans, distills, and conditionally prefixes a user query for optimal performance.
     Now supports local model refinement for cost optimization.
@@ -26,6 +26,11 @@ def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel
         # Use local model refinement if available and enabled
         if use_local_refinement and local_mistral_client:
             refined_query, refinement_log = refine_query_local(question, "mistral-7b")
+            logs.append(refinement_log)
+        # Use OpenRouter model refinement if available (DISABLED for free models to save API calls)
+        elif use_local_refinement and openrouter_client:
+            from utils.openrouter_answer_generator import refine_query_openrouter
+            refined_query, refinement_log = refine_query_openrouter(question, "deepseek-v3-chat")
             logs.append(refinement_log)
             
             # Apply conditional prefixing
@@ -96,6 +101,7 @@ def answer_question(
     gemini_client: genai.GenerativeModel = None,
     local_tinyllama_client = None,
     local_mistral_client = None,
+    openrouter_client = None,
     top_k: int = 10,
     *,
     diversity_threshold: float = 0.85,
@@ -138,7 +144,7 @@ def answer_question(
         else:
             refined_query, refinement_log = refine_and_prepare_query(
                 question, gemini_client, embedding_client.model_name, 
-                local_mistral_client, use_local_refinement
+                local_mistral_client, openrouter_client, use_local_refinement
             )
         
         debug_logs.append(refinement_log)
@@ -275,6 +281,13 @@ def answer_question(
                     question=question,
                     retrieved_docs=reranked,
                     model_name="mistral-7b"
+                )
+            elif generative_model_name == "deepseek-v3-chat":
+                from utils.openrouter_answer_generator import generate_final_answer_openrouter
+                generated_answer, generation_info = generate_final_answer_openrouter(
+                    question=question,
+                    retrieved_docs=reranked,
+                    model_name="deepseek-v3-chat"
                 )
             elif generative_model_name == "gemini-pro" and gemini_client:
                 generated_answer, generation_info = generate_final_answer_gemini(

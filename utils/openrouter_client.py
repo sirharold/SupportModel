@@ -55,7 +55,7 @@ class OpenRouterClient:
         try:
             # Hacer una petición simple para probar la conexión
             response = self.client.chat.completions.create(
-                model="meta-llama/llama-4-scout:free",
+                model="meta-llama/llama-3.3-70b-instruct:free",
                 messages=[
                     {"role": "user", "content": "Hi"}
                 ],
@@ -76,7 +76,7 @@ class OpenRouterClient:
         self, 
         question: str, 
         context: str, 
-        model: str = "meta-llama/llama-4-scout:free",
+        model: str = "meta-llama/llama-3.3-70b-instruct:free",
         max_tokens: int = 512,
         temperature: float = 0.1
     ) -> str:
@@ -168,7 +168,7 @@ Provide a detailed answer in Spanish:"""
             else:
                 return f"Error: No se pudo generar respuesta - {str(e)}"
     
-    def refine_query(self, query: str, model: str = "meta-llama/llama-4-scout:free") -> str:
+    def refine_query(self, query: str, model: str = "meta-llama/llama-3.3-70b-instruct:free") -> str:
         """
         Refina una query usando modelo de OpenRouter
         
@@ -227,7 +227,7 @@ class OpenRouterLlama4Client:
     def __init__(self, api_key: str = None):
         """Inicializa cliente para Llama-4-Scout"""
         self.client = OpenRouterClient(api_key)
-        self.model_name = "meta-llama/llama-4-scout:free"
+        self.model_name = "meta-llama/llama-3.3-70b-instruct:free"
         
     def generate_answer(self, question: str, context: str, max_length: int = 512) -> str:
         """Genera respuesta usando Llama-4-Scout"""
@@ -243,6 +243,33 @@ class OpenRouterLlama4Client:
         """Refina query usando Llama-4-Scout"""
         return self.client.refine_query(query, self.model_name)
 
+class OpenRouterDeepSeekClient:
+    """Cliente específico para DeepSeek V3 Chat"""
+    
+    def __init__(self, api_key: str = None):
+        """Inicializa cliente para DeepSeek V3 Chat"""
+        self.client = OpenRouterClient(api_key)
+        self.model_name = "deepseek/deepseek-chat:free"
+        
+    def generate_answer(self, question: str, context: str, max_length: int = 512) -> str:
+        """Genera respuesta usando DeepSeek V3 Chat"""
+        return self.client.generate_answer(
+            question=question,
+            context=context,
+            model=self.model_name,
+            max_tokens=max_length,
+            temperature=0.1
+        )
+    
+    def refine_query(self, query: str) -> str:
+        """Refina query usando DeepSeek V3 Chat - DESHABILITADO para ahorrar API calls"""
+        logger.info("Query refinement disabled for free models to save API calls")
+        return query  # Skip refinement to save API calls
+    
+    def test_connection(self) -> bool:
+        """Prueba la conexión con el modelo DeepSeek"""
+        return self.client.test_connection()
+
 # Funciones de conveniencia
 def get_openrouter_client(api_key: str = None) -> OpenRouterClient:
     """Obtiene cliente OpenRouter"""
@@ -252,8 +279,17 @@ def get_llama4_scout_client(api_key: str = None) -> OpenRouterLlama4Client:
     """Obtiene cliente específico para Llama-4-Scout"""
     return OpenRouterLlama4Client(api_key)
 
+def get_deepseek_openrouter_client(api_key: str = None) -> OpenRouterDeepSeekClient:
+    """Obtiene cliente específico para DeepSeek V3 Chat"""
+    return OpenRouterDeepSeekClient(api_key)
+
 # Cache para Streamlit
 @st.cache_resource
 def get_cached_llama4_scout_client():
     """Obtiene cliente Llama-4-Scout con cache de Streamlit"""
     return get_llama4_scout_client()
+
+@st.cache_resource
+def get_cached_deepseek_openrouter_client():
+    """Obtiene cliente DeepSeek V3 Chat con cache de Streamlit"""
+    return get_deepseek_openrouter_client()

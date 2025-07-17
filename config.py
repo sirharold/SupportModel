@@ -11,14 +11,14 @@ DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
 
 # Generative model configurations
 GENERATIVE_MODELS = {
-    "llama-4-scout": "llama-4-scout",
+    "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
     "gpt-4": "gpt-4",
     "gemini-pro": "gemini-pro",
     "tinyllama-1.1b": "tinyllama-1.1b",
-    "mistral-7b": "mistral-7b"
+    "deepseek-v3-chat": "deepseek/deepseek-chat:free"
 }
 
-DEFAULT_GENERATIVE_MODEL = "llama-4-scout"  # Changed to OpenRouter model for better performance
+DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Changed to OpenRouter model for better performance
 
 # Debug configuration
 DEBUG_MODE = False  # Set to True to enable debug messages, False to disable them
@@ -60,8 +60,8 @@ MODEL_DESCRIPTIONS = {
 
 # Generative model descriptions
 GENERATIVE_MODEL_DESCRIPTIONS = {
-    "llama-4-scout": {
-        "description": "Llama-4-Scout vía OpenRouter. Modelo avanzado gratuito con excelente rendimiento.",
+    "llama-3.3-70b": {
+        "description": "Llama 3.3 70B Instruct vía OpenRouter. Modelo avanzado gratuito con excelente rendimiento.",
         "provider": "Meta (OpenRouter)",
         "cost": "Gratuito",
         "requirements": "API key de OpenRouter requerida"
@@ -72,11 +72,11 @@ GENERATIVE_MODEL_DESCRIPTIONS = {
         "cost": "Gratuito",
         "requirements": "1GB RAM, perfecto para laptops antiguos"
     },
-    "mistral-7b": {
-        "description": "Modelo local Mistral 7B. Eficiente para refinamiento de queries y tareas de NLP.",
-        "provider": "Mistral AI (Local)",
+    "deepseek-v3-chat": {
+        "description": "DeepSeek V3 Chat vía OpenRouter. Modelo de última generación optimizado para QA y razonamiento con contexto de 163k tokens.",
+        "provider": "DeepSeek (OpenRouter)",
         "cost": "Gratuito", 
-        "requirements": "6GB+ RAM, GPU recomendada"
+        "requirements": "API key de OpenRouter requerida"
     },
     "gpt-4": {
         "description": "GPT-4 de OpenAI. Modelo de alta calidad con costos por uso.",

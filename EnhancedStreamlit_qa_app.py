@@ -88,8 +88,6 @@ def preload_model_on_startup():
     """Preload model when app starts."""
     try:
         success = preload_tinyllama_model()
-        if success:
-            st.success("✅ Modelo TinyLlama precargado exitosamente")
         return success
     except Exception as e:
         st.error(f"❌ Error precargando modelo: {e}")
@@ -195,9 +193,7 @@ if page == "🔍 Búsqueda Individual":
                         with st.spinner("🔄 Precargando modelo..."):
                             client = get_cached_tinyllama_client()
                             success = client.ensure_loaded()
-                            if success:
-                                st.success("✅ Modelo precargado! Las próximas respuestas serán más rápidas.")
-                            else:
+                            if not success:
                                 st.error("❌ Error precargando modelo")
         else:
             generate_individual_answer = False
@@ -234,6 +230,10 @@ if page == "🔍 Búsqueda Individual":
         st.session_state.last_title = ""
     if 'last_question' not in st.session_state:
         st.session_state.last_question = ""
+    if 'keyword_search_results' not in st.session_state:
+        st.session_state.keyword_search_results = []
+    if 'keyword_search_query' not in st.session_state:
+        st.session_state.keyword_search_query = ""
     
     # Update inputs if example was selected
     if 'selected_title' in st.session_state:
@@ -548,10 +548,11 @@ if page == "🔍 Búsqueda Individual":
                                                 "items": {
                                                     "type": "object",
                                                     "properties": {
+                                                        "score": {"type": "number", "description": "Relevance score between 0 and 1, where 1 represents maximum relevance to the question."},
                                                         "title": {"type": "string", "description": "The official title of the documentation page."},
                                                         "link": {"type": "string", "description": "The full URL to the documentation page, must be from learn.microsoft.com."},
                                                     },
-                                                    "required": ["title", "link"]
+                                                    "required": ["score", "title", "link"]
                                                 }
                                             }
                                         },
@@ -564,8 +565,8 @@ if page == "🔍 Búsqueda Individual":
                         response = openai_client.chat.completions.create(
                             model="gpt-4",
                             messages=[
-                                {"role": "system", "content": "You are an Azure documentation expert. You ONLY recommend official Microsoft Learn documentation from the learn.microsoft.com domain. You must call the `list_azure_documentation` function with exactly 10 results."},
-                                {"role": "user", "content": f"Please provide the top 10 Azure documentation links for the following question: {full_query}"}
+                                {"role": "system", "content": "Actúa como un experto en documentación de Azure. Tu tarea es buscar y listar exactamente 10 documentos desde el dominio oficial https://learn.microsoft.com que puedan ayudar a responder una pregunta técnica. Para cada documento, entrega un score (entre 0 y 1), donde 1 representa máxima relevancia respecto a la pregunta, el título del documento y el link completo. Los documentos deben estar ordenados de mayor a menor según el score. No inventes contenido ni enlaces. Solo acepta resultados del dominio learn.microsoft.com."},
+                                {"role": "user", "content": f"Aquí está la pregunta a responder: {full_query}"}
                             ],
                             tools=tools,
                             tool_choice={"type": "function", "function": {"name": "list_azure_documentation"}},
@@ -591,10 +592,11 @@ if page == "🔍 Búsqueda Individual":
                                 documents_data = tool_args.get("documents", [])
                                 
                                 for doc in documents_data:
+                                    # Use the score provided by OpenAI
                                     openai_docs.append({
                                         'title': doc.get('title'),
                                         'link': doc.get('link'),
-                                        'score': 1.0,
+                                        'score': doc.get('score', 1.0),  # Default to 1.0 if score not provided
                                         'source': 'OpenAI GPT-4'
                                     })
                                 
@@ -629,6 +631,11 @@ if page == "🔍 Búsqueda Individual":
                         <p><strong>🔗 Link:</strong> <a href="{doc.get('link', '#')}" target="_blank" style="color: #0078d4;">{doc.get('link', 'N/A')}</a></p>
                     </div>
                     """, unsafe_allow_html=True)
+                
+                # Add accordion with retrieval query for our system
+                with st.expander("📝 Pregunta utilizada para el retrieval - Nuestro Sistema"):
+                    st.code(full_query, language="text")
+                    st.info("Esta es la pregunta procesada que se utilizó para buscar documentos relevantes en nuestro sistema.")
                     
                     # Content preview
                     #with st.expander(f"Ver contenido #{i}"):
@@ -642,13 +649,24 @@ if page == "🔍 Búsqueda Individual":
                     
                     # Show OpenAI results with same styling
                     for i, doc in enumerate(openai_docs[:10], 1):
+                        score = doc.get('score', 1.0)
+                        score_color = "#0078d4"
+                        
                         st.markdown(f"""
-                        <div class="doc-card" style="border-left: 4px solid #0078d4;">
+                        <div class="doc-card" style="border-left: 4px solid {score_color};">
                             <h4>#{i} {doc.get('title', 'Sin título')}</h4>
-                            <p><strong>🤖 Fuente:</strong> <span style="color: #0078d4; font-weight: bold;">{doc.get('source', 'OpenAI')}</span></p>
+                            <p><strong>📊 Score:</strong> <span style="color: {score_color}; font-weight: bold;">{score:.4f}</span></p>
                             <p><strong>🔗 Link:</strong> <a href="{doc.get('link', '#')}" target="_blank" style="color: #0078d4;">{doc.get('link', 'N/A')}</a></p>
                         </div>
                         """, unsafe_allow_html=True)
+                    
+                    # Add accordion with retrieval query for OpenAI system
+                    with st.expander("📝 Prompt completo utilizado para OpenAI"):
+                        st.markdown("**System Prompt:**")
+                        st.code("Actúa como un experto en documentación de Azure. Tu tarea es buscar y listar exactamente 10 documentos desde el dominio oficial https://learn.microsoft.com que puedan ayudar a responder una pregunta técnica. Para cada documento, entrega un score (entre 0 y 1), donde 1 representa máxima relevancia respecto a la pregunta, el título del documento y el link completo. Los documentos deben estar ordenados de mayor a menor según el score. No inventes contenido ni enlaces. Solo acepta resultados del dominio learn.microsoft.com.", language="text")
+                        st.markdown("**User Prompt:**")
+                        st.code(f"Aquí está la pregunta a responder: {full_query}", language="text")
+                        st.info("Este es el prompt completo enviado a OpenAI GPT-4 para obtener recomendaciones de documentación con scores de relevancia.")
                 else:
                     st.subheader("🤖 OpenAI GPT-4 Expert")
                     if enable_openai_comparison:
@@ -676,7 +694,7 @@ if page == "🔍 Búsqueda Individual":
             
             # Additional tabs for analysis and debug
             st.markdown("---")
-            tab1, tab2, tab3 = st.tabs(["📊 Análisis Detallado", "🔧 Debug Info", "🗄️ Inspección DB"])
+            tab1, tab2 = st.tabs(["📊 Análisis Detallado", "🔧 Debug Info"])
             
             with tab1:
                 if results:
@@ -701,112 +719,125 @@ if page == "🔍 Búsqueda Individual":
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
+                    # Always show quality metrics (work with or without OpenAI)
+                    st.markdown("---")
+                    st.subheader("📊 Métricas de Calidad del Sistema")
+                    
+                    # Calculate intrinsic quality metrics
+                    scores = [doc.get('score', 0) for doc in results if doc.get('score', 0) > 0]
+                    
+                    if scores:
+                        import numpy as np
+                        
+                        # Quality metrics
+                        top5_scores = scores[:5] if len(scores) >= 5 else scores
+                        top3_scores = scores[:3] if len(scores) >= 3 else scores
+                        
+                        score_avg_top5 = np.mean(top5_scores)
+                        score_min_top3 = min(top3_scores) if top3_scores else 0
+                        score_max = max(scores)
+                        score_std = np.std(scores)
+                        
+                        # Coverage metrics
+                        high_quality_docs = len([s for s in scores if s >= 0.8])
+                        medium_quality_docs = len([s for s in scores if 0.6 <= s < 0.8])
+                        coverage_quality = high_quality_docs / len(scores) * 100
+                        
+                        # Diversity metrics (simple entropy-based)
+                        score_entropy = -np.sum([(s/sum(scores)) * np.log2(s/sum(scores)) for s in scores if s > 0])
+                        
+                        # Display primary quality metrics
+                        st.markdown("**🎯 Métricas Principales de Calidad**")
+                        q_col1, q_col2, q_col3, q_col4 = st.columns(4)
+                        
+                        with q_col1:
+                            st.metric("📈 Score Promedio Top-5", f"{score_avg_top5:.3f}", 
+                                    help="Fórmula: Σ(scores_top5) / 5\n\nMide la calidad promedio de los 5 mejores documentos encontrados. Un valor alto (>0.8) indica que los primeros resultados son muy relevantes. Valores bajos (<0.6) sugieren que incluso los mejores documentos tienen poca relevancia.")
+                        with q_col2:
+                            st.metric("🎯 Score Mínimo Top-3", f"{score_min_top3:.3f}", 
+                                    help="Fórmula: min(scores_top3)\n\nRepresenta el peor documento entre los 3 primeros resultados. Es un umbral de calidad mínima: si este valor es alto (>0.7), garantiza que incluso el tercer mejor documento es muy relevante. Si es bajo (<0.5), indica inconsistencia en la calidad.")
+                        with q_col3:
+                            st.metric("⭐ Score Máximo", f"{score_max:.3f}", 
+                                    help="Fórmula: max(scores)\n\nScore del documento más relevante encontrado. Indica el mejor match posible en la base de datos. Valores cercanos a 1.0 significan una coincidencia casi perfecta. Valores bajos (<0.8) sugieren que no hay documentos altamente relevantes.")
+                        with q_col4:
+                            st.metric("📊 Cobertura Alta Calidad", f"{coverage_quality:.1f}%", 
+                                    help="Fórmula: (docs_score≥0.8 / total_docs) × 100\n\nPorcentaje de documentos con alta relevancia (score ≥ 0.8). Alta cobertura (>60%) indica que la mayoría de resultados son útiles. Baja cobertura (<30%) sugiere que solo pocos documentos son realmente relevantes.")
+                        
+                        # User experience metrics
+                        st.markdown("**🚀 Métricas de Experiencia del Usuario**")
+                        ux_col1, ux_col2, ux_col3, ux_col4 = st.columns(4)
+                        
+                        with ux_col1:
+                            st.metric("⚡ Tiempo de Respuesta", f"{response_time:.2f}s", 
+                                    help="Fórmula: tiempo_fin - tiempo_inicio\n\nTiempo total desde que se envía la consulta hasta que se obtienen los resultados. Incluye búsqueda vectorial, re-ranking y generación de respuesta. Tiempos <2s son excelentes, 2-5s son buenos, >5s pueden afectar la experiencia del usuario.")
+                        with ux_col2:
+                            st.metric("📚 Documentos Encontrados", f"{len(results)}", 
+                                    help="Fórmula: count(retrieved_docs)\n\nNúmero total de documentos recuperados por el sistema. Más documentos ofrecen mayor cobertura pero pueden incluir resultados menos relevantes. El valor óptimo depende del parámetro top_k configurado.")
+                        with ux_col3:
+                            st.metric("🎲 Diversidad (Entropía)", f"{score_entropy:.2f}", 
+                                    help="Fórmula: -Σ(pi × log2(pi)) donde pi = score_i/Σ(scores)\n\nMide la variedad en los scores de relevancia. Alta entropía (>3) indica scores diversos, sugiriendo documentos con diferentes niveles de relevancia. Baja entropía (<1) indica scores similares, ya sea todos altos o todos bajos.")
+                        with ux_col4:
+                            variability = "Alta" if score_std > 0.1 else "Media" if score_std > 0.05 else "Baja"
+                            st.metric("📈 Variabilidad", f"{variability}", 
+                                    help=f"Fórmula: √(Σ(score_i - media)² / n)\n\nDesviación estándar: {score_std:.3f}\n\nMide la dispersión de los scores. Alta variabilidad (>0.1) indica mezcla de documentos muy relevantes y poco relevantes. Baja variabilidad (<0.05) indica consistencia en la calidad de resultados.")
+                        
+                        # Content quality breakdown
+                        st.markdown("**📄 Análisis de Contenido**")
+                        content_col1, content_col2 = st.columns(2)
+                        
+                        with content_col1:
+                            st.metric("🔥 Docs Alta Calidad", f"{high_quality_docs}", 
+                                    help="Fórmula: count(docs where score ≥ 0.8)\n\nCantidad absoluta de documentos con alta relevancia. Complementa el porcentaje de cobertura mostrando el número exacto. Valores altos (>5) indican buena cantidad de contenido relevante disponible.")
+                        with content_col2:
+                            st.metric("⚡ Docs Calidad Media", f"{medium_quality_docs}", 
+                                    help="Fórmula: count(docs where 0.6 ≤ score < 0.8)\n\nCantidad de documentos con relevancia moderada. Estos documentos pueden ser útiles como información complementaria. Un balance entre docs de alta y media calidad indica un sistema robusto.")
+                    
+                    # OpenAI comparison section (only if enabled)
                     if enable_openai_comparison and openai_links:
                         st.markdown("---")
-                        st.subheader("⚖️ Métricas de Ranking (vs. OpenAI)")
+                        st.subheader("🤖 Comparación con OpenAI")
                         
-                        from utils.metrics import compute_ndcg, compute_mrr, compute_precision_recall_f1
+                        # Simple overlap metrics (more reliable than complex ranking metrics)
+                        our_links = [doc.get("link", "") for doc in results]
                         
-                        # Ensure results are in the correct format for metrics
-                        our_docs_for_metrics = [{"link": doc.get("link")} for doc in results]
+                        # Normalize URLs for better comparison
+                        def normalize_url(url):
+                            return url.lower().replace('/en-us/', '/').replace('///', '//').rstrip('/')
                         
-                        # Calculate metrics at k=5 and k=top_k
-                        precision_5, recall_5, f1_5 = compute_precision_recall_f1(our_docs_for_metrics, openai_links, k=5)
-                        mrr_5 = compute_mrr(our_docs_for_metrics, openai_links, k=5)
-                        ndcg_5 = compute_ndcg(our_docs_for_metrics, openai_links, k=5)
+                        our_links_normalized = [normalize_url(link) for link in our_links if link]
+                        openai_links_normalized = [normalize_url(link) for link in openai_links if link]
                         
-                        precision, recall, f1 = compute_precision_recall_f1(our_docs_for_metrics, openai_links, k=top_k)
-                        mrr = compute_mrr(our_docs_for_metrics, openai_links, k=top_k)
-                        ndcg = compute_ndcg(our_docs_for_metrics, openai_links, k=top_k)
+                        # Calculate overlap
+                        common_links = set(our_links_normalized) & set(openai_links_normalized)
+                        overlap_percentage = len(common_links) / len(openai_links_normalized) * 100 if openai_links_normalized else 0
                         
-                        # Display metrics at k=5 (primary focus)
-                        st.markdown("**🎯 Métricas Principales (Top-5)**")
-                        m_col1, m_col2, m_col3, m_col4, m_col5 = st.columns(5)
-                        with m_col1:
-                            st.metric("Precision@5", f"{precision_5:.3f}", help="Precisión en los primeros 5 documentos.")
-                        with m_col2:
-                            st.metric("Recall@5", f"{recall_5:.3f}", help="Cobertura en los primeros 5 documentos.")
-                        with m_col3:
-                            st.metric("F1-Score@5", f"{f1_5:.3f}", help="Balance entre Precision y Recall en top-5.")
-                        with m_col4:
-                            st.metric("MRR@5", f"{mrr_5:.3f}", help="Ranking del primer resultado relevante en top-5.")
-                        with m_col5:
-                            st.metric("nDCG@5", f"{ndcg_5:.3f}", help="Calidad del ranking en top-5.")
+                        # Jaccard similarity of titles
+                        def get_keywords(text):
+                            return set(text.lower().split()) if text else set()
                         
-                        # Display full metrics comparison
-                        st.markdown(f"**📊 Comparación Completa (Top-{top_k})**")
-                        m_col1, m_col2, m_col3 = st.columns(3)
-                        with m_col1:
-                            st.metric(f"nDCG@{top_k}", f"{ndcg:.3f}", help="Mide la calidad del ranking completo.")
-                            st.metric(f"MRR@{top_k}", f"{mrr:.3f}", help="Evalúa qué tan arriba aparece el primer resultado relevante.")
-                        with m_col2:
-                            st.metric(f"Precision@{top_k}", f"{precision:.3f}", help="De los documentos que mostramos, cuántos son relevantes.")
-                            st.metric(f"Recall@{top_k}", f"{recall:.3f}", help="De todos los documentos relevantes, cuántos encontramos.")
-                        with m_col3:
-                            st.metric(f"F1-Score@{top_k}", f"{f1:.3f}", help="Balance entre Precision y Recall completo.")
+                        our_titles = " ".join([doc.get('title', '') for doc in results[:5]])
+                        openai_titles = " ".join([doc.get('title', '') for doc in openai_docs[:5]])
                         
-                        # Document score analysis
-                        st.markdown("**📈 Análisis de Scores de Documentos**")
-                        scores = [doc.get('score', 0) for doc in results if doc.get('score', 0) > 0]
-                        if scores:
-                            import numpy as np
-                            score_col1, score_col2 = st.columns(2)
-                            
-                            with score_col1:
-                                st.markdown("**📊 Estadísticas de Scores**")
-                                score_stats = pd.DataFrame({
-                                    'Métrica': ['Máximo', 'Promedio', 'Mediana', 'Mínimo', 'Desv. Estándar'],
-                                    'Valor': [
-                                        f"{max(scores):.4f}",
-                                        f"{np.mean(scores):.4f}",
-                                        f"{np.median(scores):.4f}",
-                                        f"{min(scores):.4f}",
-                                        f"{np.std(scores):.4f}"
-                                    ]
-                                })
-                                st.dataframe(score_stats, use_container_width=True)
-                                
-                                # Score distribution categories
-                                high_scores = len([s for s in scores if s >= 0.8])
-                                medium_scores = len([s for s in scores if 0.6 <= s < 0.8])
-                                low_scores = len([s for s in scores if s < 0.6])
-                                
-                                st.markdown("**🎯 Distribución por Calidad**")
-                                quality_df = pd.DataFrame({
-                                    'Calidad': ['Alta (≥0.8)', 'Media (0.6-0.8)', 'Baja (<0.6)'],
-                                    'Cantidad': [high_scores, medium_scores, low_scores],
-                                    'Porcentaje': [f"{high_scores/len(scores)*100:.1f}%", 
-                                                 f"{medium_scores/len(scores)*100:.1f}%", 
-                                                 f"{low_scores/len(scores)*100:.1f}%"]
-                                })
-                                st.dataframe(quality_df, use_container_width=True)
-                            
-                            with score_col2:
-                                # Score distribution chart
-                                fig_hist = px.histogram(
-                                    x=scores, 
-                                    nbins=20,
-                                    title="Distribución de Scores de Similitud",
-                                    labels={'x': 'Score de Similitud', 'y': 'Frecuencia'},
-                                    color_discrete_sequence=['#1f77b4']
-                                )
-                                fig_hist.update_layout(height=300)
-                                st.plotly_chart(fig_hist, use_container_width=True)
-                                
-                                # Top-5 scores bar chart
-                                top5_scores = scores[:5] if len(scores) >= 5 else scores
-                                fig_bar = px.bar(
-                                    x=[f"Doc {i+1}" for i in range(len(top5_scores))],
-                                    y=top5_scores,
-                                    title="Scores de Top-5 Documentos",
-                                    labels={'x': 'Documento', 'y': 'Score de Similitud'},
-                                    color=top5_scores,
-                                    color_continuous_scale='viridis'
-                                )
-                                fig_bar.update_layout(height=300)
-                                st.plotly_chart(fig_bar, use_container_width=True)
-                        else:
-                            st.info("No hay scores disponibles para análisis.")
+                        our_keywords = get_keywords(our_titles)
+                        openai_keywords = get_keywords(openai_titles)
+                        
+                        jaccard_similarity = len(our_keywords & openai_keywords) / len(our_keywords | openai_keywords) * 100 if (our_keywords | openai_keywords) else 0
+                        
+                        # Display comparison metrics
+                        comp_col1, comp_col2, comp_col3, comp_col4 = st.columns(4)
+                        
+                        with comp_col1:
+                            st.metric("🔍 Nuestros Resultados", len(our_links))
+                        with comp_col2:
+                            st.metric("🤖 OpenAI Resultados", len(openai_links))
+                        with comp_col3:
+                            st.metric("✅ Overlap de Enlaces", f"{overlap_percentage:.1f}%", 
+                                    help="Fórmula: (|nuestros_links ∩ openai_links| / |openai_links|) × 100\n\nPorcentaje de enlaces que ambos sistemas encontraron en común. URLs normalizadas para evitar diferencias de formato. Alto overlap (>70%) indica concordancia, bajo overlap (<30%) sugiere enfoques diferentes.")
+                        with comp_col4:
+                            st.metric("📝 Similitud de Títulos", f"{jaccard_similarity:.1f}%", 
+                                    help="Fórmula: (|palabras_comunes| / |palabras_totales|) × 100\n\nSimilitud Jaccard entre las palabras de los títulos top-5 de ambos sistemas. Mide si ambos sistemas encuentran documentos sobre temas similares, independientemente de los URLs exactos. Alta similitud (>50%) indica coherencia temática.")
+                    else:
+                        st.info("No hay scores disponibles para calcular métricas de calidad.")
             
             with tab2:
                 if show_debug_info:
@@ -815,38 +846,7 @@ if page == "🔍 Búsqueda Individual":
                 else:
                     st.info("ℹ️ Debug info deshabilitado en configuración")
 
-            with tab3:
-                st.subheader("🗄️ Inspección de Base de Datos Weaviate")
-                
-                # Display collection stats
-                try:
-                    stats = weaviate_wrapper.get_collection_stats()
-                    questions_class_name = WEAVIATE_CLASS_CONFIG[model_name]['questions']
-                    documents_class_name = WEAVIATE_CLASS_CONFIG[model_name]['documents']
-                    st.write(f"**Documentos en '{questions_class_name}':** {stats.get(f'{questions_class_name}_count', 'N/A')}")
-                    st.write(f"**Documentos en '{documents_class_name}':** {stats.get(f'{documents_class_name}_count', 'N/A')}")
-                    st.info("🎯 Ambas colecciones usan embeddings MiniLM compatibles (384 dimensiones)")
-                except Exception as e:
-                    st.error(f"Error al obtener estadísticas de la colección: {e}")
-
-                st.markdown("--- ")
-                st.subheader("🔍 Búsqueda por Palabra Clave (BM25)")
-                keyword_query = st.text_input("Introduce una palabra clave para buscar en la documentación:", key="keyword_search_input")
-                
-                # Initialize keyword search results in session state
-                if 'keyword_search_results' not in st.session_state:
-                    st.session_state.keyword_search_results = []
-                if 'keyword_search_query' not in st.session_state:
-                    st.session_state.keyword_search_query = ""
-
-                if st.button("Buscar por Palabra Clave", key="bm25_search_button"):
-                    if keyword_query:
-                        st.session_state.keyword_search_query = keyword_query # Store the query
-                        with st.spinner(f"Buscando '{keyword_query}'..."):
-                            st.session_state.keyword_search_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20, class_name=WEAVIATE_CLASS_CONFIG[model_name]["documents"])
-                    else:
-                        st.warning("Por favor, introduce una palabra clave.")
-                        st.session_state.keyword_search_results = [] # Clear previous results
+            # Removed tab3 (Database Inspection) as requested
 
                 # Display results if any are stored in session state
                 if st.session_state.keyword_search_results:

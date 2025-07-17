@@ -6,18 +6,77 @@ from utils.auth import ensure_huggingface_login
 
 def compute_ndcg(retrieved_docs: List[Dict], relevant_docs: List[str], k: int) -> float:
     """Computes Normalized Discounted Cumulative Gain (nDCG@k)."""
-    # Implementation...
-    return 0.0
+    if not retrieved_docs or not relevant_docs:
+        return 0.0
+    
+    # Get the top k documents
+    top_k_docs = retrieved_docs[:k]
+    
+    # Calculate DCG (Discounted Cumulative Gain)
+    dcg = 0.0
+    for i, doc in enumerate(top_k_docs):
+        doc_link = doc.get('link', '')
+        if doc_link in relevant_docs:
+            # Use log2(i+2) for discounting (i+1 for position, +1 to avoid log(1)=0)
+            dcg += 1.0 / np.log2(i + 2)
+    
+    # Calculate IDCG (Ideal DCG) - assuming all relevant docs at the top
+    idcg = 0.0
+    for i in range(min(k, len(relevant_docs))):
+        idcg += 1.0 / np.log2(i + 2)
+    
+    # nDCG = DCG / IDCG
+    if idcg == 0:
+        return 0.0
+    
+    return dcg / idcg
 
 def compute_mrr(retrieved_docs: List[Dict], relevant_docs: List[str], k: int) -> float:
     """Computes Mean Reciprocal Rank (MRR@k)."""
-    # Implementation...
+    if not retrieved_docs or not relevant_docs:
+        return 0.0
+    
+    # Get the top k documents
+    top_k_docs = retrieved_docs[:k]
+    
+    # Find the rank of the first relevant document
+    for i, doc in enumerate(top_k_docs):
+        doc_link = doc.get('link', '')
+        if doc_link in relevant_docs:
+            # Return reciprocal rank (1-based indexing)
+            return 1.0 / (i + 1)
+    
+    # No relevant document found in top k
     return 0.0
 
 def compute_precision_recall_f1(retrieved_docs: List[Dict], relevant_docs: List[str], k: int) -> tuple[float, float, float]:
     """Computes Precision, Recall, and F1-score @k."""
-    # Implementation...
-    return 0.0, 0.0, 0.0
+    if not retrieved_docs or not relevant_docs:
+        return 0.0, 0.0, 0.0
+    
+    # Get the top k documents
+    top_k_docs = retrieved_docs[:k]
+    
+    # Count relevant documents in top k
+    relevant_retrieved = 0
+    for doc in top_k_docs:
+        doc_link = doc.get('link', '')
+        if doc_link in relevant_docs:
+            relevant_retrieved += 1
+    
+    # Calculate precision: relevant_retrieved / k
+    precision = relevant_retrieved / k if k > 0 else 0.0
+    
+    # Calculate recall: relevant_retrieved / total_relevant
+    recall = relevant_retrieved / len(relevant_docs) if len(relevant_docs) > 0 else 0.0
+    
+    # Calculate F1-score: 2 * (precision * recall) / (precision + recall)
+    if precision + recall > 0:
+        f1 = 2 * (precision * recall) / (precision + recall)
+    else:
+        f1 = 0.0
+    
+    return precision, recall, f1
 
 from utils.weaviate_utils_improved import WeaviateConfig
 

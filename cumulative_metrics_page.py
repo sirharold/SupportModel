@@ -27,11 +27,11 @@ from io import BytesIO
 def grade_metric(value: float) -> str:
     """Return a qualitative label for a metric value."""
     if value >= 0.7:
-        return "🟢 Muy bueno"
+        return "✓ Muy bueno"
     elif value >= 0.4:
-        return "🟡 Bueno"
+        return "~ Bueno"
     else:
-        return "🔴 Malo"
+        return "✗ Malo"
 
 
 def color_metric(val: float) -> str:
@@ -48,7 +48,7 @@ def color_metric(val: float) -> str:
 
 def style_metrics_df(df: pd.DataFrame) -> pd.DataFrame:
     """Apply coloring to before/after metric columns."""
-    return df.style.applymap(color_metric, subset=["Before", "After"])
+    return df.style.map(color_metric, subset=["Before", "After"])
 
 def extract_ms_links(accepted_answer: str) -> List[str]:
     """
@@ -163,9 +163,9 @@ METODOLOGÍA DE EVALUACIÓN:
 
 INTERPRETACIÓN DE VALORES:
 
-• 0.7 - 1.0: 🟢 Muy Bueno - Rendimiento excelente
-• 0.4 - 0.7: 🟡 Bueno - Rendimiento aceptable  
-• 0.0 - 0.4: 🔴 Malo - Necesita mejoras
+• 0.7 - 1.0: ✓ Muy Bueno - Rendimiento excelente
+• 0.4 - 0.7: ~ Bueno - Rendimiento aceptable  
+• 0.0 - 0.4: ✗ Malo - Necesita mejoras
 """
     
     ax.text(0.05, 0.88, definitions_text, fontsize=9, transform=ax.transAxes, 
@@ -793,7 +793,7 @@ RANKING DE MODELOS:
         
         sorted_models = sorted(model_scores.items(), key=lambda x: x[1], reverse=True)
         for i, (model, score) in enumerate(sorted_models):
-            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            medal = ["1st", "2nd", "3rd"][i] if i < 3 else f"{i+1}."
             summary_text += f"{medal} {model}: {score*100:.1f}%\n"
         
         ax.text(0.1, 0.35, summary_text, fontsize=11, transform=ax.transAxes,
@@ -1137,7 +1137,7 @@ RANKING DE MODELOS:
         
         ranking_text += "RANKING GENERAL:\n"
         for i, (model, score) in enumerate(sorted_models):
-            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            medal = ["1st", "2nd", "3rd"][i] if i < 3 else f"{i+1}."
             ranking_text += f"{medal} {model}: {score*100:.1f}% (Score ponderado)\n"
         
         ranking_text += "\nRANKING POR MÉTRICA INDIVIDUAL:\n\n"
@@ -2090,9 +2090,9 @@ def display_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_rerank
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### 🥇 Ranking Global")
+        st.markdown("#### 🏆 Ranking Global")
         for i, (model_name, data) in enumerate(sorted_models):
-            medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            medal = ["1st", "2nd", "3rd"][i] if i < 3 else f"{i+1}."
             score_pct = data['score'] * 100
             st.markdown(f"{medal} **{model_name}**: {score_pct:.1f}% puntaje general")
     
