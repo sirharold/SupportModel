@@ -1,7 +1,8 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 from bert_score import score as bert_scorer
 from rouge_score import rouge_scorer
 import numpy as np
+from collections import defaultdict
 from utils.auth import ensure_huggingface_login
 
 def compute_ndcg(retrieved_docs: List[Dict], relevant_docs: List[str], k: int) -> float:
@@ -131,3 +132,132 @@ def calculate_content_metrics(retrieved_docs: List[Dict], ground_truth_answer: s
         rouge_scores = {}
 
     return {**bert_scores, **rouge_scores}
+
+
+def calculate_average_metrics(all_metrics: List[Dict]) -> Dict[str, float]:
+    """
+    Calcula métricas promedio de una lista de métricas de forma eficiente.
+    
+    Args:
+        all_metrics: Lista de diccionarios con métricas
+        
+    Returns:
+        Diccionario con métricas promedio
+    """
+    if not all_metrics:
+        return {}
+    
+    # Usar defaultdict para evitar verificaciones repetidas
+    metric_sums = defaultdict(float)
+    metric_counts = defaultdict(int)
+    
+    # Sumar todas las métricas de forma eficiente
+    for metrics in all_metrics:
+        for key, value in metrics.items():
+            if isinstance(value, (int, float)) and not np.isnan(value):
+                metric_sums[key] += value
+                metric_counts[key] += 1
+    
+    # Calcular promedios usando comprehension
+    average_metrics = {
+        key: metric_sums[key] / metric_counts[key] 
+        for key in metric_sums 
+        if metric_counts[key] > 0
+    }
+    
+    return average_metrics
+
+
+def create_question_data_record(question_num: int, question: str, ms_links: List[str], 
+                               docs_count: int, before_metrics: Dict, after_metrics: Dict) -> Dict:
+    """
+    Crea un registro optimizado de datos de pregunta para reducir uso de memoria.
+    
+    Args:
+        question_num: Número de pregunta
+        question: Texto de la pregunta
+        ms_links: Links de Microsoft Learn
+        docs_count: Número de documentos recuperados
+        before_metrics: Métricas antes del reranking
+        after_metrics: Métricas después del reranking
+        
+    Returns:
+        Diccionario con datos esenciales de la pregunta
+    """
+    return {
+        'question_num': question_num,
+        'question': question[:100] + '...' if len(question) > 100 else question,
+        'ground_truth_links': len(ms_links),
+        'docs_retrieved': docs_count,
+        'before_precision_5': before_metrics.get('Precision@5', 0),
+        'after_precision_5': after_metrics.get('Precision@5', 0),
+        'before_recall_5': before_metrics.get('Recall@5', 0),
+        'after_recall_5': after_metrics.get('Recall@5', 0),
+        'before_f1_5': before_metrics.get('F1@5', 0),
+        'after_f1_5': after_metrics.get('F1@5', 0)
+    }
+
+
+def validate_data_integrity(results: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Valida integridad de datos de resultados y corrige inconsistencias.
+    
+    Args:
+        results: Diccionario de resultados a validar
+        
+    Returns:
+        Diccionario de resultados validado y corregido
+    """
+    validation_report = {
+        'status': 'valid',
+        'issues': [],
+        'corrections': []
+    }
+    
+    # Validar estructura básica
+    required_keys = ['num_questions_evaluated', 'avg_before_metrics', 'avg_after_metrics']
+    for key in required_keys:
+        if key not in results:
+            validation_report['issues'].append(f"Missing required key: {key}")
+            validation_report['status'] = 'invalid'
+    
+    # Validar métricas promedio
+    if 'avg_before_metrics' in results:
+        before_metrics = results['avg_before_metrics']
+        if not isinstance(before_metrics, dict):
+            validation_report['issues'].append("avg_before_metrics is not a dictionary")
+            validation_report['status'] = 'invalid'
+        else:
+            # Verificar valores NaN o infinitos
+            for metric, value in before_metrics.items():
+                if isinstance(value, (int, float)):
+                    if np.isnan(value) or np.isinf(value):
+                        validation_report['issues'].append(f"Invalid value for {metric}: {value}")
+                        before_metrics[metric] = 0.0
+                        validation_report['corrections'].append(f"Set {metric} to 0.0")
+    
+    if 'avg_after_metrics' in results:
+        after_metrics = results['avg_after_metrics']
+        if not isinstance(after_metrics, dict):
+            validation_report['issues'].append("avg_after_metrics is not a dictionary")
+            validation_report['status'] = 'invalid'
+        else:
+            # Verificar valores NaN o infinitos
+            for metric, value in after_metrics.items():
+                if isinstance(value, (int, float)):
+                    if np.isnan(value) or np.isinf(value):
+                        validation_report['issues'].append(f"Invalid value for {metric}: {value}")
+                        after_metrics[metric] = 0.0
+                        validation_report['corrections'].append(f"Set {metric} to 0.0")
+    
+    # Validar número de preguntas
+    if 'num_questions_evaluated' in results:
+        num_questions = results['num_questions_evaluated']
+        if not isinstance(num_questions, int) or num_questions <= 0:
+            validation_report['issues'].append(f"Invalid num_questions_evaluated: {num_questions}")
+            validation_report['status'] = 'invalid'
+    
+    # Añadir reporte de validación a resultados
+    results['validation_report'] = validation_report
+    
+    return results
