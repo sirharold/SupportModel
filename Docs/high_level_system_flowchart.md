@@ -15,7 +15,7 @@ flowchart TD
     USER[👤 Usuario<br/>Consulta Técnica Azure]:::userInput
     
     %% INTERFAZ WEB
-    WEB[🌐 Interfaz Web Streamlit<br/>3 Páginas Principales:<br/>• Búsqueda Individual<br/>• Comparación Modelos<br/>• Procesamiento Lotes]:::userInput
+    WEB[🌐 Interfaz Web Streamlit<br/>3 Páginas Principales:<br/>• Búsqueda Individual<br/>• Comparación Modelos<br/>• Métricas Acumulativas]:::userInput
     
     %% SISTEMA RAG PRINCIPAL
     RAG[🤖 SISTEMA RAG<br/>Pipeline de 6 Etapas<br/>Procesamiento Inteligente]:::processing
@@ -39,10 +39,10 @@ flowchart TD
     MODEL_CHOICE{🎯 Selección de Modelo<br/>Generativo<br/>Local vs Remoto}:::decision
     
     %% MODELOS LOCALES
-    LOCAL_MODELS[💻 Modelos Locales<br/>Costo Zero<br/>• Llama 3.1 8B<br/>• Mistral 7B]:::models
+    LOCAL_MODELS[💻 Modelos Locales<br/>Costo Zero<br/>• TinyLlama 1.1B<br/>• Mistral 7B]:::models
     
     %% MODELOS REMOTOS
-    REMOTE_MODELS[☁️ Modelos Remotos<br/>APIs Comerciales<br/>• GPT-4<br/>• Gemini Pro]:::models
+    REMOTE_MODELS[☁️ Modelos Remotos<br/>APIs Comerciales<br/>• GPT-4<br/>• Gemini Pro<br/>• Llama 3.3 70B (OpenRouter)<br/>• DeepSeek V3 (OpenRouter)]:::models
     
     %% ETAPA 5: GENERACIÓN
     GENERATE[✨ Etapa 5: Generación<br/>Respuesta Fundamentada<br/>Contexto + Pregunta<br/>Sistema de Fallback]:::processing
@@ -55,7 +55,7 @@ flowchart TD
     
     COMPARISON_OUTPUT[📊 Comparación Modelos<br/>Análisis Comparativo<br/>Métricas por Modelo<br/>Reporte PDF]:::output
     
-    BATCH_OUTPUT[📈 Análisis por Lotes<br/>Procesamiento Masivo<br/>Estadísticas Agregadas<br/>Dashboards Interactivos]:::output
+    CUMULATIVE_OUTPUT[📈 Métricas Acumulativas<br/>Evaluación Masiva<br/>Estadísticas Agregadas<br/>Análisis Multi-Modelo]:::output
     
     %% DATOS DE ENTRADA
     DATA_SOURCES[📚 Fuentes de Datos<br/>Microsoft Learn<br/>Microsoft Q&A<br/>GitHub Issues<br/>Stack Overflow]:::storage
@@ -84,7 +84,7 @@ flowchart TD
     %% TIPOS DE SALIDA
     EVALUATE --> INDIVIDUAL_OUTPUT
     EVALUATE --> COMPARISON_OUTPUT
-    EVALUATE --> BATCH_OUTPUT
+    EVALUATE --> CUMULATIVE_OUTPUT
     
     %% DATOS
     DATA_SOURCES --> VECTOR_DB
@@ -101,7 +101,7 @@ flowchart TD
     
     INDIVIDUAL_OUTPUT --> BENEFITS
     COMPARISON_OUTPUT --> BENEFITS
-    BATCH_OUTPUT --> BENEFITS
+    CUMULATIVE_OUTPUT --> BENEFITS
 ```
 
 ## Elementos Clave del Diagrama
@@ -132,7 +132,7 @@ flowchart TD
 ### 🔴 **Salidas del Sistema**
 - **Respuestas individuales**: Completas con fuentes
 - **Comparaciones**: Análisis multi-modelo
-- **Procesamiento masivo**: Estadísticas agregadas
+- **Métricas acumulativas**: Estadísticas agregadas y evaluación masiva
 
 ### 🏆 **Beneficios Destacados**
 - Optimización de costos
