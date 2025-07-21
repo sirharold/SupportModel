@@ -15,12 +15,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import your existing utilities
-from config import EMBEDDING_MODELS, GENERATIVE_MODELS, CHROMADB_COLLECTION_CONFIG
-from utils.cumulative_evaluation import run_cumulative_metrics_for_models
-from utils.comparison_with_advanced_metrics import compare_models_with_advanced_metrics
-from utils.enhanced_evaluation import evaluate_rag_with_advanced_metrics
-from utils.chromadb_utils import ChromaDBConfig
-from utils.memory_utils import get_memory_usage, cleanup_memory
+from src.config.config import EMBEDDING_MODELS, GENERATIVE_MODELS, CHROMADB_COLLECTION_CONFIG
+from src.evaluation.cumulative import run_cumulative_metrics_for_models
+from src.evaluation.comparison import compare_models_with_advanced_metrics
+from src.evaluation.enhanced_evaluation import evaluate_rag_with_advanced_metrics
+from src.services.storage.chromadb_utils import ChromaDBConfig
+from src.utils.memory_utils import get_memory_usage, cleanup_memory
 
 
 def comprehensive_embedding_comparison(

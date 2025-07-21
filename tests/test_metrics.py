@@ -2,7 +2,7 @@ import sys, os
 import math
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils.metrics import compute_precision_recall_f1, compute_mrr, compute_ndcg
+from src.evaluation.metrics import compute_precision_recall_f1, compute_mrr, compute_ndcg
 
 ranked = [
     {"link": "l1"},
