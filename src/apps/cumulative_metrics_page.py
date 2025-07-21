@@ -19,7 +19,8 @@ from src.evaluation.metrics import validate_data_integrity
 from src.services.storage.real_gdrive_integration import (
     show_gdrive_status, create_evaluation_config_in_drive,
     check_evaluation_status_in_drive, get_evaluation_results_from_drive,
-    show_gdrive_authentication_instructions
+    show_gdrive_authentication_instructions, show_gdrive_debug_info,
+    get_all_results_files_from_drive, get_specific_results_file_from_drive
 )
 
 
@@ -47,7 +48,7 @@ def show_cumulative_metrics_page():
             "🔢 Número de preguntas a evaluar:",
             min_value=1,
             max_value=2000,
-            value=50,
+            value=600,
             step=1,
             help="Número total de preguntas para la evaluación"
         )
@@ -56,7 +57,7 @@ def show_cumulative_metrics_page():
         generative_model_name = st.selectbox(
             "🤖 Modelo Generativo:",
             list(GENERATIVE_MODELS.keys()),
-            index=0,
+            index=list(GENERATIVE_MODELS.keys()).index("gpt-4") if "gpt-4" in GENERATIVE_MODELS else 0,
             help="Modelo usado para reranking LLM"
         )
         
@@ -80,7 +81,7 @@ def show_cumulative_metrics_page():
         # NUEVO: Opción de usar Google Colab
         use_colab_processing = st.checkbox(
             "☁️ Procesamiento en Google Colab",
-            value=False,
+            value=True,
             help="Exportar evaluación a Google Colab para procesamiento con GPU (más rápido)"
         )
         
@@ -110,7 +111,7 @@ def show_cumulative_metrics_page():
         # Opción para evaluar todos los modelos
         evaluate_all_models = st.checkbox(
             "🔄 Evaluar todos los modelos",
-            value=False,
+            value=True,
             help="Evaluar todos los modelos de embedding disponibles"
         )
         
@@ -285,8 +286,12 @@ def show_colab_workflow(num_questions: int, selected_models: List[str],
         st.markdown("**📁 Google Drive:**")
         st.info("Carpeta: `/TesisMagister/acumulative/`")
     
+    # Sección de resultados disponibles (mostrar siempre)
+    st.markdown("---")
+    show_available_results_section()
+    
     # Botones del flujo
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         if st.button("🚀 Crear Configuración y Enviar a Google Drive", type="primary"):
@@ -297,16 +302,17 @@ def show_colab_workflow(num_questions: int, selected_models: List[str],
             check_colab_evaluation_status()
     
     with col3:
-        show_results_button = st.button("📊 Mostrar Resultados y Generar Visualizaciones")
+        if st.button("🔍 Debug Google Drive"):
+            st.markdown("---")
+            show_gdrive_debug_info()
+    
+    with col4:
+        # Placeholder para futuro botón
+        st.empty()
     
     # Mostrar estado actual
     st.markdown("---")
     display_current_colab_status()
-    
-    # Mostrar resultados en ancho completo (fuera de las columnas)
-    if show_results_button:
-        st.markdown("---")
-        show_colab_results_and_generate_visuals()
 
 
 def create_config_and_send_to_drive(evaluation_config: Dict):
@@ -429,71 +435,264 @@ def check_colab_evaluation_status():
             st.error(f"❌ Error verificando estado: {result['error']}")
 
 
-def show_colab_results_and_generate_visuals():
-    """Obtiene resultados de Google Drive y genera visualizaciones"""
+def show_available_results_section():
+    """Muestra la sección de resultados disponibles con dropdown de selección"""
     
-    with st.spinner("📊 Obteniendo resultados de Google Drive..."):
-        result = get_evaluation_results_from_drive()
+    st.subheader("📊 Resultados Disponibles")
+    
+    # Obtener archivos disponibles sin spinner para no interferir con la UI
+    try:
+        files_result = get_all_results_files_from_drive()
         
-        if result['success']:
-            st.success("✅ Resultados obtenidos exitosamente!")
+        if not files_result['success']:
+            st.warning(f"🔍 No se pudieron obtener archivos de resultados")
+            st.error(f"❌ {files_result['error']}")
             
-            results_data = result['results']
+            # Mostrar información de debug si está disponible
+            if 'debug_info' in files_result:
+                debug_info = files_result['debug_info']
+                with st.expander("🔍 Información de Debug", expanded=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"📁 **Folder ID:** `{debug_info.get('folder_id', 'N/A')}`")
+                        st.write(f"🔍 **Búsqueda:** `{debug_info.get('search_query', 'N/A')}`")
+                    with col2:
+                        st.write(f"📄 **Total archivos:** {debug_info.get('total_files', 0)}")
+                        st.write(f"📋 **Archivos JSON:** {debug_info.get('json_files', 0)}")
+                    
+                    # Mostrar algunos nombres de archivos para ayudar con debug
+                    if 'all_files' in debug_info and debug_info['all_files']:
+                        st.write("📋 **Algunos archivos JSON encontrados:**")
+                        for filename in debug_info['all_files']:
+                            st.write(f"- `{filename}`")
             
-            # Convertir formato para compatibilidad con funciones existentes
-            processed_results = {}
-            for model_name, model_data in results_data['results'].items():
-                processed_results[model_name] = model_data
+            # Botón para ejecutar debug completo
+            if st.button("🔍 Ejecutar Debug Completo de Google Drive"):
+                st.markdown("---")
+                show_gdrive_debug_info()
             
-            # Generar visualizaciones usando funciones existentes
-            st.subheader("📊 Resultados de Evaluación Acumulativa")
+            st.info("💡 **Posibles soluciones:**")
+            st.markdown("""
+            1. 🚀 **Ejecuta una evaluación en Colab** para generar archivos de resultados
+            2. 🔧 **Verifica la conexión** con el botón 'Debug Google Drive' 
+            3. 📁 **Confirma la carpeta** acumulative en Google Drive
+            4. 📋 **Revisa el formato** de archivos (deben ser `cumulative_results_*.json`)
+            """)
+            return
+        
+        available_files = files_result['files']
+        
+        if not available_files:
+            st.info("📭 No hay archivos de resultados disponibles")
+            st.info("💡 Ejecuta una evaluación en Colab para generar resultados")
+            return
             
-            # Determinar si usar reranker desde config
-            use_llm_reranker = results_data['config'].get('use_llm_reranker', True)
-            
-            if len(processed_results) == 1:
-                # Para un solo modelo, usar display_cumulative_metrics
-                model_name = list(processed_results.keys())[0]
-                model_results = processed_results[model_name]
-                
-                # Adaptar formato para la función
-                adapted_results = {
-                    'num_questions_evaluated': results_data['config']['num_questions'],
-                    'avg_metrics': model_results['avg_metrics'],
-                    'individual_metrics': model_results.get('individual_metrics', [])
-                }
-                
-                display_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
-                
+    except Exception as e:
+        st.warning(f"⚠️ Error verificando archivos: {str(e)}")
+        return
+    
+    # Mostrar información de archivos disponibles
+    st.success(f"✅ Encontrados {len(available_files)} archivos de resultados")
+    
+    # Crear dropdown con todos los archivos disponibles
+    file_options = {file_info['display_name']: file_info['file_id'] for file_info in available_files}
+    
+    # Usar session_state para mantener la selección
+    if 'selected_results_file' not in st.session_state:
+        st.session_state.selected_results_file = list(file_options.keys())[0]
+    
+    selected_display_name = st.selectbox(
+        "📁 Seleccionar archivo de resultados:",
+        options=list(file_options.keys()),
+        index=list(file_options.keys()).index(st.session_state.selected_results_file) if st.session_state.selected_results_file in file_options else 0,
+        help="Los archivos están ordenados por fecha de modificación (más reciente primero)",
+        key="results_file_selector"
+    )
+    
+    # Actualizar session_state
+    st.session_state.selected_results_file = selected_display_name
+    selected_file_id = file_options[selected_display_name]
+    
+    # Botón para mostrar resultados del archivo seleccionado
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        if st.button("📊 Mostrar Resultados del Archivo Seleccionado", type="primary", use_container_width=True):
+            load_and_display_selected_results(selected_file_id)
+    
+    with col2:
+        if st.button("🔄 Actualizar Lista", help="Buscar nuevos archivos de resultados"):
+            st.rerun()
+
+
+def load_and_display_selected_results(file_id: str):
+    """Carga y muestra los resultados del archivo seleccionado"""
+    
+    with st.spinner("📊 Cargando resultados del archivo seleccionado..."):
+        result = get_specific_results_file_from_drive(file_id)
+        
+        if not result['success']:
+            st.error(f"❌ Error cargando archivo: {result['error']}")
+            return
+        
+        st.success("✅ Resultados cargados exitosamente!")
+        
+        # Usar un expander para los resultados para que no ocupen todo el espacio
+        with st.expander("📊 Resultados de Evaluación", expanded=True):
+            display_results_content(result['results'])
+
+
+def display_results_content(results_data):
+    """Muestra el contenido de los resultados de evaluación"""
+    
+    # Debug: Mostrar estructura de datos si está habilitado
+    if st.checkbox("🔍 Mostrar estructura de datos (debug)", value=False):
+        with st.expander("📋 Estructura de datos completa"):
+            st.json(results_data)
+    
+    # Convertir formato para compatibilidad con funciones existentes
+    processed_results = {}
+    for model_name, model_data in results_data['results'].items():
+        processed_results[model_name] = model_data
+    
+    # Generar visualizaciones usando funciones existentes
+    # Extraer información de tiempo y configuración
+    evaluation_info = results_data.get('evaluation_info', {})
+    config_info = results_data.get('config', {})
+    
+    # Formatear fecha y hora
+    timestamp = evaluation_info.get('timestamp')
+    if timestamp:
+        try:
+            from datetime import datetime
+            if isinstance(timestamp, str):
+                # Intentar parsear diferentes formatos de timestamp
+                if 'T' in timestamp:
+                    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                else:
+                    dt = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
             else:
-                # Para múltiples modelos, usar display_models_comparison
-                st.markdown("### 🏆 Comparación de Modelos")
-                display_models_comparison(processed_results, use_llm_reranker)
+                dt = datetime.fromtimestamp(timestamp)
             
-            # Sección de descarga
-            st.markdown("---")
-            
-            # Preparar datos para la sección de descarga en el formato esperado
-            cached_results = {
-                'results': processed_results,
-                'evaluation_time': results_data['evaluation_info'].get('timestamp'),
-                'execution_time': results_data['evaluation_info'].get('total_time_seconds'),
-                'evaluate_all_models': len(processed_results) > 1,
-                'params': {
-                    'num_questions': results_data['config']['num_questions'],
-                    'selected_models': list(processed_results.keys()),
-                    'embedding_model_name': list(processed_results.keys())[0] if len(processed_results) == 1 else 'Multi-Model',
-                    'generative_model_name': results_data['config']['generative_model_name'],
-                    'top_k': results_data['config']['top_k'],
-                    'use_llm_reranker': results_data['config']['use_llm_reranker'],
-                    'batch_size': results_data['config']['batch_size']
-                }
-            }
-            
-            display_download_section(cached_results)
-            
+            formatted_date = dt.strftime('%d/%m/%Y %H:%M:%S')
+        except:
+            formatted_date = str(timestamp)
+    else:
+        formatted_date = "Fecha no disponible"
+    
+    # Obtener número de preguntas
+    num_questions = config_info.get('num_questions', evaluation_info.get('questions_processed', 'N/A'))
+    
+    # Obtener método de autenticación si está disponible
+    auth_method = evaluation_info.get('auth_method', '')
+    auth_icon = '🔐' if auth_method == 'API' else '📁' if auth_method == 'Mount' else ''
+    
+    # Mostrar header con información detallada
+    st.subheader(f"📊 Resultados de Evaluación Acumulativa")
+    
+    # Información de la evaluación en una caja destacada
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.info(f"📅 **Fecha:** {formatted_date}")
+    
+    with col2:
+        st.info(f"❓ **Preguntas:** {num_questions}")
+    
+    with col3:
+        models_count = len(results_data['results'])
+        st.info(f"🤖 **Modelos:** {models_count}")
+    
+    # Información adicional si está disponible
+    if evaluation_info.get('total_time_seconds'):
+        total_time = evaluation_info['total_time_seconds']
+        if total_time >= 60:
+            time_str = f"{total_time/60:.1f} min"
         else:
-            st.error(f"❌ Error obteniendo resultados: {result['error']}")
+            time_str = f"{total_time:.1f}s"
+        
+        gpu_used = evaluation_info.get('gpu_used', False)
+        gpu_icon = '🚀' if gpu_used else '💻'
+        
+        st.caption(f"⏱️ Tiempo de ejecución: {time_str} {gpu_icon} | {auth_icon} {auth_method}")
+    
+    st.markdown("---")
+    
+    # Determinar si usar reranker desde config
+    use_llm_reranker = results_data['config'].get('use_llm_reranker', True)
+    
+    if len(processed_results) == 1:
+        # Para un solo modelo, usar display_cumulative_metrics
+        model_name = list(processed_results.keys())[0]
+        model_results = processed_results[model_name]
+        
+        # Adaptar formato para la función
+        # Los resultados de Colab solo tienen avg_metrics (sin before/after distinction)
+        avg_metrics = model_results.get('avg_metrics', {})
+        
+        # Crear estructura compatible con display_cumulative_metrics
+        adapted_results = {
+            'num_questions_evaluated': results_data['config']['num_questions'],
+            'avg_before_metrics': avg_metrics,  # Usar las métricas como "before" 
+            'avg_after_metrics': {},  # Vacío porque no hay reranking en Colab
+            'individual_metrics': model_results.get('individual_metrics', [])
+        }
+        
+        # Si hay reranking habilitado pero no hay métricas after, deshabilitar reranking para la visualización
+        if use_llm_reranker and not adapted_results['avg_after_metrics']:
+            st.warning("⚠️ Reranking LLM estaba habilitado en configuración, pero no se encontraron métricas after. Mostrando solo métricas base.")
+            use_llm_reranker = False
+        
+        display_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
+        
+    else:
+        # Para múltiples modelos, usar display_models_comparison
+        st.markdown("### 🏆 Comparación de Modelos")
+        
+        # Adaptar formato para múltiples modelos
+        adapted_multi_results = {}
+        for model_name, model_data in processed_results.items():
+            avg_metrics = model_data.get('avg_metrics', {})
+            
+            adapted_multi_results[model_name] = {
+                'num_questions_evaluated': results_data['config']['num_questions'],
+                'avg_before_metrics': avg_metrics,  # Usar métricas como "before"
+                'avg_after_metrics': {},  # Vacío porque no hay reranking en Colab
+                'individual_metrics': model_data.get('individual_metrics', [])
+            }
+        
+        # Deshabilitar reranking para la visualización si no hay métricas after
+        if use_llm_reranker:
+            has_after_metrics = any(adapted_multi_results[model]['avg_after_metrics'] for model in adapted_multi_results)
+            if not has_after_metrics:
+                st.warning("⚠️ Reranking LLM estaba habilitado en configuración, pero no se encontraron métricas after para ningún modelo. Mostrando solo métricas base.")
+                use_llm_reranker = False
+        
+        display_models_comparison(adapted_multi_results, use_llm_reranker)
+    
+    # Sección de descarga
+    st.markdown("---")
+    
+    # Preparar datos para la sección de descarga en el formato esperado
+    cached_results = {
+        'results': processed_results,
+        'evaluation_time': results_data['evaluation_info'].get('timestamp'),
+        'execution_time': results_data['evaluation_info'].get('total_time_seconds'),
+        'evaluate_all_models': len(processed_results) > 1,
+        'params': {
+            'num_questions': results_data['config']['num_questions'],
+            'selected_models': list(processed_results.keys()),
+            'embedding_model_name': list(processed_results.keys())[0] if len(processed_results) == 1 else 'Multi-Model',
+            'generative_model_name': results_data['config']['generative_model_name'],
+            'top_k': results_data['config']['top_k'],
+            'use_llm_reranker': results_data['config']['use_llm_reranker'],
+            'batch_size': results_data['config']['batch_size']
+        }
+    }
+    
+    display_download_section(cached_results)
+
+
 
 
 def display_current_colab_status():
