@@ -105,7 +105,7 @@ HUGGINGFACE_API_KEY=your_huggingface_token
 
 ### 4. Launch Application
 ```bash
-streamlit run EnhancedStreamlit_qa_app.py
+PYTHONPATH=. streamlit run src/apps/main_qa_app.py
 ```
 
 Access the application at `http://localhost:8501`

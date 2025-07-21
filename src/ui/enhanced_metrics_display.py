@@ -1003,135 +1003,168 @@ def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_rera
         df = pd.DataFrame(summary_data)
         st.dataframe(df, use_container_width=True)
 
+def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
+    """
+    Extract and calculate average RAG metrics from individual question results.
+    Handles both old format (no retrieval/rag separation) and new format.
+    """
+    rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    rag_sums = {}
+    rag_counts = {}
+    
+    for individual in individual_metrics:
+        # Check if this individual result has a separate rag_metrics section
+        if isinstance(individual, dict):
+            rag_data = individual.get('rag_metrics', {})
+            
+            # If no separate rag_metrics section, check direct in individual
+            if not rag_data:
+                rag_data = individual
+            
+            for key in rag_metric_keys:
+                if key in rag_data and rag_data[key] is not None:
+                    if key not in rag_sums:
+                        rag_sums[key] = 0
+                        rag_counts[key] = 0
+                    rag_sums[key] += rag_data[key]
+                    rag_counts[key] += 1
+    
+    # Calculate averages
+    avg_rag_metrics = {}
+    for key in rag_metric_keys:
+        if key in rag_sums and rag_counts[key] > 0:
+            avg_rag_metrics[key] = rag_sums[key] / rag_counts[key]
+    
+    return avg_rag_metrics
+
+
 def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
-    Displays RAG metrics summary. Checks configuration to determine if RAG metrics were supposed to be generated.
+    Displays a summary of RAG metrics (faithfulness, answer relevance, etc.),
+    comparing before and after LLM reranking if applicable.
     """
     st.subheader("📊 Métricas RAG (Generación de Respuesta)")
-    
-    # Check if any model has RAG metrics data
-    has_rag_metrics = False
-    for model_name, model_results in results.items():
-        individual_metrics = model_results.get('individual_before_metrics', [])
-        individual_after_metrics = model_results.get('individual_after_metrics', [])
-        
-        # Check if any question has rag_metrics
-        for metrics in individual_metrics + individual_after_metrics:
-            if isinstance(metrics, dict) and (
-                'rag_metrics' in metrics or 'rag_metrics_after_rerank' in metrics
-            ):
-                rag_data = metrics.get('rag_metrics') or metrics.get(
-                    'rag_metrics_after_rerank', {}
-                )
-                if rag_data and any(v is not None for v in rag_data.values()):
-                    has_rag_metrics = True
-                    break
-        if has_rag_metrics:
-            break
-    
-    # Check configuration to see if RAG metrics were supposed to be generated
-    rag_metrics_enabled = False
-    if config:
-        rag_metrics_enabled = config.get('generate_rag_metrics', False)
-    
-    if not has_rag_metrics:
-        if rag_metrics_enabled:
-            # RAG metrics were enabled but not found - possible error or processing issue
-            st.warning("""
-            **⚠️ Métricas RAG Faltantes:**
-            
-            Las métricas RAG (Faithfulness, Answer Relevance, Answer Correctness, Answer Similarity) 
-            estaban **habilitadas** en la configuración (`generate_rag_metrics=True`) pero no se 
-            encuentran en los resultados.
-            
-            **Posibles causas:**
-            - Error durante la generación de respuestas en Colab
-            - Problemas con la integración de OpenAI API 
-            - Fallo en el cálculo de métricas RAG durante la evaluación
-            - Datos filtrados o perdidos durante el procesamiento
-            
-            **Solución recomendada:**
-            - Verificar los logs de Google Colab para errores
-            - Confirmar que la API key de OpenAI está configurada correctamente
-            - Volver a ejecutar la evaluación si es necesario
-            
-            **Métricas disponibles actualmente:**
-            - ✅ Métricas de Recuperación: Precision, Recall, F1, MAP, MRR, NDCG
-            - ❌ Métricas RAG: Faltantes (pero habilitadas en configuración)
-            """)
-        else:
-            # RAG metrics were not enabled - normal behavior
-            st.info("""
-            **📝 Nota sobre Métricas RAG:**
-            
-            Las métricas RAG (Faithfulness, Answer Relevance, Answer Correctness, Answer Similarity) 
-            no están disponibles porque la evaluación se ejecutó en modo de solo recuperación 
-            (`generate_rag_metrics=False`).
-            
-            **Para obtener métricas RAG completas:**
-            - Habilita "📝 Generar Métricas RAG" en la configuración
-            - Las métricas RAG requieren generar respuestas para cada pregunta
-            - Esto incluye evaluar la fidelidad, relevancia y corrección de las respuestas generadas
-            - La evaluación se enfoca actualmente en métricas de recuperación (precision, recall, F1, etc.)
-            
-            **Métricas disponibles actualmente:**
-            - ✅ Métricas de Recuperación: Precision, Recall, F1, MAP, MRR, NDCG
-            - ❌ Métricas RAG: Deshabilitadas en configuración
-            """)
-        return
-    
-    # If we have RAG metrics, display them (this is for future compatibility)
-    rag_metrics_types = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+
+    rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
     table_data = []
+    chart_data = []
+    
+    has_any_rag_metric = False
 
     for model_name, model_results in results.items():
-        individual_metrics = model_results.get('individual_after_metrics', model_results.get('individual_before_metrics', []))
-        row_base = {'Modelo': model_name}
-
-        for metric_type in rag_metrics_types:
-            # Look for RAG metrics in the most recent available data
-            values = []
-            for metrics in individual_metrics:
-                if isinstance(metrics, dict):
-                    rag_data = metrics.get('rag_metrics', {})
-                    if rag_data and metric_type in rag_data and rag_data[metric_type] is not None:
-                        values.append(rag_data[metric_type])
-            
-            avg_value = np.mean(values) if values else np.nan
-            metric_display_name = metric_type.replace('answer_', '').replace('context_', '').capitalize()
-            row_base[f'{metric_display_name}'] = f"{avg_value:.3f}" if not np.isnan(avg_value) else 'N/A'
-
-        table_data.append(row_base)
-
-    if table_data and any(any(v != 'N/A' for k, v in row.items() if k != 'Modelo') for row in table_data):
-        df_rag_metrics = pd.DataFrame(table_data)
-        st.dataframe(df_rag_metrics, use_container_width=True)
-
-        # Create a simple bar chart for available RAG metrics
-        chart_data = []
-        for row in table_data:
-            model = row['Modelo']
-            for key, value in row.items():
-                if key != 'Modelo' and value != 'N/A':
-                    chart_data.append({
-                        'Modelo': model,
-                        'Métrica RAG': key,
-                        'Valor': float(value)
-                    })
+        # Try to get RAG metrics from multiple sources:
+        # 1. Direct RAG averages (newest format)
+        rag_before_metrics = model_results.get('avg_rag_before_metrics', {})
+        rag_after_metrics = model_results.get('avg_rag_after_metrics', {})
         
-        if chart_data:
-            df_chart = pd.DataFrame(chart_data)
-            fig = px.bar(
-                df_chart,
-                x='Métrica RAG',
-                y='Valor',
-                color='Modelo',
-                barmode='group',
-                title='Métricas RAG por Modelo',
-                range_y=[0, 1]
-            )
-            fig.update_layout(height=400)
-            st.plotly_chart(fig, use_container_width=True)
+        # 2. Pre-calculated averages with RAG metrics mixed in (older format)
+        before_metrics = model_results.get('avg_before_metrics', {})
+        after_metrics = model_results.get('avg_after_metrics', {})
+        
+        # Combine RAG metrics from dedicated sections if available
+        if rag_before_metrics:
+            before_metrics = {**before_metrics, **rag_before_metrics}
+        if rag_after_metrics:
+            after_metrics = {**after_metrics, **rag_after_metrics}
+        
+        # 3. Calculate from individual metrics if not in averages
+        individual_before = model_results.get('individual_before_metrics', [])
+        individual_after = model_results.get('individual_after_metrics', [])
+        
+        # 4. Fallback to old format individual_metrics
+        if not individual_before and not individual_after:
+            individual_metrics = model_results.get('individual_metrics', [])
+            if individual_metrics:
+                individual_before = individual_metrics
+        
+        # Extract RAG metrics from individual data if not available in averages
+        if not any(key in before_metrics for key in rag_metric_keys) and individual_before:
+            extracted_before = extract_rag_metrics_from_individual(individual_before)
+            before_metrics.update(extracted_before)
+        
+        if not any(key in after_metrics for key in rag_metric_keys) and individual_after:
+            extracted_after = extract_rag_metrics_from_individual(individual_after)
+            after_metrics.update(extracted_after)
+
+        # Check if at least one RAG metric exists for this model
+        model_has_rag = any(key in before_metrics or key in after_metrics for key in rag_metric_keys)
+        if not model_has_rag:
+            continue
+        
+        has_any_rag_metric = True
+
+        for key in rag_metric_keys:
+            metric_name = key.replace('_', ' ').replace('answer', '').strip().capitalize()
+            before_val = before_metrics.get(key)
+            after_val = after_metrics.get(key) if use_llm_reranker else None
+
+            row = {
+                'Modelo': model_name,
+                'Métrica RAG': metric_name,
+                'Antes LLM': f"{before_val:.3f}" if before_val is not None else "N/A"
+            }
+            
+            if before_val is not None:
+                chart_data.append({'Modelo': model_name, 'Métrica RAG': metric_name, 'Valor': before_val, 'Estado': 'Antes LLM'})
+
+            if use_llm_reranker:
+                row['Después LLM'] = f"{after_val:.3f}" if after_val is not None else "N/A"
+                if after_val is not None:
+                    chart_data.append({'Modelo': model_name, 'Métrica RAG': metric_name, 'Valor': after_val, 'Estado': 'Después LLM'})
+
+                if before_val is not None and after_val is not None and before_val > 0:
+                    improvement = after_val - before_val
+                    improvement_pct = (improvement / before_val) * 100
+                    row['Mejora'] = f"{improvement:+.3f} ({improvement_pct:+.1f}%)"
+                else:
+                    row['Mejora'] = "N/A"
+            
+            table_data.append(row)
+
+    if not has_any_rag_metric:
+        # Debug: Show what data structure we're working with
+        with st.expander("🔍 Debug: Estructura de datos examinada"):
+            for model_name, model_results in results.items():
+                st.write(f"**Modelo: {model_name}**")
+                st.write(f"- Claves disponibles: {list(model_results.keys())}")
+                
+                if 'individual_metrics' in model_results:
+                    first_individual = model_results['individual_metrics'][0] if model_results['individual_metrics'] else {}
+                    st.write(f"- Claves en primera métrica individual: {list(first_individual.keys()) if first_individual else 'Sin métricas individuales'}")
+                
+                if 'individual_before_metrics' in model_results:
+                    first_before = model_results['individual_before_metrics'][0] if model_results['individual_before_metrics'] else {}
+                    st.write(f"- Claves en primera métrica before: {list(first_before.keys()) if first_before else 'Sin métricas before'}")
+        
+        st.info("""
+        **📝 No se encontraron métricas RAG en los resultados.**
+        
+        Para generar estas métricas (Faithfulness, Answer Relevance, etc.), asegúrate de que la opción
+        `📝 Generar Métricas RAG` esté habilitada durante la configuración de la evaluación.
+        
+        **Métricas RAG esperadas:** faithfulness, answer_relevance, answer_correctness, answer_similarity
+        """)
+        return
+
+    if table_data:
+        df_rag = pd.DataFrame(table_data)
+        st.dataframe(df_rag, use_container_width=True)
+
+    if chart_data:
+        df_chart = pd.DataFrame(chart_data)
+        fig = px.bar(
+            df_chart,
+            x='Métrica RAG',
+            y='Valor',
+            color='Estado',
+            barmode='group',
+            facet_col='Modelo',
+            labels={'Valor': 'Puntuación', 'Métrica RAG': 'Métrica', 'Estado': 'Fase'},
+            title='Comparación de Métricas RAG por Modelo',
+            range_y=[0, 1]
+        )
+        fig.update_layout(height=400)
+        st.plotly_chart(fig, use_container_width=True)
 
 def get_improvement_status_icon(improvement: float) -> str:
     """Return a simple icon for improvement status."""
