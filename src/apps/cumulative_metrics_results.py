@@ -105,10 +105,18 @@ def show_available_results_section():
                 if 'webViewLink' in selected_file:
                     st.markdown(f"[🔗 Ver en Drive]({selected_file['webViewLink']})")
         
+        # Opción para generar conclusiones con ChatGPT
+        generate_llm = st.checkbox(
+            "🤖 Generar conclusiones con ChatGPT",
+            value=False,
+            help="Si se marca, se generarán automáticamente las conclusiones y"
+                 " posibles mejoras usando un modelo LLM"
+        )
+
         # Botón para mostrar resultados
         if st.button("📊 Mostrar Resultados", type="primary"):
             if selected_file:
-                show_selected_results(selected_file)
+                show_selected_results(selected_file, generate_llm)
             else:
                 st.error("❌ Por favor selecciona un archivo de resultados")
                 
@@ -133,8 +141,13 @@ def show_available_results_section():
         st.markdown("- Asegúrate de tener permisos de lectura")
 
 
-def show_selected_results(selected_file: Dict):
-    """Muestra los resultados del archivo seleccionado"""
+def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> None:
+    """Muestra los resultados del archivo seleccionado.
+
+    Args:
+        selected_file: Información del archivo seleccionado en Google Drive.
+        generate_llm_analysis: Si True, se generarán conclusiones con un modelo LLM.
+    """
     
     st.markdown("---")
     st.subheader(f"📊 Resultados: {selected_file['file_name']}")
@@ -172,12 +185,20 @@ def show_selected_results(selected_file: Dict):
             # Mostrar información general
             display_results_summary(results_data, processed_results)
 
-            # Automatically generate conclusions with LLM
-            generative_model_name = results_data.get('config', {}).get('generative_model_name', 'gpt-4') # Default to gpt-4 if not found
-            llm_analysis = generate_analysis_with_llm(results_data, generative_model_name)
-            st.session_state.llm_conclusions = llm_analysis['conclusions']
-            st.session_state.llm_improvements = llm_analysis['improvements']
-            st.success("✅ Análisis generado por LLM.")
+            # Generar conclusiones con LLM si se solicitó
+            if generate_llm_analysis:
+                generative_model_name = results_data.get('config', {}).get(
+                    'generative_model_name', 'gpt-4'
+                )
+                llm_analysis = generate_analysis_with_llm(
+                    results_data, generative_model_name
+                )
+                st.session_state.llm_conclusions = llm_analysis['conclusions']
+                st.session_state.llm_improvements = llm_analysis['improvements']
+                st.success("✅ Análisis generado por LLM.")
+            else:
+                st.session_state.llm_conclusions = ""
+                st.session_state.llm_improvements = ""
 
             # Mostrar visualizaciones
             display_results_visualizations(results_data, processed_results)
