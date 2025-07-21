@@ -2,8 +2,8 @@
 import streamlit as st
 from openai import OpenAI
 import google.generativeai as genai
-from config import EMBEDDING_MODELS, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS
-from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
+from config import EMBEDDING_MODELS, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS
+from utils.chromadb_utils import ChromaDBConfig, get_chromadb_client, ChromaDBClientWrapper
 from utils.embedding_safe import get_embedding_client
 from utils.local_models import get_tinyllama_client, get_mistral_client
 from utils.openrouter_client import get_cached_llama4_scout_client, get_cached_deepseek_openrouter_client
@@ -18,18 +18,18 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-4-sc
         generative_model_name (str): The key for the selected generative model.
         
     Returns:
-        Tuple: A tuple containing the weaviate_wrapper, embedding_client,
+        Tuple: A tuple containing the chromadb_wrapper, embedding_client,
                openai_client, gemini_client, local_tinyllama_client, local_mistral_client, 
-               openrouter_client, and the raw weaviate client.
+               openrouter_client, and the raw chromadb client.
     """
-    config = WeaviateConfig.from_env()
-    client = get_weaviate_client(config)
+    config = ChromaDBConfig.from_env()
+    client = get_chromadb_client(config)
     
-    weaviate_classes = WEAVIATE_CLASS_CONFIG[model_name]
-    weaviate_wrapper = WeaviateClientWrapper(
+    chromadb_collections = CHROMADB_COLLECTION_CONFIG[model_name]
+    chromadb_wrapper = ChromaDBClientWrapper(
         client,
-        documents_class=weaviate_classes["documents"],
-        questions_class=weaviate_classes["questions"],
+        documents_class=chromadb_collections["documents"],
+        questions_class=chromadb_collections["questions"],
         retry_attempts=3
     )
     
@@ -94,4 +94,4 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-4-sc
             else:
                 st.error("❌ OPEN_ROUTER_KEY no encontrado en variables de entorno")
     
-    return weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client
+    return chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client

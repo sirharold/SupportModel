@@ -53,12 +53,12 @@ def demo_single_question_metrics():
         
         try:
             # Inicializar clientes
-            weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
+            chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
             
             # Ejecutar pipeline con métricas
             result = answer_question_with_retrieval_metrics(
                 question=question,
-                weaviate_wrapper=weaviate_wrapper,
+                chromadb_wrapper=chromadb_wrapper,
                 embedding_client=embedding_client,
                 openai_client=openai_client,
                 gemini_client=gemini_client,
@@ -144,7 +144,7 @@ def demo_batch_metrics():
     
     try:
         # Inicializar clientes
-        weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
+        chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key)
         
         # Evaluar cada pregunta
         all_results = []
@@ -156,7 +156,7 @@ def demo_batch_metrics():
             try:
                 result = answer_question_with_retrieval_metrics(
                     question=qa_pair['question'],
-                    weaviate_wrapper=weaviate_wrapper,
+                    chromadb_wrapper=chromadb_wrapper,
                     embedding_client=embedding_client,
                     openai_client=openai_client,
                     gemini_client=gemini_client,

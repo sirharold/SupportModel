@@ -4,7 +4,7 @@ import google.generativeai as genai
 from utils.extract_links import extract_urls_from_answer
 from utils.reranker import rerank_documents, rerank_with_llm
 from utils.embedding import EmbeddingClient
-from utils.weaviate_utils_improved import WeaviateClientWrapper
+from utils.chromadb_utils import ChromaDBClientWrapper
 from utils.answer_generator import generate_final_answer, evaluate_answer_quality
 from utils.gemini_answer_generator import generate_final_answer_gemini
 from utils.local_answer_generator import generate_final_answer_local, refine_query_local
@@ -95,7 +95,7 @@ def refine_and_prepare_query(question: str, gemini_client: genai.GenerativeModel
 
 def answer_question(
     question: str,
-    weaviate_wrapper: WeaviateClientWrapper,
+    chromadb_wrapper: ChromaDBClientWrapper,
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
@@ -162,7 +162,7 @@ def answer_question(
         # 3. Buscar preguntas similares (Questions)
         if use_questions_collection:
             debug_print(f"[DEBUG] Searching for similar questions in collection: {questions_class}")
-            similar_questions = weaviate_wrapper.search_questions_by_vector(query_vector, top_k=min(top_k*3, 30))
+            similar_questions = chromadb_wrapper.search_questions_by_vector(query_vector, top_k=min(top_k*3, 30))
             debug_logs.append(f"🔹 Questions found: {len(similar_questions)}")
             debug_print(f"[DEBUG] Similar Questions retrieved: {len(similar_questions)}")
             #for i, q in enumerate(similar_questions):
@@ -180,13 +180,13 @@ def answer_question(
             debug_logs.append(f"🔹 Sample links: {all_links[:3]}")
 
             # 5. Recuperar documentos vinculados usando batch operation when available
-            if hasattr(weaviate_wrapper, "lookup_docs_by_links_batch"):
+            if hasattr(chromadb_wrapper, "lookup_docs_by_links_batch"):
                 debug_print(f"[DEBUG] Looking up documents by links in collection: {documents_class}")
-                linked_docs = weaviate_wrapper.lookup_docs_by_links_batch(
+                linked_docs = chromadb_wrapper.lookup_docs_by_links_batch(
                     all_links, batch_size=50
                 )
             else:
-                linked_docs = weaviate_wrapper.lookup_docs_by_links(all_links)
+                linked_docs = chromadb_wrapper.lookup_docs_by_links(all_links)
             debug_logs.append(f"🔹 Linked documents found: {len(linked_docs)}")
             debug_print(f"[DEBUG] Linked Documents retrieved: {len(linked_docs)}")
             #for i, doc in enumerate(linked_docs):
@@ -202,7 +202,7 @@ def answer_question(
         debug_logs.append(f"🔹 Document vector length: {len(document_vector)}")
         
         debug_print(f"[DEBUG] Searching for documents by vector in collection: {documents_class}")
-        vector_docs = weaviate_wrapper.search_docs_by_vector(
+        vector_docs = chromadb_wrapper.search_docs_by_vector(
             vector=document_vector,
             top_k=max(top_k * 2, 20),
             diversity_threshold=diversity_threshold,
@@ -335,7 +335,7 @@ def answer_question(
 
 def answer_question_documents_only(
     question: str,
-    weaviate_wrapper: WeaviateClientWrapper,
+    chromadb_wrapper: ChromaDBClientWrapper,
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     top_k: int = 10,
@@ -352,7 +352,7 @@ def answer_question_documents_only(
     """
     return answer_question(
         question=question,
-        weaviate_wrapper=weaviate_wrapper,
+        chromadb_wrapper=chromadb_wrapper,
         embedding_client=embedding_client,
         openai_client=openai_client,
         gemini_client=None,
@@ -369,7 +369,7 @@ def answer_question_documents_only(
 
 def answer_question_with_rag(
     question: str,
-    weaviate_wrapper: WeaviateClientWrapper,
+    chromadb_wrapper: ChromaDBClientWrapper,
     embedding_client: EmbeddingClient,
     openai_client: OpenAI,
     gemini_client: genai.GenerativeModel = None,
@@ -393,7 +393,7 @@ def answer_question_with_rag(
     """
     result = answer_question(
         question=question,
-        weaviate_wrapper=weaviate_wrapper,
+        chromadb_wrapper=chromadb_wrapper,
         embedding_client=embedding_client,
         openai_client=openai_client,
         gemini_client=gemini_client,

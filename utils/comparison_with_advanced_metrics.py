@@ -17,7 +17,7 @@ from utils.enhanced_evaluation import (
 def show_advanced_metrics_comparison(
     question: str,
     models_to_compare: list,
-    weaviate_wrapper,
+    chromadb_wrapper,
     embedding_client,
     openai_client,
     gemini_client=None,
@@ -48,7 +48,7 @@ def show_advanced_metrics_comparison(
             # Determine which clients to use based on model
             eval_result = evaluate_rag_with_advanced_metrics(
                 question=question,
-                weaviate_wrapper=weaviate_wrapper,
+                chromadb_wrapper=chromadb_wrapper,
                 embedding_client=embedding_client,
                 openai_client=openai_client,
                 gemini_client=gemini_client,

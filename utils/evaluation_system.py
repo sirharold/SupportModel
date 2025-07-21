@@ -16,8 +16,8 @@ def debug_print(message: str, force: bool = False):
 class EvaluationSystem:
     """Sistema de evaluación continua para el QA system."""
     
-    def __init__(self, weaviate_wrapper, embedding_client):
-        self.weaviate_wrapper = weaviate_wrapper
+    def __init__(self, chromadb_wrapper, embedding_client):
+        self.chromadb_wrapper = chromadb_wrapper
         self.embedding_client = embedding_client
         self.evaluation_history = []
         
@@ -98,7 +98,7 @@ class EvaluationSystem:
             
             # Ejecutar búsqueda
             retrieved_docs, debug_info = answer_question(
-                question, self.weaviate_wrapper, self.embedding_client, top_k=10
+                question, self.chromadb_wrapper, self.embedding_client, top_k=10
             )
             
             # Calcular métricas
@@ -361,13 +361,13 @@ class PerformanceMonitor:
 
 
 # Función de utilidad para ejecutar evaluación completa
-def run_full_evaluation(weaviate_wrapper, embedding_client, save_results: bool = True):
+def run_full_evaluation(chromadb_wrapper, embedding_client, save_results: bool = True):
     """Ejecuta evaluación completa del sistema."""
     
     debug_print("🔍 Starting comprehensive evaluation...", force=True)
     
     # Inicializar sistema de evaluación
-    eval_system = EvaluationSystem(weaviate_wrapper, embedding_client)
+    eval_system = EvaluationSystem(chromadb_wrapper, embedding_client)
     
     # Ejecutar evaluación
     report = eval_system.run_evaluation()

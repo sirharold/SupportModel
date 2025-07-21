@@ -11,7 +11,7 @@ from utils.clients import initialize_clients
 from utils.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
 from utils.memory_utils import get_memory_usage, cleanup_memory
 from utils.metrics import calculate_average_metrics, create_question_data_record
-from utils.data_processing import fetch_random_questions_from_weaviate
+from utils.data_processing import fetch_random_questions_from_chromadb
 
 
 def run_cumulative_metrics_for_models(
@@ -68,21 +68,21 @@ def run_cumulative_metrics_evaluation(
     """
     
     # Inicializar clientes
-    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(
+    chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(
         model_name, generative_model_name
     )
     
-    # Extraer preguntas desde Weaviate
-    st.info(f"🔍 Extrayendo {num_questions} preguntas aleatorias desde Weaviate...")
-    selected_questions = fetch_random_questions_from_weaviate(
-        weaviate_wrapper=weaviate_wrapper,
+    # Extraer preguntas desde ChromaDB
+    st.info(f"🔍 Extrayendo {num_questions} preguntas aleatorias desde ChromaDB...")
+    selected_questions = fetch_random_questions_from_chromadb(
+        chromadb_wrapper=chromadb_wrapper,
         embedding_model_name=model_name,
         num_questions=num_questions,
         sample_size=max(num_questions * 5, 500)  # Sample size más grande para tener suficientes con links
     )
     
     if not selected_questions:
-        st.error("❌ No se pudieron extraer preguntas desde Weaviate")
+        st.error("❌ No se pudieron extraer preguntas desde ChromaDB")
         return {
             'num_questions_evaluated': 0,
             'avg_before_metrics': {},
@@ -130,7 +130,7 @@ def run_cumulative_metrics_evaluation(
             try:
                 result = answer_question_with_retrieval_metrics(
                     question=question,
-                    weaviate_wrapper=weaviate_wrapper,
+                    chromadb_wrapper=chromadb_wrapper,
                     embedding_client=embedding_client,
                     openai_client=openai_client,
                     gemini_client=gemini_client,

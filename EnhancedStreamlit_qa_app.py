@@ -19,7 +19,7 @@ from comparison_page import show_comparison_page
 from batch_queries_page import show_batch_queries_page
 from data_analysis_page import show_data_analysis_page
 from cumulative_metrics_page import show_cumulative_metrics_page
-from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
     """Sanitiza una cadena JSON eliminando caracteres de control inválidos."""
@@ -209,7 +209,7 @@ if page == "🔍 Búsqueda Individual":
         enable_openai_comparison = st.checkbox("Comparar con OpenAI", value=False)
         show_debug_info = st.checkbox("Mostrar información de debug", value=True)
 
-    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client = initialize_clients(model_name, generative_model_name)
+    chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client = initialize_clients(model_name, generative_model_name)
     
     # Área principal
     col1, col2 = st.columns([2, 1])
@@ -298,7 +298,7 @@ if page == "🔍 Búsqueda Individual":
                 if enable_rag:
                     results, debug_info, generated_answer, rag_metrics = answer_question_with_rag(
                         full_query,
-                        weaviate_wrapper,
+                        chromadb_wrapper,
                         embedding_client,
                         openai_client,
                         gemini_client,
@@ -309,22 +309,22 @@ if page == "🔍 Búsqueda Individual":
                         use_llm_reranker=use_llm_reranker,
                         use_questions_collection=use_questions_collection,
                         evaluate_quality=evaluate_rag_quality,
-                        documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"],
-                        questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"],
+                        documents_class=CHROMADB_COLLECTION_CONFIG[model_name]["documents"],
+                        questions_class=CHROMADB_COLLECTION_CONFIG[model_name]["questions"],
                         generative_model_name=generative_model_name
                     )
                 else:
                     results, debug_info = answer_question_documents_only(
                         full_query,
-                        weaviate_wrapper,
+                        chromadb_wrapper,
                         embedding_client,
                         openai_client,
                         top_k=top_k,
                         diversity_threshold=diversity_threshold,
                         use_llm_reranker=use_llm_reranker,
                         use_questions_collection=use_questions_collection,
-                        documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"],
-                        questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
+                        documents_class=CHROMADB_COLLECTION_CONFIG[model_name]["documents"],
+                        questions_class=CHROMADB_COLLECTION_CONFIG[model_name]["questions"]
                     )
                     
                     # Generate final answer using local model for individual search
@@ -890,6 +890,6 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666;">
     <p>💡 <strong>Tip:</strong> Para mejores resultados, sé específico en tus preguntas e incluye el servicio de Azure de interés.</p>
-    <p>🔧 Sistema desarrollado con Weaviate + sentence-transformers</p>
+    <p>🔧 Sistema desarrollado con ChromaDB + sentence-transformers</p>
 </div>
 """, unsafe_allow_html=True)
