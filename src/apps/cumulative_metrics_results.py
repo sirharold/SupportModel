@@ -432,28 +432,6 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
         # Use enhanced display for cleaner multi-model comparison
         display_enhanced_models_comparison(adapted_multi_results, use_llm_reranker, results_data['config'])
     
-    # Sección de descarga
-    st.markdown("---")
-    
-    # Preparar datos para la sección de descarga en el formato esperado
-    cached_results = {
-        'results': processed_results,
-        'evaluation_time': results_data['evaluation_info'].get('timestamp'),
-        'execution_time': results_data['evaluation_info'].get('total_time_seconds'),
-        'evaluate_all_models': len(processed_results) > 1,
-        'params': {
-            'num_questions': results_data['config']['num_questions'],
-            'selected_models': list(processed_results.keys()),
-            'embedding_model_name': list(processed_results.keys())[0] if len(processed_results) == 1 else 'Multi-Model',
-            'generative_model_name': results_data['config']['generative_model_name'],
-            'top_k': results_data['config']['top_k'],
-            'use_llm_reranker': results_data['config']['use_llm_reranker'],
-            'batch_size': results_data['config']['batch_size']
-        }
-    }
-    
-    display_download_section(cached_results)
-
     st.markdown("---")
     st.subheader("📝 Conclusiones")
     
