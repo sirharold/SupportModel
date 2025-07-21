@@ -839,12 +839,14 @@ def get_all_results_files_from_drive():
         for file in files:
             try:
                 # Extraer información del archivo
+                file_name = file.get('name', 'Unknown File')
+                modified_time = file.get('modifiedTime', 'N/A')
                 file_info = {
-                    'file_id': file['id'],
-                    'file_name': file['name'],
-                    'modified_time': file['modifiedTime'],
+                    'file_id': file.get('id', 'N/A'),
+                    'file_name': file_name,
+                    'modified_time': modified_time,
                     'size': file.get('size', 'N/A'),
-                    'display_name': f"{file['name']} ({file['modifiedTime'][:19].replace('T', ' ')})"
+                    'display_name': f"{file_name} ({modified_time[:19].replace('T', ' ') if modified_time != 'N/A' else 'N/A'})"
                 }
                 results_files.append(file_info)
                 print(f"✅ Archivo de resultados encontrado: {file['name']}")

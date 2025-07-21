@@ -15,8 +15,9 @@ from src.data.memory_utils import get_memory_usage, cleanup_memory
 from src.services.storage.real_gdrive_integration import (
     show_gdrive_status, create_evaluation_config_in_drive,
     check_evaluation_status_in_drive, show_gdrive_authentication_instructions, 
-    show_gdrive_debug_info, display_current_colab_status
+    show_gdrive_debug_info
 )
+from src.apps.cumulative_metrics_page import display_current_colab_status
 
 
 def show_cumulative_metrics_create_page():
