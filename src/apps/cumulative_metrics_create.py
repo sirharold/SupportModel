@@ -23,7 +23,7 @@ from src.apps.cumulative_metrics_page import display_current_colab_status
 def show_cumulative_metrics_create_page():
     """Página principal para crear configuraciones de métricas acumulativas."""
     
-    st.title("⚙️ Métricas Acumulativas - Crear Configuración")
+    st.title("⚙️ Configuración Métricas Acumulativas - ACTUALIZADO")
     st.markdown("""
     Esta página permite configurar evaluaciones de múltiples preguntas y enviarlas a Google Colab para procesamiento con GPU.
     """)
@@ -93,6 +93,16 @@ def show_cumulative_metrics_create_page():
             value=True,
             help="Activar reordenamiento de documentos con LLM"
         )
+        
+        # NUEVO: Generar métricas RAG
+        generate_rag_metrics = st.checkbox(
+            "📝 Generar Métricas RAG",
+            value=True,
+            help="Generar respuestas y calcular métricas RAG (faithfulness, answer_relevance, etc.). Aumenta significativamente el tiempo de procesamiento."
+        )
+        
+        if generate_rag_metrics:
+            st.warning("⚠️ **Nota:** Activar métricas RAG aumentará considerablemente el tiempo de evaluación ya que se deben generar respuestas para cada pregunta.")
     
     # Selección de modelos de embedding
     st.subheader("📈 Selección de Modelos de Embedding")
@@ -105,7 +115,7 @@ def show_cumulative_metrics_create_page():
         # Opción para evaluar todos los modelos
         evaluate_all_models = st.checkbox(
             "🔄 Evaluar todos los modelos",
-            value=False,
+            value=True,
             help="Evalúa automáticamente todos los modelos disponibles"
         )
         
@@ -139,6 +149,7 @@ def show_cumulative_metrics_create_page():
             st.write(f"• Preguntas: {num_questions:,}")
             st.write(f"• Top-K: {top_k}")
             st.write(f"• LLM Reranking: {'✅' if use_llm_reranker else '❌'}")
+            st.write(f"• Métricas RAG: {'✅' if generate_rag_metrics else '❌'}")
             st.write(f"• Lote: {batch_size}")
         else:
             st.warning("⚠️ Selecciona al menos un modelo para continuar")
@@ -154,8 +165,8 @@ def show_cumulative_metrics_create_page():
         
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("🔄 Verificar Estado"):
-                st.rerun()
+            # Verificar Estado button removed per user request
+            st.empty()
         with col2:
             if st.button("🔍 Debug Google Drive"):
                 st.markdown("---")
@@ -173,6 +184,7 @@ def show_cumulative_metrics_create_page():
             'generative_model_name': generative_model_name,
             'top_k': top_k,
             'use_llm_reranker': use_llm_reranker,
+            'generate_rag_metrics': generate_rag_metrics,
             'batch_size': batch_size,
             'evaluate_all_models': evaluate_all_models,
             'evaluation_type': 'cumulative_metrics_colab',
@@ -193,6 +205,7 @@ def show_cumulative_metrics_create_page():
                 'generative_model': generative_model_name,
                 'top_k': top_k,
                 'llm_reranker': use_llm_reranker,
+                'rag_metrics': generate_rag_metrics,
                 'batch_size': batch_size
             })
         
@@ -209,12 +222,12 @@ def show_cumulative_metrics_create_page():
                 create_config_and_send_to_drive(evaluation_config)
         
         with col2:
-            if st.button("🔄 Verificar Estado"):
-                check_colab_evaluation_status()
+            # Verificar Estado button removed per user request
+            st.empty()
         
         with col3:
-            if st.button("📊 Ver Resultados"):
-                st.switch_page("src/apps/cumulative_metrics_results.py")
+            # Ver Resultados button removed per user request
+            st.empty()
         
         # Mostrar estado actual
         st.markdown("---")
@@ -284,9 +297,8 @@ def create_config_and_send_to_drive(evaluation_config: Dict):
                     5. Volver a la página de resultados
                     """)
                 
-                # Botón para ir a resultados
-                if st.button("📊 Ir a Ver Resultados"):
-                    st.switch_page("src/apps/cumulative_metrics_results.py")
+                # Results navigation button removed per user request
+                st.info("Results button removed per user request")
                 
                 # Botón para descargar notebook si está disponible
                 try:
@@ -342,8 +354,8 @@ def check_colab_evaluation_status():
             if status_data.get('status') == 'completed':
                 st.success("🎉 ¡Evaluación completada! Puedes ver los resultados en la página de resultados.")
                 
-                if st.button("📊 Ver Resultados"):
-                    st.switch_page("src/apps/cumulative_metrics_results.py")
+                # Results button removed per user request
+                st.info("Results button removed per user request")
                     
             elif status_data.get('status') == 'running':
                 st.info("⏳ Evaluación en progreso... Verifica nuevamente en unos minutos.")

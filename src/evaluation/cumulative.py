@@ -20,6 +20,7 @@ def run_cumulative_metrics_for_models(
     generative_model_name: str,
     top_k: int = 10,
     use_llm_reranker: bool = True,
+    generate_rag_metrics: bool = False,
     batch_size: int = 50
 ) -> Dict[str, Dict[str, Any]]:
     """Run cumulative evaluation for several embedding models."""
@@ -34,6 +35,7 @@ def run_cumulative_metrics_for_models(
                 generative_model_name=generative_model_name,
                 top_k=top_k,
                 use_llm_reranker=use_llm_reranker,
+                generate_rag_metrics=generate_rag_metrics,
                 batch_size=batch_size
             )
             results[model] = model_result
@@ -50,6 +52,7 @@ def run_cumulative_metrics_evaluation(
     generative_model_name: str,
     top_k: int = 10,
     use_llm_reranker: bool = True,
+    generate_rag_metrics: bool = False,
     batch_size: int = 50
 ) -> Dict[str, Any]:
     """
@@ -139,7 +142,7 @@ def run_cumulative_metrics_evaluation(
                     openrouter_client=openrouter_client,
                     top_k=top_k,
                     use_llm_reranker=use_llm_reranker,
-                    generate_answer=False,
+                    generate_answer=generate_rag_metrics,
                     ground_truth_answer=accepted_answer,
                     ms_links=ms_links,
                     calculate_metrics=True,
