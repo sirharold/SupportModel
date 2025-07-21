@@ -249,7 +249,8 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                 'num_questions_evaluated': model_results.get('num_questions_evaluated', results_data['config']['num_questions']),
                 'avg_before_metrics': model_results['avg_before_metrics'],
                 'avg_after_metrics': model_results['avg_after_metrics'],
-                'individual_metrics': model_results.get('individual_before_metrics', [])
+                'individual_before_metrics': model_results.get('individual_before_metrics', []),
+                'individual_after_metrics': model_results.get('individual_after_metrics', [])
             }
             
             # Verificar si realmente hay métricas after
@@ -263,9 +264,10 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
             
             adapted_results = {
                 'num_questions_evaluated': results_data['config']['num_questions'],
-                'avg_before_metrics': avg_metrics,  # Usar las métricas como "before" 
+                'avg_before_metrics': avg_metrics,  # Usar las métricas como "before"
                 'avg_after_metrics': {},  # Vacío porque no hay reranking
-                'individual_metrics': model_results.get('individual_metrics', [])
+                'individual_before_metrics': model_results.get('individual_metrics', []),
+                'individual_after_metrics': []
             }
             
             if use_llm_reranker:
@@ -291,7 +293,8 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                     'num_questions_evaluated': model_data.get('num_questions_evaluated', results_data['config']['num_questions']),
                     'avg_before_metrics': model_data['avg_before_metrics'],
                     'avg_after_metrics': model_data['avg_after_metrics'],
-                    'individual_metrics': model_data.get('individual_before_metrics', [])
+                    'individual_before_metrics': model_data.get('individual_before_metrics', []),
+                    'individual_after_metrics': model_data.get('individual_after_metrics', [])
                 }
                 has_new_format = True
             else:
@@ -301,7 +304,8 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                     'num_questions_evaluated': results_data['config']['num_questions'],
                     'avg_before_metrics': avg_metrics,  # Usar métricas como "before"
                     'avg_after_metrics': {},  # Vacío porque no hay reranking
-                    'individual_metrics': model_data.get('individual_metrics', [])
+                    'individual_before_metrics': model_data.get('individual_metrics', []),
+                    'individual_after_metrics': []
                 }
         
         # Verificar si hay métricas after disponibles para LLM reranking
