@@ -13,6 +13,7 @@ from src.config.config import EMBEDDING_MODELS, GENERATIVE_MODELS, CHROMADB_COLL
 from src.data.memory_utils import get_memory_usage, cleanup_memory
 # from utils.data_processing import filter_questions_with_links  # No longer needed
 from src.ui.metrics_display import display_cumulative_metrics, display_models_comparison
+from src.ui.enhanced_metrics_display import display_enhanced_cumulative_metrics, display_enhanced_models_comparison
 from src.evaluation.cumulative import run_cumulative_metrics_evaluation, run_cumulative_metrics_for_models
 from src.data.file_utils import display_download_section
 from src.evaluation.metrics import validate_data_integrity
@@ -622,53 +623,85 @@ def display_results_content(results_data):
     use_llm_reranker = results_data['config'].get('use_llm_reranker', True)
     
     if len(processed_results) == 1:
-        # Para un solo modelo, usar display_cumulative_metrics
+        # Para un solo modelo, usar display_enhanced_cumulative_metrics
         model_name = list(processed_results.keys())[0]
         model_results = processed_results[model_name]
         
-        # Adaptar formato para la función
-        # Los resultados de Colab solo tienen avg_metrics (sin before/after distinction)
-        avg_metrics = model_results.get('avg_metrics', {})
+        # Adaptar formato según la estructura de datos disponible
+        # Nuevo formato del notebook actualizado tiene avg_before_metrics y avg_after_metrics
+        if 'avg_before_metrics' in model_results and 'avg_after_metrics' in model_results:
+            # Formato actualizado con before/after metrics
+            adapted_results = {
+                'num_questions_evaluated': model_results.get('num_questions_evaluated', results_data['config']['num_questions']),
+                'avg_before_metrics': model_results['avg_before_metrics'],
+                'avg_after_metrics': model_results['avg_after_metrics'],
+                'individual_metrics': model_results.get('individual_before_metrics', [])
+            }
+            
+            # Verificar si realmente hay métricas after
+            if use_llm_reranker and not model_results['avg_after_metrics']:
+                st.info("ℹ️ Reranking LLM estaba habilitado en configuración, pero no se generaron métricas after. Mostrando solo métricas before.")
+                use_llm_reranker = False
+                
+        else:
+            # Formato anterior - solo avg_metrics (mantener compatibilidad)
+            avg_metrics = model_results.get('avg_metrics', {})
+            
+            adapted_results = {
+                'num_questions_evaluated': results_data['config']['num_questions'],
+                'avg_before_metrics': avg_metrics,  # Usar las métricas como "before" 
+                'avg_after_metrics': {},  # Vacío porque no hay reranking
+                'individual_metrics': model_results.get('individual_metrics', [])
+            }
+            
+            if use_llm_reranker:
+                st.warning("⚠️ Reranking LLM estaba habilitado pero estos resultados usan formato antiguo. Mostrando solo métricas base.")
+                use_llm_reranker = False
         
-        # Crear estructura compatible con display_cumulative_metrics
-        adapted_results = {
-            'num_questions_evaluated': results_data['config']['num_questions'],
-            'avg_before_metrics': avg_metrics,  # Usar las métricas como "before" 
-            'avg_after_metrics': {},  # Vacío porque no hay reranking en Colab
-            'individual_metrics': model_results.get('individual_metrics', [])
-        }
-        
-        # Si hay reranking habilitado pero no hay métricas after, deshabilitar reranking para la visualización
-        if use_llm_reranker and not adapted_results['avg_after_metrics']:
-            st.warning("⚠️ Reranking LLM estaba habilitado en configuración, pero no se encontraron métricas after. Mostrando solo métricas base.")
-            use_llm_reranker = False
-        
-        display_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
+        # Use enhanced display with cleaner before/after LLM separation
+        display_enhanced_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
         
     else:
-        # Para múltiples modelos, usar display_models_comparison
+        # Para múltiples modelos, usar display_enhanced_models_comparison
         st.markdown("### 🏆 Comparación de Modelos")
         
-        # Adaptar formato para múltiples modelos
+        # Adaptar formato para múltiples modelos según estructura disponible
         adapted_multi_results = {}
-        for model_name, model_data in processed_results.items():
-            avg_metrics = model_data.get('avg_metrics', {})
-            
-            adapted_multi_results[model_name] = {
-                'num_questions_evaluated': results_data['config']['num_questions'],
-                'avg_before_metrics': avg_metrics,  # Usar métricas como "before"
-                'avg_after_metrics': {},  # Vacío porque no hay reranking en Colab
-                'individual_metrics': model_data.get('individual_metrics', [])
-            }
+        has_new_format = False
         
-        # Deshabilitar reranking para la visualización si no hay métricas after
+        for model_name, model_data in processed_results.items():
+            # Verificar si usa el nuevo formato con before/after metrics
+            if 'avg_before_metrics' in model_data and 'avg_after_metrics' in model_data:
+                # Formato actualizado
+                adapted_multi_results[model_name] = {
+                    'num_questions_evaluated': model_data.get('num_questions_evaluated', results_data['config']['num_questions']),
+                    'avg_before_metrics': model_data['avg_before_metrics'],
+                    'avg_after_metrics': model_data['avg_after_metrics'],
+                    'individual_metrics': model_data.get('individual_before_metrics', [])
+                }
+                has_new_format = True
+            else:
+                # Formato anterior - compatibilidad
+                avg_metrics = model_data.get('avg_metrics', {})
+                adapted_multi_results[model_name] = {
+                    'num_questions_evaluated': results_data['config']['num_questions'],
+                    'avg_before_metrics': avg_metrics,  # Usar métricas como "before"
+                    'avg_after_metrics': {},  # Vacío porque no hay reranking
+                    'individual_metrics': model_data.get('individual_metrics', [])
+                }
+        
+        # Verificar si hay métricas after disponibles para LLM reranking
         if use_llm_reranker:
             has_after_metrics = any(adapted_multi_results[model]['avg_after_metrics'] for model in adapted_multi_results)
             if not has_after_metrics:
-                st.warning("⚠️ Reranking LLM estaba habilitado en configuración, pero no se encontraron métricas after para ningún modelo. Mostrando solo métricas base.")
+                if has_new_format:
+                    st.info("ℹ️ Reranking LLM estaba habilitado pero no se generaron métricas after. Mostrando solo métricas before.")
+                else:
+                    st.warning("⚠️ Reranking LLM estaba habilitado pero estos resultados usan formato antiguo. Mostrando solo métricas base.")
                 use_llm_reranker = False
         
-        display_models_comparison(adapted_multi_results, use_llm_reranker)
+        # Use enhanced display for cleaner multi-model comparison
+        display_enhanced_models_comparison(adapted_multi_results, use_llm_reranker)
     
     # Sección de descarga
     st.markdown("---")
