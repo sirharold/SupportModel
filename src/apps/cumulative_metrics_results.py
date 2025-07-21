@@ -15,9 +15,9 @@ from src.evaluation.metrics import validate_data_integrity
 from src.services.storage.real_gdrive_integration import (
     show_gdrive_status, check_evaluation_status_in_drive,
     show_gdrive_authentication_instructions, show_gdrive_debug_info,
-    get_all_results_files_from_drive, get_specific_results_file_from_drive,
-    display_current_colab_status
+    get_all_results_files_from_drive, get_specific_results_file_from_drive
 )
+from src.apps.cumulative_metrics_page import display_current_colab_status
 
 
 def show_cumulative_metrics_results_page():
@@ -27,52 +27,6 @@ def show_cumulative_metrics_results_page():
     st.markdown("""
     Esta página permite visualizar y analizar los resultados de evaluaciones completadas en Google Colab.
     """)
-    
-    # Mostrar información del flujo
-    st.info("""
-    📋 **Para ver resultados:**
-    1. **Ejecuta una evaluación** en la página de configuración
-    2. **Completa el procesamiento** en Google Colab
-    3. **Selecciona archivo de resultados** en esta página
-    4. **Analiza las visualizaciones** mejoradas
-    """)
-    
-    # Verificar Google Drive
-    gdrive_ok = show_gdrive_status()
-    
-    if not gdrive_ok:
-        st.error("❌ Configuración de Google Drive requerida para acceder a resultados")
-        show_gdrive_authentication_instructions()
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🔄 Verificar Estado"):
-                st.rerun()
-        with col2:
-            if st.button("🔍 Debug Google Drive"):
-                st.markdown("---")
-                show_gdrive_debug_info()
-        
-        st.stop()
-    
-    # Mostrar estado actual de evaluaciones
-    st.subheader("🔄 Estado Actual")
-    display_current_colab_status()
-    
-    # Botones de acción rápida
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("🔄 Verificar Estado de Evaluación"):
-            check_colab_evaluation_status()
-    
-    with col2:
-        if st.button("⚙️ Crear Nueva Configuración"):
-            st.switch_page("src/apps/cumulative_metrics_create.py")
-    
-    with col3:
-        if st.button("🔍 Debug Google Drive"):
-            show_gdrive_debug_info()
     
     # Sección principal de resultados
     st.markdown("---")
@@ -103,9 +57,9 @@ def show_available_results_section():
             file_mapping = {}
             
             for file in files:
-                file_name = file['name']
+                file_name = file.get('file_name', 'N/A') # Use .get() for robustness
                 file_size = file.get('size', 0)
-                modified_time = file.get('modifiedTime', '')
+                modified_time = file.get('modified_time', '') # Use .get() for robustness
                 
                 # Formatear la opción de display
                 if file_size:
@@ -142,7 +96,7 @@ def show_available_results_section():
         with col2:
             st.markdown("**📊 Información del archivo:**")
             if selected_file:
-                st.write(f"📄 **Nombre:** {selected_file['name']}")
+                st.write(f"📄 **Nombre:** {selected_file['file_name']}")
                 if 'size' in selected_file:
                     size_mb = int(selected_file['size']) / (1024 * 1024)
                     st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
@@ -183,13 +137,13 @@ def show_selected_results(selected_file: Dict):
     """Muestra los resultados del archivo seleccionado"""
     
     st.markdown("---")
-    st.subheader(f"📊 Resultados: {selected_file['name']}")
+    st.subheader(f"📊 Resultados: {selected_file['file_name']}")
     
     # Descargar y procesar archivo
     with st.spinner("📥 Descargando y procesando resultados..."):
         try:
             # Obtener contenido del archivo
-            file_result = get_specific_results_file_from_drive(selected_file['id'])
+            file_result = get_specific_results_file_from_drive(selected_file['file_id'])
             
             if not file_result['success']:
                 st.error(f"❌ Error descargando archivo: {file_result.get('error', 'Error desconocido')}")
@@ -197,10 +151,16 @@ def show_selected_results(selected_file: Dict):
             
             # Parsear JSON
             try:
-                results_data = json.loads(file_result['content'])
-            except json.JSONDecodeError as e:
+                results_data = file_result['results'] # This should be file_result['data'] from download_json_from_drive
+            except Exception as e:
                 st.error(f"❌ Error parseando JSON: {e}")
                 return
+
+            # Corrected: The get_specific_results_file_from_drive returns a dict with 'results' key holding the data
+            # So, results_data is already the content. No need to re-parse or access 'data' key here.
+            # The previous comment was misleading. The structure is: {'success': True, 'results': actual_json_data}
+            # So, results_data is already the actual_json_data. No change needed here for parsing.
+            # The issue might be in the content of results_data itself, or how it's used downstream.
             
             # Validar estructura de datos
             if 'results' not in results_data:
@@ -302,7 +262,7 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
             }
             
             if use_llm_reranker:
-                st.warning("⚠️ Reranking LLM estaba habilitado pero estos resultados usan formato antiguo. Mostrando solo métricas base.")
+                st.warning("⚠️ Reranking LLM estaba habilitado pero estos resultados usan formato antiguo. Mostrando solo m��tricas base.")
                 use_llm_reranker = False
         
         # Use enhanced display with cleaner before/after LLM separation
@@ -380,7 +340,7 @@ def check_colab_evaluation_status():
         status_result = check_evaluation_status_in_drive()
         
         if status_result['success']:
-            status_data = status_result['status_data']
+            status_data = status_result['data'] # Use 'data' key from the check_evaluation_status_in_drive output
             
             st.markdown("### 📊 Estado de Evaluación")
             

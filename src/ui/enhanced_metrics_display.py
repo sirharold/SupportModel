@@ -252,13 +252,13 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
     
     # Performance across K values
     k_values = [1, 3, 5, 10]
-    main_metrics = ['precision', 'recall', 'f1']
+    main_metrics = ['f1'] # Focus on F1-score as the primary 'score'
     
-    # Create subplots
+    # Create a single subplot for the F1-score
     fig = make_subplots(
-        rows=1, cols=len(main_metrics),
-        subplot_titles=[m.upper() for m in main_metrics],
-        specs=[[{"secondary_y": False}] * len(main_metrics)]
+        rows=1, cols=1,
+        subplot_titles=['F1-Score'],
+        specs=[[{"secondary_y": False}]]
     )
     
     colors = ['blue', 'green'] if use_llm_reranker and avg_after else ['blue']
@@ -278,11 +278,11 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
                         x=k_values,
                         y=y_values,
                         mode='lines+markers',
-                        name=f"{name} - {metric.upper()}",
+                        name=f"{name}", # Simplified name for legend
                         line=dict(color=color),
-                        showlegend=(i == 0)  # Only show legend for first subplot
+                        showlegend=True # Always show legend for this single plot
                     ),
-                    row=1, col=i+1
+                    row=1, col=1 # Always target the first (and only) subplot
                 )
     
     fig.update_layout(
@@ -292,9 +292,8 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
     )
     
     # Update x-axes
-    for i in range(len(main_metrics)):
-        fig.update_xaxes(title_text="Valor de K", row=1, col=i+1)
-        fig.update_yaxes(title_text="Score", row=1, col=i+1)
+    fig.update_xaxes(title_text="Valor de K", row=1, col=1)
+    fig.update_yaxes(title_text="F1-Score", row=1, col=1)
     
     st.plotly_chart(fig, use_container_width=True)
 
@@ -304,46 +303,49 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
     
     st.subheader("🏆 Comparación Avanzada Entre Modelos")
     
-    # Key metrics comparison
-    key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
-    
-    # Prepare data for visualization
+    # Prepare data for visualization using average scores
     models_data = []
     for model_name, model_results in results.items():
         before_metrics = model_results['avg_before_metrics']
         after_metrics = model_results.get('avg_after_metrics', {})
         
-        for metric in key_metrics:
-            if metric in before_metrics:
-                models_data.append({
-                    'Modelo': model_name,
-                    'Métrica': metric.upper().replace('@', ' @ '),
-                    'Antes LLM': before_metrics[metric],
-                    'Después LLM': after_metrics.get(metric, before_metrics[metric]) if use_llm_reranker else None
-                })
+        # Calculate average performance (similar to create_models_summary_table)
+        all_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
+        before_avg = np.mean([before_metrics.get(m, 0) for m in all_metrics if m in before_metrics])
+        
+        row_data = {
+            'Modelo': model_name,
+            'Promedio Antes LLM': before_avg,
+        }
+        
+        if use_llm_reranker and after_metrics:
+            after_avg = np.mean([after_metrics.get(m, 0) for m in all_metrics if m in after_metrics])
+            row_data['Promedio Después LLM'] = after_avg
+        
+        models_data.append(row_data)
     
     if models_data:
         df = pd.DataFrame(models_data)
         
         # Create comparison visualization
-        if use_llm_reranker and df['Después LLM'].notna().any():
+        if use_llm_reranker and 'Promedio Después LLM' in df.columns and df['Promedio Después LLM'].notna().any():
             # Before vs After comparison
             fig = px.bar(
                 df, 
-                x='Métrica', 
-                y=['Antes LLM', 'Después LLM'], 
-                color='Modelo',
+                x='Modelo', 
+                y=['Promedio Antes LLM', 'Promedio Después LLM'], 
                 barmode='group',
-                title='Comparación: Antes vs Después del LLM Reranking'
+                title='Comparación de Modelos: Promedio de Score (Antes vs Después LLM)',
+                labels={'value': 'Promedio de Score', 'variable': 'Estado'}
             )
         else:
             # Only before metrics
             fig = px.bar(
                 df,
-                x='Métrica',
-                y='Antes LLM',
-                color='Modelo',
-                title='Comparación de Modelos - Retrieval por Embeddings'
+                x='Modelo',
+                y='Promedio Antes LLM',
+                title='Comparación de Modelos: Promedio de Score (Solo Retrieval)',
+                labels={'Promedio Antes LLM': 'Promedio de Score'}
             )
         
         fig.update_layout(height=500)
