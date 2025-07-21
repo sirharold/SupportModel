@@ -7,10 +7,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
-from utils.retrieval_metrics import format_metrics_for_display
-from utils.clients import initialize_clients
-from config import EMBEDDING_MODELS
+from src.core.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
+from src.evaluation.metrics.retrieval import format_metrics_for_display
+from src.services.auth.clients import initialize_clients
+from src.config.config import EMBEDDING_MODELS
 
 
 def demo_single_question_metrics():

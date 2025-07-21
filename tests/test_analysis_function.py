@@ -12,7 +12,7 @@ def test_analysis_function():
     print("🧪 TESTING ANÁLISIS AUTOMÁTICO DE MÉTRICAS")
     print("=" * 50)
     
-    from comparison_page import generate_retrieval_metrics_analysis
+    from src.apps.comparison_page import generate_retrieval_metrics_analysis
     
     # Crear datos sintéticos para el test
     test_data = [
@@ -219,7 +219,7 @@ def test_empty_data():
     print("\n🧪 TESTING CON DATOS VACÍOS")
     print("=" * 50)
     
-    from comparison_page import generate_retrieval_metrics_analysis
+    from src.apps.comparison_page import generate_retrieval_metrics_analysis
     
     try:
         # Test con lista vacía

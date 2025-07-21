@@ -15,18 +15,18 @@ def test_imports():
     
     try:
         # Test importaciones principales
-        from utils.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
+        from src.core.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
         print("✅ answer_question_with_retrieval_metrics imported successfully")
         
-        from utils.retrieval_metrics import format_metrics_for_display
+        from src.evaluation.metrics.retrieval import format_metrics_for_display
         print("✅ format_metrics_for_display imported successfully")
         
         # Test importaciones de comparison_page
-        import comparison_page
+        import src.apps.comparison_page as comparison_page
         print("✅ comparison_page imported successfully")
         
         # Test función principal
-        from comparison_page import show_comparison_page
+        from src.apps.comparison_page import show_comparison_page
         print("✅ show_comparison_page imported successfully")
         
         return True
@@ -127,7 +127,7 @@ def test_synthetic_retrieval_metrics():
             print(f"✅ {model_key} structure verified")
         
         # Test función de formateo
-        from utils.retrieval_metrics import format_metrics_for_display
+        from src.evaluation.metrics.retrieval import format_metrics_for_display
         
         for model_key, data in synthetic_comparison_results.items():
             if data.get("retrieval_metrics"):
@@ -149,7 +149,7 @@ def test_comparison_page_structure():
     
     try:
         # Test que las funciones necesarias existan
-        import comparison_page
+        import src.apps.comparison_page as comparison_page
         
         # Verificar que la función principal existe
         assert hasattr(comparison_page, 'show_comparison_page'), "Missing show_comparison_page function"
@@ -186,7 +186,7 @@ def test_config_integration():
     print("=" * 50)
     
     try:
-        from config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
+        from src.config.config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
         
         print(f"✅ EMBEDDING_MODELS loaded: {list(EMBEDDING_MODELS.keys())}")
         print(f"✅ MODEL_DESCRIPTIONS loaded: {list(MODEL_DESCRIPTIONS.keys())}")

@@ -7,7 +7,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from utils.retrieval_metrics import (
+from src.evaluation.metrics.retrieval import (
     calculate_recall_at_k,
     calculate_precision_at_k,
     calculate_f1_score,

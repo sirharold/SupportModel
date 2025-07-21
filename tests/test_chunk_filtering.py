@@ -73,8 +73,8 @@ class DummyOpenAI:
 fake_openai.OpenAI = DummyOpenAI
 sys.modules.setdefault("openai", fake_openai)
 
-from utils.weaviate_utils_improved import WeaviateClientWrapper
-from utils.qa_pipeline import answer_question
+from src.services.storage.weaviate_utils import WeaviateClientWrapper
+from src.core.qa_pipeline import answer_question
 from unittest.mock import patch
 
 class FakeObject:
@@ -153,7 +153,7 @@ def test_answer_question_uses_chunk1_docs():
     wrapper = WeaviateClientWrapper(FakeClient(docs, questions))
     embedding_client = FakeEmbeddingClient()
 
-    with patch("utils.qa_pipeline.rerank_documents", lambda q, docs, ec, top_k=None: docs) as _:
+    with patch("src.core.qa_pipeline.rerank_documents", lambda q, docs, ec, top_k=None: docs) as _:
         result_docs, _ = answer_question("q", wrapper, embedding_client, top_k=3)
 
     assert result_docs

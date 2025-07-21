@@ -5,15 +5,12 @@ Página de Métricas Acumulativas - Evalúa múltiples preguntas y calcula prome
 import streamlit as st
 import time
 from typing import List, Dict, Any
-from config import EMBEDDING_MODELS, GENERATIVE_MODELS, WEAVIATE_CLASS_CONFIG
+from src.config.config import EMBEDDING_MODELS, GENERATIVE_MODELS, WEAVIATE_CLASS_CONFIG
 
 # Importar utilidades refactorizadas
-from utils.memory_utils import get_memory_usage, cleanup_memory
-from utils.data_processing import extract_ms_links, filter_questions_with_links
-from utils.metrics_display import display_cumulative_metrics, display_models_comparison
-from utils.cumulative_evaluation import run_cumulative_metrics_evaluation, run_cumulative_metrics_for_models
-from utils.file_utils import load_questions_from_json, display_download_section
-from utils.metrics import validate_data_integrity
+from src.ui.metrics_display import display_cumulative_metrics, display_models_comparison
+from src.evaluation.cumulative import run_cumulative_metrics_evaluation, run_cumulative_metrics_for_models
+from src.evaluation.metrics import validate_data_integrity
 
 # Las funciones auxiliares se movieron a utils/metrics_display.py
 

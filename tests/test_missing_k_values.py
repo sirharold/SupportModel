@@ -12,7 +12,7 @@ def test_k_values_generation():
     print("🧪 TESTING GENERACIÓN DE MÉTRICAS PARA K=1,3,5,10")
     print("=" * 60)
     
-    from utils.retrieval_metrics import calculate_before_after_reranking_metrics
+    from src.evaluation.metrics.retrieval import calculate_before_after_reranking_metrics
     
     # Datos de prueba
     question = "¿Cómo crear un Azure Storage Account?"
