@@ -20,7 +20,7 @@ from src.evaluation.cumulative import run_cumulative_metrics_for_models
 from src.evaluation.comparison import compare_models_with_advanced_metrics
 from src.evaluation.enhanced_evaluation import evaluate_rag_with_advanced_metrics
 from src.services.storage.chromadb_utils import ChromaDBConfig
-from src.utils.memory_utils import get_memory_usage, cleanup_memory
+from src.data.memory_utils import get_memory_usage, cleanup_memory
 
 
 def comprehensive_embedding_comparison(

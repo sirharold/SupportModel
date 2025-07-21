@@ -15,10 +15,10 @@ import json
 from src.core.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from src.services.auth.clients import initialize_clients
 from src.services.local_models import preload_tinyllama_model
-from comparison_page import show_comparison_page
-from batch_queries_page import show_batch_queries_page
-from data_analysis_page import show_data_analysis_page
-from cumulative_metrics_page import show_cumulative_metrics_page
+from src.apps.comparison_page import show_comparison_page
+from src.apps.batch_queries_page import show_batch_queries_page
+from src.apps.data_analysis_page import show_data_analysis_page
+from src.apps.cumulative_metrics_page import show_cumulative_metrics_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
