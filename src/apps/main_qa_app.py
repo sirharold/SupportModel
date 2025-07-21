@@ -18,7 +18,8 @@ from src.services.local_models import preload_tinyllama_model
 from src.apps.comparison_page import show_comparison_page
 from src.apps.batch_queries_page import show_batch_queries_page
 from src.apps.data_analysis_page import show_data_analysis_page
-from src.apps.cumulative_metrics_page import show_cumulative_metrics_page
+from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
+from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -109,7 +110,14 @@ st.markdown("""
 st.sidebar.title("🧭 Navegación")
 page = st.sidebar.radio(
     "Selecciona una página:",
-    ["🔍 Búsqueda Individual", "📊 Consultas en Lote", "🔬 Comparación de Modelos", "📈 Análisis de Datos", "📈 Métricas Acumulativas"],
+    [
+        "🔍 Búsqueda Individual",
+        "📊 Consultas en Lote",
+        "🔬 Comparación de Modelos",
+        "📈 Análisis de Datos",
+        "⚙️ Configuración Métricas Acumulativas",
+        "📈 Resultados Métricas Acumulativas",
+    ],
     index=0
 )
 st.sidebar.markdown("---")
@@ -882,8 +890,10 @@ elif page == "🔬 Comparación de Modelos":
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()
 
-elif page == "📈 Métricas Acumulativas":
-    show_cumulative_metrics_page()
+elif page == "⚙️ Configuración Métricas Acumulativas":
+    show_cumulative_metrics_create_page()
+elif page == "📈 Resultados Métricas Acumulativas":
+    show_cumulative_metrics_results_page()
 
 # Footer común
 st.markdown("---")
