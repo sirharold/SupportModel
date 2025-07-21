@@ -643,8 +643,13 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
         # Check if we have any RAG metrics data
         has_rag_data = False
         for metrics in individual_before_metrics + individual_after_metrics:
-            if isinstance(metrics, dict) and 'rag_metrics' in metrics:
-                if metrics['rag_metrics'] and any(v is not None for v in metrics['rag_metrics'].values()):
+            if isinstance(metrics, dict) and (
+                'rag_metrics' in metrics or 'rag_metrics_after_rerank' in metrics
+            ):
+                rag_data = metrics.get('rag_metrics') or metrics.get(
+                    'rag_metrics_after_rerank', {}
+                )
+                if rag_data and any(v is not None for v in rag_data.values()):
                     has_rag_data = True
                     break
         
@@ -654,10 +659,20 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
             formatted_string += "| Métrica | Antes LLM | Después LLM | Mejora Absoluta | Mejora % |\n"
             formatted_string += "|---|---|---|---|---|\n"
             for metric_type in rag_metrics_types:
-                before_values = [q.get('rag_metrics', {}).get(metric_type, np.nan) for q in individual_before_metrics if q.get('rag_metrics', {}).get(metric_type) is not None]
+                before_values = [
+                    q.get('rag_metrics', {}).get(metric_type, np.nan)
+                    for q in individual_before_metrics
+                    if q.get('rag_metrics', {}).get(metric_type) is not None
+                ]
                 before_avg = np.mean(before_values) if before_values else np.nan
 
-                after_values = [q.get('rag_metrics_after_rerank', {}).get(metric_type, np.nan) for q in individual_after_metrics if q.get('rag_metrics_after_rerank', {}).get(metric_type) is not None]
+                after_values = []
+                for q in individual_after_metrics:
+                    if not isinstance(q, dict):
+                        continue
+                    rag_after = q.get('rag_metrics_after_rerank') or q.get('rag_metrics')
+                    if rag_after and rag_after.get(metric_type) is not None:
+                        after_values.append(rag_after.get(metric_type, np.nan))
                 after_avg = np.mean(after_values) if after_values else np.nan
 
                 improvement_abs = 'N/A'
@@ -1002,8 +1017,13 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         
         # Check if any question has rag_metrics
         for metrics in individual_metrics + individual_after_metrics:
-            if isinstance(metrics, dict) and 'rag_metrics' in metrics:
-                if metrics['rag_metrics'] and any(metrics['rag_metrics'].values()):
+            if isinstance(metrics, dict) and (
+                'rag_metrics' in metrics or 'rag_metrics_after_rerank' in metrics
+            ):
+                rag_data = metrics.get('rag_metrics') or metrics.get(
+                    'rag_metrics_after_rerank', {}
+                )
+                if rag_data and any(v is not None for v in rag_data.values()):
                     has_rag_metrics = True
                     break
         if has_rag_metrics:
