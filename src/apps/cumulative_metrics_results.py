@@ -6,6 +6,7 @@ Permite ver y analizar resultados de evaluaciones completadas en Google Colab
 import streamlit as st
 import json
 import os
+import time
 from typing import List, Dict, Any
 
 # Importar utilidades
@@ -18,6 +19,51 @@ from src.services.storage.real_gdrive_integration import (
     get_all_results_files_from_drive, get_specific_results_file_from_drive
 )
 from src.apps.cumulative_metrics_page import display_current_colab_status
+
+
+def get_local_results_files():
+    """Busca archivos de resultados locales como fallback."""
+    local_results_folders = [
+        ".",  # Directorio raíz del proyecto (donde están los archivos reales)
+        "simulated_drive/results",
+        "results"
+    ]
+    
+    found_files = []
+    
+    for folder in local_results_folders:
+        folder_path = os.path.join(os.getcwd(), folder)
+        if os.path.exists(folder_path):
+            try:
+                files = os.listdir(folder_path)
+                for file in files:
+                    if file.startswith('cumulative_results_') and file.endswith('.json'):
+                        file_path = os.path.join(folder_path, file)
+                        file_stats = os.stat(file_path)
+                        
+                        found_files.append({
+                            'file_id': file_path,
+                            'file_name': file,
+                            'modified_time': time.ctime(file_stats.st_mtime),
+                            'size': str(file_stats.st_size),
+                            'source': 'local'
+                        })
+            except Exception as e:
+                continue
+    
+    # Ordenar por fecha de modificación (más reciente primero)
+    found_files.sort(key=lambda x: x['modified_time'], reverse=True)
+    return found_files
+
+
+def get_local_results_file_content(file_path):
+    """Lee un archivo de resultados local."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return {'success': True, 'results': data}
+    except Exception as e:
+        return {'success': False, 'error': f'Error leyendo archivo local: {str(e)}'}
 
 
 def show_cumulative_metrics_results_page():
@@ -34,18 +80,33 @@ def show_cumulative_metrics_results_page():
 
 
 def show_available_results_section():
-    """Muestra la sección de resultados disponibles desde Google Drive"""
+    """Muestra la sección de resultados disponibles desde Google Drive y archivos locales"""
     
     st.subheader("📂 Resultados Disponibles")
     
-    # Obtener archivos de resultados
-    with st.spinner("🔍 Buscando archivos de resultados..."):
+    # Intentar obtener archivos de Google Drive primero
+    with st.spinner("🔍 Buscando archivos de resultados en Google Drive..."):
         files_result = get_all_results_files_from_drive()
     
-    if files_result['success'] and files_result['files']:
+    files = []
+    gdrive_success = files_result['success'] and files_result.get('files')
+    
+    if gdrive_success:
         files = files_result['files']
-        st.success(f"✅ Encontrados {len(files)} archivos de resultados")
+        st.success(f"✅ Encontrados {len(files)} archivos de resultados en Google Drive")
+    else:
+        # Fallback a archivos locales
+        st.warning("⚠️ No se pudieron obtener archivos de Google Drive, buscando archivos locales...")
+        with st.spinner("🔍 Buscando archivos de resultados locales..."):
+            local_files = get_local_results_files()
         
+        if local_files:
+            files = local_files
+            st.info(f"📁 Encontrados {len(files)} archivos de resultados locales")
+        else:
+            st.error("❌ No se encontraron archivos de resultados ni en Google Drive ni localmente")
+            
+    if files:
         # Mostrar archivos en formato mejorado
         col1, col2 = st.columns([2, 1])
         
@@ -60,6 +121,7 @@ def show_available_results_section():
                 file_name = file.get('file_name', 'N/A') # Use .get() for robustness
                 file_size = file.get('size', 0)
                 modified_time = file.get('modified_time', '') # Use .get() for robustness
+                is_local = file.get('source') == 'local'
                 
                 # Formatear la opción de display
                 if file_size:
@@ -70,16 +132,23 @@ def show_available_results_section():
                 
                 # Formatear fecha
                 if modified_time:
-                    try:
-                        from datetime import datetime
-                        dt = datetime.fromisoformat(modified_time.replace('Z', '+00:00'))
-                        date_str = dt.strftime("%Y-%m-%d %H:%M")
-                    except:
+                    if is_local:
+                        # Para archivos locales, modified_time es ya formateado por time.ctime()
                         date_str = modified_time[:16]
+                    else:
+                        # Para archivos de Google Drive
+                        try:
+                            from datetime import datetime
+                            dt = datetime.fromisoformat(modified_time.replace('Z', '+00:00'))
+                            date_str = dt.strftime("%Y-%m-%d %H:%M")
+                        except:
+                            date_str = modified_time[:16]
                 else:
                     date_str = "N/A"
                 
-                display_name = f"📄 {file_name} | {size_str} | {date_str}"
+                # Añadir indicador de fuente
+                source_emoji = "📁" if is_local else "☁️"
+                display_name = f"{source_emoji} {file_name} | {size_str} | {date_str}"
                 file_options.append(display_name)
                 file_mapping[display_name] = file
             
@@ -96,13 +165,27 @@ def show_available_results_section():
         with col2:
             st.markdown("**📊 Información del archivo:**")
             if selected_file:
+                # Indicador de fuente
+                is_local = selected_file.get('source') == 'local'
+                source_emoji = "📁" if is_local else "☁️"
+                source_text = "Local" if is_local else "Google Drive"
+                st.write(f"{source_emoji} **Fuente:** {source_text}")
+                
                 st.write(f"📄 **Nombre:** {selected_file['file_name']}")
                 if 'size' in selected_file:
-                    size_mb = int(selected_file['size']) / (1024 * 1024)
-                    st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
-                if 'modifiedTime' in selected_file:
+                    if is_local:
+                        size_mb = int(selected_file['size']) / (1024 * 1024)
+                        st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
+                    else:
+                        size_mb = int(selected_file['size']) / (1024 * 1024)
+                        st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
+                        
+                if 'modified_time' in selected_file:
+                    st.write(f"📅 **Modificado:** {selected_file['modified_time']}")
+                elif 'modifiedTime' in selected_file:
                     st.write(f"📅 **Modificado:** {selected_file['modifiedTime'][:16]}")
-                if 'webViewLink' in selected_file:
+                    
+                if not is_local and 'webViewLink' in selected_file:
                     st.markdown(f"[🔗 Ver en Drive]({selected_file['webViewLink']})")
         
         # Opción para generar conclusiones con ChatGPT
@@ -119,26 +202,26 @@ def show_available_results_section():
                 show_selected_results(selected_file, generate_llm)
             else:
                 st.error("❌ Por favor selecciona un archivo de resultados")
-                
-    elif files_result['success'] and not files_result['files']:
-        st.warning("⚠️ No se encontraron archivos de resultados en Google Drive")
+    else:
+        # No se encontraron archivos en ningún lado
+        st.error("❌ No se encontraron archivos de resultados")
         st.markdown("""
         **💡 Para generar resultados:**
         1. Ve a la página de **Crear Configuración**
-        2. Configura y envía una evaluación a Google Drive
-        3. Ejecuta el notebook en Google Colab
+        2. Configura y envía una evaluación a Google Drive/Local
+        3. Ejecuta el notebook en Google Colab o localmente
         4. Los resultados aparecerán aquí automáticamente
         """)
         
+        if not gdrive_success:
+            st.markdown("**🔧 Posibles problemas con Google Drive:**")
+            st.markdown(f"- Error: {files_result.get('error', 'Error desconocido')}")
+            st.markdown("- Verifica la autenticación con Google Drive")
+            st.markdown("- Revisa que la carpeta `acumulative` existe")
+            st.markdown("- Asegúrate de tener permisos de lectura")
+        
         if st.button("⚙️ Ir a Crear Configuración"):
             st.switch_page("src/apps/cumulative_metrics_create.py")
-            
-    else:
-        st.error(f"❌ Error accediendo a archivos: {files_result.get('error', 'Error desconocido')}")
-        st.markdown("**🔧 Posibles soluciones:**")
-        st.markdown("- Verifica la autenticación con Google Drive")
-        st.markdown("- Revisa que la carpeta `acumulative` existe")
-        st.markdown("- Asegúrate de tener permisos de lectura")
 
 
 def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> None:
@@ -155,16 +238,23 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
     # Descargar y procesar archivo
     with st.spinner("📥 Descargando y procesando resultados..."):
         try:
-            # Obtener contenido del archivo
-            file_result = get_specific_results_file_from_drive(selected_file['file_id'])
+            # Determinar si es archivo local o de Google Drive
+            is_local = selected_file.get('source') == 'local'
+            
+            if is_local:
+                # Obtener contenido del archivo local
+                file_result = get_local_results_file_content(selected_file['file_id'])
+            else:
+                # Obtener contenido del archivo de Google Drive
+                file_result = get_specific_results_file_from_drive(selected_file['file_id'])
             
             if not file_result['success']:
-                st.error(f"❌ Error descargando archivo: {file_result.get('error', 'Error desconocido')}")
+                st.error(f"❌ Error leyendo archivo: {file_result.get('error', 'Error desconocido')}")
                 return
             
             # Parsear JSON
             try:
-                results_data = file_result['results'] # This should be file_result['data'] from download_json_from_drive
+                results_data = file_result['results']
             except Exception as e:
                 st.error(f"❌ Error parseando JSON: {e}")
                 return

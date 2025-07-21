@@ -48,7 +48,7 @@ def show_cumulative_metrics_page():
         num_questions = st.number_input(
             "🔢 Número de preguntas a evaluar:",
             min_value=1,
-            max_value=2000,
+            max_value=3100,
             value=600,
             step=1,
             help="Número total de preguntas para la evaluación"
