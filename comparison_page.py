@@ -11,11 +11,17 @@ from utils.qa_pipeline import answer_question_documents_only, answer_question_wi
 from utils.qa_pipeline_with_metrics import answer_question_with_retrieval_metrics
 from utils.retrieval_metrics import format_metrics_for_display
 from config import EMBEDDING_MODELS, MODEL_DESCRIPTIONS
-from utils.weaviate_utils_improved import WeaviateConfig
+from utils.chromadb_utils import ChromaDBConfig
 from utils.extract_links import extract_urls_from_answer
 from utils.metrics import calculate_content_metrics
 from utils.pdf_generator import generate_pdf_report
 from utils.enhanced_evaluation import evaluate_rag_with_advanced_metrics
+from utils.gdrive_integration import (
+    show_colab_integration_ui, 
+    export_comparison_batch_to_drive,
+    check_colab_results,
+    create_colab_instructions
+)
 
 def generate_summary(question: str, results: list, local_client=None) -> str:
     """Generates a brief summary of why the results are relevant using local models or heuristics."""
@@ -82,9 +88,9 @@ def generate_summary(question: str, results: list, local_client=None) -> str:
 
 
 @st.cache_data(ttl=600)
-def get_and_filter_questions(_weaviate_wrapper, num_questions: int = 100):
+def get_and_filter_questions(_chromadb_wrapper, num_questions: int = 100):
     """Gets random questions and filters them for valid links."""
-    random_questions = _weaviate_wrapper.get_sample_questions(limit=num_questions, random_sample=True)
+    random_questions = _chromadb_wrapper.get_sample_questions(limit=num_questions, random_sample=True)
     
     filtered_questions = []
     for q in random_questions:
@@ -236,11 +242,11 @@ def show_comparison_page():
     st.markdown("Ejecuta una consulta en los tres modelos de embedding y compara los resultados y métricas lado a lado.")
 
     # --- 1. User Input ---
-    weaviate_wrapper, _, _, _, _, _, _, _ = initialize_clients("multi-qa-mpnet-base-dot-v1")
+    chromadb_wrapper, _, _, _, _, _, _, _ = initialize_clients("multi-qa-mpnet-base-dot-v1")
     
     if 'questions_for_dropdown' not in st.session_state:
         with st.spinner("Cargando preguntas de ejemplo..."):
-            st.session_state.questions_for_dropdown = get_and_filter_questions(weaviate_wrapper)
+            st.session_state.questions_for_dropdown = get_and_filter_questions(chromadb_wrapper)
 
     questions = st.session_state.questions_for_dropdown
     question_options = {f"#{i+1}: {q.get('title', 'Sin título')}": q for i, q in enumerate(questions)}
@@ -304,13 +310,93 @@ def show_comparison_page():
         else:
             generate_answers = False
 
-    if st.button("🔍 Comparar Modelos", type="primary", use_container_width=True):
+    # Google Colab GPU Acceleration
+    with st.expander("🚀 Aceleración GPU con Google Colab", expanded=False):
+        use_colab_acceleration = st.checkbox(
+            "Usar Google Colab para Comparación",
+            value=False,
+            help="Exporta la comparación a Google Drive y procesa con GPU en Colab (10-50x más rápido)"
+        )
+        
+        if use_colab_acceleration:
+            st.info("🚀 **Beneficios del Procesamiento en Colab:**\n"
+                   "- ⚡ **10-50x más rápido** con GPU T4/V100\n"
+                   "- 💰 **Completamente gratis** (no APIs pagas)\n"
+                   "- 🔄 **Automático**: Export → Colab → Import\n"
+                   "- 📊 **Métricas completas** en segundos")
+            
+            colab_integration_available = show_colab_integration_ui()
+        else:
+            colab_integration_available = False
+
+    # Button logic: Colab export or local processing
+    if use_colab_acceleration and colab_integration_available:
+        button_text = "🚀 Exportar a Google Colab"
+        button_help = "Exporta los datos a Google Drive para procesamiento GPU acelerado"
+    else:
+        button_text = "🔍 Comparar Modelos (Local)"
+        button_help = "Ejecuta la comparación localmente en tu máquina"
+
+    if st.button(button_text, type="primary", use_container_width=True, help=button_help):
         question_to_ask = f"{selected_question.get('title', '')} {selected_question.get('question_content', '')}".strip()
 
         if not question_to_ask:
             st.warning("La pregunta seleccionada está vacía.")
             return
 
+        # Handle Colab export workflow
+        if use_colab_acceleration and colab_integration_available:
+            st.markdown("### 🚀 Exportando a Google Colab...")
+            
+            # Prepare comparison configuration
+            comparison_config = {
+                "top_k": top_k,
+                "use_reranker": use_reranker,
+                "enable_retrieval_metrics": enable_retrieval_metrics,
+                "enable_advanced_metrics": enable_advanced_metrics,
+                "generate_answers": generate_answers if enable_advanced_metrics else False,
+                "generative_model_name": st.session_state.get('generative_model_name', 'llama-3.3-70b')
+            }
+            
+            # Prepare questions data (single question for now, can be extended to batch)
+            questions_data = [{
+                "question_id": "current_comparison",
+                "title": selected_question.get('title', ''),
+                "question_content": selected_question.get('question_content', ''),
+                "question_to_ask": question_to_ask,
+                "accepted_answer": selected_question.get('accepted_answer', ''),
+                "ms_links": selected_question.get('ms_links', [])
+            }]
+            
+            # Export to Google Drive
+            success, file_url = export_comparison_batch_to_drive(
+                questions=questions_data,
+                comparison_config=comparison_config,
+                embedding_models=list(EMBEDDING_MODELS.keys())
+            )
+            
+            if success:
+                st.success("✅ Datos exportados exitosamente a Google Drive!")
+                
+                # Show Colab instructions
+                st.markdown(create_colab_instructions(file_url))
+                
+                # Add button to check for results
+                if st.button("📥 Verificar Resultados de Colab", key="check_results"):
+                    colab_results = check_colab_results()
+                    if colab_results:
+                        st.session_state.comparison_results = colab_results.get('results', {})
+                        st.session_state.colab_metadata = colab_results.get('metadata', {})
+                        st.experimental_rerun()
+                    else:
+                        st.info("⏳ Resultados aún no disponibles. Asegúrate de completar el procesamiento en Colab.")
+                
+                return  # Exit early for Colab workflow
+            else:
+                st.error("❌ Error exportando a Google Drive. Continuando con procesamiento local...")
+                # Fall through to local processing
+
+        # Local processing workflow
         st.session_state.comparison_results = {}
         
         # Initialize progress tracking
@@ -328,7 +414,7 @@ def show_comparison_page():
             with st.spinner(f"Consultando con el modelo: {model_display_name}..."):
                 try:
                     start_time = time.time()
-                    weaviate_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'llama-4-scout'))
+                    chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, _ = initialize_clients(model_key, st.session_state.get('generative_model_name', 'llama-4-scout'))
                     
                     # Use unified pipeline with retrieval metrics
                     if enable_retrieval_metrics:
@@ -337,7 +423,7 @@ def show_comparison_page():
                         # Calculate retrieval metrics using the specialized pipeline
                         result = answer_question_with_retrieval_metrics(
                             question=question_to_ask,
-                            weaviate_wrapper=weaviate_wrapper,
+                            chromadb_wrapper=chromadb_wrapper,
                             embedding_client=embedding_client,
                             openai_client=openai_client,
                             gemini_client=gemini_client,
@@ -367,7 +453,7 @@ def show_comparison_page():
                             try:
                                 eval_result = evaluate_rag_with_advanced_metrics(
                                     question=question_to_ask,
-                                    weaviate_wrapper=weaviate_wrapper,
+                                    chromadb_wrapper=chromadb_wrapper,
                                     embedding_client=embedding_client,
                                     openai_client=openai_client,
                                     gemini_client=gemini_client,
@@ -386,7 +472,7 @@ def show_comparison_page():
                         
                         eval_result = evaluate_rag_with_advanced_metrics(
                             question=question_to_ask,
-                            weaviate_wrapper=weaviate_wrapper,
+                            chromadb_wrapper=chromadb_wrapper,
                             embedding_client=embedding_client,
                             openai_client=openai_client,
                             gemini_client=gemini_client,
@@ -398,7 +484,7 @@ def show_comparison_page():
                         
                         # Get documents for display
                         results, debug_info = answer_question_documents_only(
-                            question_to_ask, weaviate_wrapper, embedding_client, openai_client,
+                            question_to_ask, chromadb_wrapper, embedding_client, openai_client,
                             top_k=top_k, use_llm_reranker=use_reranker, use_questions_collection=True
                         )
                         
@@ -409,7 +495,7 @@ def show_comparison_page():
                     else:
                         # Standard evaluation pipeline
                         results, debug_info = answer_question_documents_only(
-                            question_to_ask, weaviate_wrapper, embedding_client, openai_client,
+                            question_to_ask, chromadb_wrapper, embedding_client, openai_client,
                             top_k=top_k, use_llm_reranker=use_reranker, use_questions_collection=True
                         )
                         generated_answer = ""

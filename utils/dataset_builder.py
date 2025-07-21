@@ -33,10 +33,10 @@ def save_to_json(data: List[dict], filename: str):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
-def build_and_save_dataset(weaviate_wrapper, output_dir: str = "data"):
+def build_and_save_dataset(chromadb_wrapper, output_dir: str = "data"):
     try:
         debug_print("[INFO] Fetching questions from 'Questions' collection...")
-        questions_collection = weaviate_wrapper.client.collections.get("Questions")
+        questions_collection = chromadb_wrapper.client.collections.get("Questions")
         all_data = questions_collection.query.fetch_objects(limit=15000)
         items = [obj.properties for obj in all_data.objects]
 
@@ -63,13 +63,13 @@ def is_successful_match(retrieved_docs: List[dict], ground_truth_links: List[str
     retrieved_links = {doc.get("link", "").strip() for doc in retrieved_docs}
     return any(link.strip() in retrieved_links for link in ground_truth_links)
 
-def generate_classification_examples(train_data: List[dict], weaviate_wrapper, embedding_client, top_k: int = 10) -> List[dict]:
+def generate_classification_examples(train_data: List[dict], chromadb_wrapper, embedding_client, top_k: int = 10) -> List[dict]:
     """
     Genera ejemplos para entrenamiento supervisado binario: cada par pregunta-doc tendrá una etiqueta 1 si
     el link del documento aparece en la respuesta aceptada, y 0 en caso contrario.
     """
     examples = []
-    doc_collection = weaviate_wrapper.client.collections.get("Documentation")
+    doc_collection = chromadb_wrapper.client.collections.get("Documentation")
 
     for q in train_data:
         question_text = q.get("question_content", "")
@@ -96,12 +96,12 @@ def generate_classification_examples(train_data: List[dict], weaviate_wrapper, e
 
     return examples
 
-def build_embedding_train_set(train_json_path: str, weaviate_wrapper, embedding_client, output_path: str, top_k: int = 10):
+def build_embedding_train_set(train_json_path: str, chromadb_wrapper, embedding_client, output_path: str, top_k: int = 10):
     with open(train_json_path, "r") as f:
         train_data = json.load(f)
 
     labeled_data = []
-    doc_collection = weaviate_wrapper.client.collections.get("Documentation")
+    doc_collection = chromadb_wrapper.client.collections.get("Documentation")
 
     for q in train_data:
         question_text = q.get("question_content", "")

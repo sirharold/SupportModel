@@ -4,7 +4,8 @@
 EMBEDDING_MODELS = {
     "multi-qa-mpnet-base-dot-v1": "sentence-transformers/multi-qa-mpnet-base-dot-v1",
     "all-MiniLM-L6-v2": "sentence-transformers/all-MiniLM-L6-v2",
-    "ada": "text-embedding-ada-002"
+    "ada": "text-embedding-ada-002",
+    "e5-large-v2": "intfloat/e5-large-v2"
 }
 
 DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
@@ -23,19 +24,23 @@ DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Changed to OpenRouter model for be
 # Debug configuration
 DEBUG_MODE = False  # Set to True to enable debug messages, False to disable them
 
-# Weaviate class names for different models
-WEAVIATE_CLASS_CONFIG = {
+# ChromaDB collection names for different models
+CHROMADB_COLLECTION_CONFIG = {
     "multi-qa-mpnet-base-dot-v1": {
-        "documents": "DocumentsMpnet",
-        "questions": "QuestionsMlpnet"
+        "documents": "docs_mpnet",
+        "questions": "questions_mpnet"
     },
     "all-MiniLM-L6-v2": {
-        "documents": "DocumentsMiniLM",
-        "questions": "QuestionsMiniLM"
+        "documents": "docs_minilm",
+        "questions": "questions_minilm"
     },
     "ada": {
-        "documents": "Documentation",
-        "questions": "Questions"
+        "documents": "docs_ada",
+        "questions": "questions_ada"
+    },
+    "e5-large-v2": {
+        "documents": "docs_e5large",
+        "questions": "questions_e5large"
     }
 }
 
@@ -55,6 +60,11 @@ MODEL_DESCRIPTIONS = {
         "description": "Potente modelo de propósito general de OpenAI. Excelente en capturar el significado semántico en una amplia gama de textos.",
         "dimensions": 1536,
         "provider": "OpenAI"
+    },
+    "e5-large-v2": {
+        "description": "Modelo E5-Large-v2 de Microsoft. Excelente rendimiento en tareas de retrieval con embeddings de 1024 dimensiones.",
+        "dimensions": 1024,
+        "provider": "Microsoft (Hugging Face)"
     }
 }
 

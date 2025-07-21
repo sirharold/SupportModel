@@ -15,7 +15,7 @@ from utils.qa_pipeline import answer_question_with_rag
 
 def evaluate_rag_with_advanced_metrics(
     question: str,
-    weaviate_wrapper,
+    chromadb_wrapper,
     embedding_client,
     openai_client,
     gemini_client=None,
@@ -29,7 +29,7 @@ def evaluate_rag_with_advanced_metrics(
     
     Args:
         question: User question
-        weaviate_wrapper: Weaviate client
+        chromadb_wrapper: Weaviate client
         embedding_client: Embedding client
         openai_client: OpenAI client
         gemini_client: Gemini client (optional)
@@ -47,7 +47,7 @@ def evaluate_rag_with_advanced_metrics(
     try:
         results, debug_info, generated_answer, rag_metrics = answer_question_with_rag(
             question=question,
-            weaviate_wrapper=weaviate_wrapper,
+            chromadb_wrapper=chromadb_wrapper,
             embedding_client=embedding_client,
             openai_client=openai_client,
             gemini_client=gemini_client,
@@ -131,7 +131,7 @@ def evaluate_rag_with_advanced_metrics(
 
 def batch_evaluate_with_advanced_metrics(
     questions: List[str],
-    weaviate_wrapper,
+    chromadb_wrapper,
     embedding_client,
     openai_client,
     gemini_client=None,
@@ -157,7 +157,7 @@ def batch_evaluate_with_advanced_metrics(
         
         evaluation = evaluate_rag_with_advanced_metrics(
             question=question,
-            weaviate_wrapper=weaviate_wrapper,
+            chromadb_wrapper=chromadb_wrapper,
             embedding_client=embedding_client,
             openai_client=openai_client,
             gemini_client=gemini_client,

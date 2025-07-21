@@ -15,9 +15,9 @@ st.markdown("---")
 def initialize_clients(model_name: str):
     config = WeaviateConfig.from_env()
     client = get_weaviate_client(config)
-    weaviate_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
+    chromadb_wrapper = WeaviateClientWrapper(client, retry_attempts=3)
     embedding_client = EmbeddingClient(huggingface_api_key=config.huggingface_api_key) # Pass HF API key
-    return weaviate_wrapper, client, embedding_client
+    return chromadb_wrapper, client, embedding_client
 
 # Selección de modelo de embedding
 model_name = st.selectbox(
@@ -26,7 +26,7 @@ model_name = st.selectbox(
     index=list(EMBEDDING_MODELS.keys()).index(DEFAULT_EMBEDDING_MODEL)
 )
 
-weaviate_wrapper, client, embedding_client = initialize_clients(model_name)
+chromadb_wrapper, client, embedding_client = initialize_clients(model_name)
 atexit.register(lambda: client and client.close())
 
 st.subheader("Búsqueda por Palabra Clave (BM25)")
@@ -37,7 +37,7 @@ if st.button("Buscar por Palabra Clave", key="debug_bm25_search_button"):
         with st.spinner(f"Buscando '{keyword_query}' en Weaviate (BM25)..."):
             try:
                 documents_class = WEAVIATE_CLASS_CONFIG[model_name]["documents"]
-                keyword_results = weaviate_wrapper.search_docs_by_keyword(keyword_query, limit=20, class_name=documents_class)
+                keyword_results = chromadb_wrapper.search_docs_by_keyword(keyword_query, limit=20, class_name=documents_class)
                 
                 if keyword_results:
                     st.success(f"Encontrados {len(keyword_results)} documentos para '{keyword_query}':")
@@ -60,7 +60,7 @@ if st.button("Buscar por Palabra Clave", key="debug_bm25_search_button"):
 st.markdown("---")
 st.subheader("Estadísticas de la Colección")
 try:
-    stats = weaviate_wrapper.get_collection_stats()
+    stats = chromadb_wrapper.get_collection_stats()
     for model, classes in WEAVIATE_CLASS_CONFIG.items():
         questions_class_name = classes['questions']
         documents_class_name = classes['documents']

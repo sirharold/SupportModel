@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from utils.qa_pipeline import answer_question_documents_only, answer_question_with_rag
-from utils.weaviate_utils_improved import WeaviateConfig, get_weaviate_client, WeaviateClientWrapper
+from utils.chromadb_utils import ChromaDBConfig, get_chromadb_client, ChromaDBClientWrapper
 from utils.embedding_safe import get_embedding_client
 from openai import OpenAI
 import time
@@ -12,7 +12,7 @@ import random
 import numpy as np
 from datetime import datetime
 import statistics
-from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, WEAVIATE_CLASS_CONFIG
+from config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG
 
 def show_batch_queries_page():
     """Página para consultas en lote."""
@@ -20,11 +20,11 @@ def show_batch_queries_page():
     # Configuración con cache
     @st.cache_resource
     def initialize_clients(model_name: str):
-        config = WeaviateConfig.from_env()
-        client = get_weaviate_client(config)
+        config = ChromaDBConfig.from_env()
+        client = get_chromadb_client(config)
         
-        weaviate_classes = WEAVIATE_CLASS_CONFIG[model_name]
-        weaviate_wrapper = WeaviateClientWrapper(
+        weaviate_classes = CHROMADB_COLLECTION_CONFIG[model_name]
+        chromadb_wrapper = ChromaDBClientWrapper(
             client,
             documents_class=weaviate_classes["documents"],
             questions_class=weaviate_classes["questions"],
@@ -49,7 +49,7 @@ def show_batch_queries_page():
         
         # Note: Gemini client removed to eliminate API costs
         # All operations now use local models or heuristics
-        return weaviate_wrapper, embedding_client, openai_client, client
+        return chromadb_wrapper, embedding_client, openai_client, client
 
     st.subheader("📊 Consultas en Lote")
     st.markdown("**Realiza múltiples consultas de documentos y obtén métricas comprehensivas**")
@@ -68,7 +68,7 @@ def show_batch_queries_page():
             key="batch_model_select"
         )
 
-        weaviate_wrapper, embedding_client, openai_client, client = initialize_clients(model_name)
+        chromadb_wrapper, embedding_client, openai_client, client = initialize_clients(model_name)
         
         # Número de preguntas
         num_questions = st.number_input(
@@ -134,7 +134,7 @@ def show_batch_queries_page():
                 }
                 
                 # Ejecutar consultas
-                execute_batch_queries(weaviate_wrapper, embedding_client, openai_client)
+                execute_batch_queries(chromadb_wrapper, embedding_client, openai_client)
     
     with config_col2:
         st.markdown("### 📋 Estado Actual")
@@ -165,14 +165,14 @@ def show_batch_queries_page():
     if 'batch_results' in st.session_state:
         show_comprehensive_metrics()
 
-def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
+def execute_batch_queries(chromadb_wrapper, embedding_client, openai_client):
     """Ejecuta las consultas en lote según la configuración."""
     config = st.session_state.batch_config
     
     # Obtener preguntas según el método seleccionado
     with st.spinner("📋 Obteniendo preguntas de la base de datos..."):
         questions = get_questions_from_db(
-            weaviate_wrapper, 
+            chromadb_wrapper, 
             config['num_questions'], 
             config['selection_method'], 
             config.get('keyword_filter', '')
@@ -213,11 +213,11 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
                 if config.get('enable_rag', False):
                     # Usar RAG completo
                     model_name = st.session_state.batch_config['model_name']
-                    documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"]
-                    questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
+                    documents_class=CHROMADB_COLLECTION_CONFIG[model_name]["documents"]
+                    questions_class=CHROMADB_COLLECTION_CONFIG[model_name]["questions"]
                     results, debug_info, generated_answer, rag_metrics = answer_question_with_rag(
                         question_text,
-                        weaviate_wrapper,
+                        chromadb_wrapper,
                         embedding_client,
                         openai_client,
                         top_k=config['top_k'],
@@ -230,11 +230,11 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
                 else:
                     # Solo documentos (modo tradicional)
                     model_name = st.session_state.batch_config['model_name']
-                    documents_class=WEAVIATE_CLASS_CONFIG[model_name]["documents"]
-                    questions_class=WEAVIATE_CLASS_CONFIG[model_name]["questions"]
+                    documents_class=CHROMADB_COLLECTION_CONFIG[model_name]["documents"]
+                    questions_class=CHROMADB_COLLECTION_CONFIG[model_name]["questions"]
                     results, debug_info = answer_question_documents_only(
                         question_text,
-                        weaviate_wrapper,
+                        chromadb_wrapper,
                         embedding_client,
                         openai_client,
                         top_k=config['top_k'],
@@ -295,18 +295,18 @@ def execute_batch_queries(weaviate_wrapper, embedding_client, openai_client):
     st.success(f"✅ Consulta en lote completada en {total_time:.2f} segundos")
     st.rerun()
 
-def get_questions_from_db(weaviate_wrapper, num_questions, selection_method, keyword_filter):
+def get_questions_from_db(chromadb_wrapper, num_questions, selection_method, keyword_filter):
     """Obtiene preguntas de la base de datos según el método especificado."""
     try:
         model_name = st.session_state.batch_config['model_name']
-        questions_class = WEAVIATE_CLASS_CONFIG[model_name]["questions"]
+        questions_class = CHROMADB_COLLECTION_CONFIG[model_name]["questions"]
         
         if selection_method == "🎯 Palabras clave":
             # Búsqueda por palabra clave
-            questions = weaviate_wrapper.search_questions_by_keyword(keyword_filter, limit=num_questions)
+            questions = chromadb_wrapper.search_questions_by_keyword(keyword_filter, limit=num_questions)
         else:
             # Obtener preguntas (primeras N o aleatorias)
-            questions = weaviate_wrapper.get_sample_questions(
+            questions = chromadb_wrapper.get_sample_questions(
                 limit=num_questions if selection_method == "📊 Primeras N" else num_questions * 3,
                 random_sample=(selection_method == "🎲 Aleatorio")
             )
