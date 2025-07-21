@@ -7,6 +7,9 @@ data/
 # Ignore any JSON files (e.g., datasets, embeddings)
 *.json
 
+# Ignore parquet files
+*.parquet
+
 # Common Python ignores
 __pycache__/
 *.py[cod]
