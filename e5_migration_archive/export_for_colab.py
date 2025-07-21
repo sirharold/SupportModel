@@ -5,20 +5,26 @@ Script para exportar datos de ChromaDB a formato compatible con Colab
 
 import json
 import pandas as pd
-from utils.chromadb_utils import ChromaDBConfig, get_chromadb_client
+import numpy as np
+import sys
 import os
 from datetime import datetime
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from src.services.storage.chromadb_utils import ChromaDBClientWrapper
+import chromadb
 
 def export_collection_to_json(collection_name: str, output_file: str):
     """Exportar colección completa a JSON"""
     try:
-        client = get_chromadb_client(ChromaDBConfig.from_env())
+        # Usar ChromaDB client directo
+        client = chromadb.PersistentClient(path="/Users/haroldgomez/chromadb2/")
         collection = client.get_collection(collection_name)
         
         print(f"📥 Loading collection '{collection_name}'...")
         
-        # Obtener todos los datos
-        data = collection.get(include=['metadatas', 'documents'])
+        # Obtener todos los datos incluyendo embeddings
+        data = collection.get(include=['metadatas', 'documents', 'embeddings'])
         
         count = len(data['documents'])
         print(f"📊 Loaded {count:,} items")
@@ -29,7 +35,8 @@ def export_collection_to_json(collection_name: str, output_file: str):
             'total_items': count,
             'export_timestamp': datetime.now().isoformat(),
             'documents': data['documents'],
-            'metadatas': data['metadatas']
+            'metadatas': data['metadatas'],
+            'embeddings': data['embeddings']
         }
         
         # Guardar a JSON
@@ -50,13 +57,14 @@ def export_collection_to_json(collection_name: str, output_file: str):
 def export_collection_to_parquet(collection_name: str, output_file: str):
     """Exportar colección a Parquet (más eficiente para archivos grandes)"""
     try:
-        client = get_chromadb_client(ChromaDBConfig.from_env())
+        # Usar ChromaDB client directo
+        client = chromadb.PersistentClient(path="/Users/haroldgomez/chromadb2/")
         collection = client.get_collection(collection_name)
         
         print(f"📥 Loading collection '{collection_name}'...")
         
-        # Obtener todos los datos
-        data = collection.get(include=['metadatas', 'documents'])
+        # Obtener todos los datos incluyendo embeddings
+        data = collection.get(include=['metadatas', 'documents', 'embeddings'])
         
         count = len(data['documents'])
         print(f"📊 Loaded {count:,} items")
@@ -67,6 +75,7 @@ def export_collection_to_parquet(collection_name: str, output_file: str):
             record = {
                 'document': data['documents'][i],
                 'id': f"doc_{i}",  # ID secuencial
+                'embedding': data['embeddings'][i] if data['embeddings'] else None,  # Vector embedding
             }
             # Agregar metadatos como columnas separadas
             if data['metadatas'][i]:
@@ -94,54 +103,80 @@ def export_collection_to_parquet(collection_name: str, output_file: str):
         return False
 
 def main():
-    """Exportar docs_ada para procesamiento en Colab"""
-    print("🚀 ChromaDB to Colab Exporter")
-    print("=============================")
+    """Exportar colecciones de documentos para procesamiento en Colab"""
+    print("🚀 ChromaDB to Colab Exporter (Real Embeddings)")
+    print("===============================================")
     
-    collection_name = "docs_ada"
+    # Colecciones a exportar con embeddings reales
+    collections_to_export = [
+        "docs_ada",      # Ada embeddings (1536 dims)
+        "docs_mpnet",    # MPNet embeddings (768 dims)
+        "docs_minilm",   # MiniLM embeddings (384 dims)
+        "docs_e5large"   # E5-Large embeddings (1024 dims)
+    ]
     
-    # Crear nombres de archivo con timestamp
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    json_file = f"docs_ada_export_{timestamp}.json"
-    parquet_file = f"docs_ada_export_{timestamp}.parquet"
     
-    print(f"📂 Exporting collection: {collection_name}")
+    print(f"📂 Collections to export: {len(collections_to_export)}")
+    for collection in collections_to_export:
+        print(f"  - {collection}")
     print()
     
-    # Exportar a ambos formatos
-    print("1️⃣ Exporting to JSON...")
-    json_success = export_collection_to_json(collection_name, json_file)
+    export_results = {}
     
-    print("\n2️⃣ Exporting to Parquet...")
-    parquet_success = export_collection_to_parquet(collection_name, parquet_file)
+    for i, collection_name in enumerate(collections_to_export, 1):
+        print(f"\n{'='*60}")
+        print(f"📦 EXPORTING {collection_name.upper()} ({i}/{len(collections_to_export)})")
+        print(f"{'='*60}")
+        
+        # Crear nombres de archivo con timestamp
+        parquet_file = f"{collection_name}_export_{timestamp}.parquet"
+        
+        print(f"📂 Collection: {collection_name}")
+        print(f"📄 Output: {parquet_file}")
+        print()
+        
+        # Exportar solo a Parquet (más eficiente para Colab)
+        print("📤 Exporting to Parquet with embeddings...")
+        parquet_success = export_collection_to_parquet(collection_name, parquet_file)
+        
+        export_results[collection_name] = {
+            'file': parquet_file if parquet_success else None,
+            'success': parquet_success
+        }
     
     print("\n" + "="*50)
     print("📊 EXPORT SUMMARY")
     print("="*50)
     
-    if json_success:
-        size_json = os.path.getsize(json_file) / (1024 * 1024)
-        print(f"✅ JSON export: {json_file} ({size_json:.1f} MB)")
-    else:
-        print("❌ JSON export failed")
+    total_size = 0
+    successful_exports = []
     
-    if parquet_success:
-        size_parquet = os.path.getsize(parquet_file) / (1024 * 1024)
-        print(f"✅ Parquet export: {parquet_file} ({size_parquet:.1f} MB)")
-        print(f"📎 Recommended for Colab: {parquet_file}")
-    else:
-        print("❌ Parquet export failed")
+    for collection_name, result in export_results.items():
+        if result['success']:
+            size_mb = os.path.getsize(result['file']) / (1024 * 1024)
+            print(f"✅ {collection_name}: {result['file']} ({size_mb:.1f} MB)")
+            total_size += size_mb
+            successful_exports.append(result['file'])
+        else:
+            print(f"❌ {collection_name}: Export failed")
     
-    if parquet_success or json_success:
+    print(f"\n📊 Total exported: {len(successful_exports)}/{len(collections_to_export)} collections ({total_size:.1f} MB)")
+    
+    if successful_exports:
         print("\n🚀 NEXT STEPS:")
-        print("1. Upload the exported file to Google Drive")
+        print("1. Upload the exported files to Google Drive")
         print("2. Open the Colab notebook")
         print("3. Mount Google Drive in Colab")
-        print("4. Run the E5 processing script")
-        print("5. Download the result file")
-        print("6. Import back to ChromaDB")
+        print("4. Load real embeddings for cosine similarity calculation")
+        print("5. Calculate real retrieval metrics (no simulation)")
+        print("6. Generate accurate evaluation reports")
+        
+        print(f"\n📁 Files ready for Colab:")
+        for file in successful_exports:
+            print(f"  - {file}")
     
-    return parquet_success or json_success
+    return len(successful_exports) > 0
 
 if __name__ == "__main__":
     main()
