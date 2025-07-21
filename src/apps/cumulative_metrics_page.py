@@ -27,7 +27,7 @@ from src.services.storage.real_gdrive_integration import (
 
 def show_cumulative_metrics_page():
     """Función principal que muestra la página de métricas acumulativas."""
-    st.title("📊 Métricas Acumulativas de Recuperación RAG")
+    st.title("📊 Métricas Acumulativas de Recuperación RAG - ACTUALIZADO")
     st.markdown("""
     Esta página permite evaluar múltiples preguntas y calcular métricas promedio para diferentes modelos de embedding.
     """)
@@ -78,6 +78,16 @@ def show_cumulative_metrics_page():
             value=True,
             help="Activar reordenamiento de documentos con LLM"
         )
+        
+        # NUEVO: Generar métricas RAG
+        generate_rag_metrics = st.checkbox(
+            "📝 Generar Métricas RAG",
+            value=True,
+            help="Generar respuestas y calcular métricas RAG (faithfulness, answer_relevance, etc.). Aumenta significativamente el tiempo de procesamiento."
+        )
+        
+        if generate_rag_metrics:
+            st.warning("⚠️ **Nota:** Activar métricas RAG aumentará considerablemente el tiempo de evaluación ya que se deben generar respuestas para cada pregunta.")
         
         # NUEVO: Opción de usar Google Colab
         use_colab_processing = st.checkbox(
@@ -146,7 +156,7 @@ def show_cumulative_metrics_page():
         show_colab_workflow(
             num_questions, selected_models, 
             generative_model_name, top_k, use_llm_reranker, 
-            batch_size, evaluate_all_models
+            generate_rag_metrics, batch_size, evaluate_all_models
         )
     else:
         # Interfaz para evaluación local
@@ -157,7 +167,7 @@ def show_cumulative_metrics_page():
                 run_evaluation(
                     num_questions, selected_models, 
                     generative_model_name, top_k, use_llm_reranker, 
-                    batch_size, evaluate_all_models
+                    generate_rag_metrics, batch_size, evaluate_all_models
                 )
         
         with col2:
@@ -178,7 +188,7 @@ def show_cumulative_metrics_page():
 
 def run_evaluation(num_questions: int, selected_models: List[str],
                   generative_model_name: str, top_k: int, use_llm_reranker: bool,
-                  batch_size: int, evaluate_all_models: bool):
+                  generate_rag_metrics: bool, batch_size: int, evaluate_all_models: bool):
     """Ejecuta la evaluación de métricas."""
     
     # Mostrar información de memoria inicial
@@ -198,6 +208,7 @@ def run_evaluation(num_questions: int, selected_models: List[str],
                     generative_model_name=generative_model_name,
                     top_k=top_k,
                     use_llm_reranker=use_llm_reranker,
+                    generate_rag_metrics=generate_rag_metrics,
                     batch_size=batch_size
                 )
         else:
@@ -210,6 +221,7 @@ def run_evaluation(num_questions: int, selected_models: List[str],
                     generative_model_name=generative_model_name,
                     top_k=top_k,
                     use_llm_reranker=use_llm_reranker,
+                    generate_rag_metrics=generate_rag_metrics,
                     batch_size=batch_size
                 )
                 results = {model_name: single_result}
@@ -259,7 +271,7 @@ def run_evaluation(num_questions: int, selected_models: List[str],
 
 def show_colab_workflow(num_questions: int, selected_models: List[str],
                        generative_model_name: str, top_k: int, use_llm_reranker: bool,
-                       batch_size: int, evaluate_all_models: bool):
+                       generate_rag_metrics: bool, batch_size: int, evaluate_all_models: bool):
     """Muestra la interfaz completa del flujo Google Colab"""
     
     st.subheader("☁️ Flujo de Evaluación con Google Colab")
@@ -271,6 +283,7 @@ def show_colab_workflow(num_questions: int, selected_models: List[str],
         'generative_model_name': generative_model_name,
         'top_k': top_k,
         'use_llm_reranker': use_llm_reranker,
+        'generate_rag_metrics': generate_rag_metrics,
         'batch_size': batch_size,
         'evaluate_all_models': evaluate_all_models,
         'evaluation_type': 'cumulative_metrics'
@@ -299,8 +312,8 @@ def show_colab_workflow(num_questions: int, selected_models: List[str],
             create_config_and_send_to_drive(evaluation_config)
     
     with col2:
-        if st.button("🔄 Verificar Estado"):
-            check_colab_evaluation_status()
+        # Button removed per user request
+        st.empty()
     
     with col3:
         if st.button("🔍 Debug Google Drive"):
@@ -518,12 +531,12 @@ def show_available_results_section():
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        if st.button("📊 Mostrar Resultados del Archivo Seleccionado", type="primary", use_container_width=True):
-            load_and_display_selected_results(selected_file_id)
+        # Results buttons removed per user request
+        st.empty()
     
     with col2:
-        if st.button("🔄 Actualizar Lista", help="Buscar nuevos archivos de resultados"):
-            st.rerun()
+        # Update button removed per user request  
+        st.empty()
 
 
 def load_and_display_selected_results(file_id: str):
@@ -814,9 +827,8 @@ def show_colab_status_and_results():
                     st.write(f"📄 {status_data.get('results_file', 'N/A')}")
                     st.write(f"📊 {status_data.get('summary_file', 'N/A')}")
                 
-                # Botón para mostrar resultados
-                if st.button("📊 Mostrar Resultados y Generar Visualizaciones", type="primary"):
-                    show_colab_results_and_generate_visuals(status_data)
+                # Results button removed per user request
+                st.info("Results visualization button removed")
                 
             else:
                 st.info(f"🔄 Estado: {status_data.get('status', 'unknown')}")
@@ -831,9 +843,8 @@ def show_colab_status_and_results():
         st.markdown("2. Espera a que termine la evaluación")
         st.markdown("3. Los resultados aparecerán automáticamente aquí")
         
-        # Botón para refrescar estado
-        if st.button("🔄 Verificar Estado"):
-            st.rerun()
+        # Verify status button removed per user request
+        st.empty()
 
 
 

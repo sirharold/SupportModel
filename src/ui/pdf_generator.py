@@ -169,7 +169,8 @@ def add_metric_definitions_page(pdf, ax):
 
 
 def generate_cumulative_pdf_report(results: Dict[str, Any], model_name: str, use_llm_reranker: bool, 
-                                  generative_model_name: str, top_k: int, evaluation_time: str) -> bytes:
+                                  generative_model_name: str, top_k: int, evaluation_time: str,
+                                  llm_conclusions: str = '', llm_improvements: str = '') -> bytes:
     """
     Genera un reporte PDF completo de métricas cumulativas.
     
@@ -246,14 +247,44 @@ def generate_cumulative_pdf_report(results: Dict[str, Any], model_name: str, use
         ax.axis('off')
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
+
+        # Page for LLM Conclusions and Improvements
+        if llm_conclusions or llm_improvements:
+            fig, ax = plt.subplots(figsize=(8.5, 11))
+            ax.text(0.5, 0.95, 'Conclusiones y Mejoras (Generado por LLM)', 
+                   fontsize=16, fontweight='bold', ha='center', transform=ax.transAxes)
+            
+            y_pos = 0.85
+            if llm_conclusions:
+                ax.text(0.05, y_pos, 'Conclusiones:', fontsize=12, fontweight='bold', transform=ax.transAxes)
+                y_pos -= 0.02
+                # Split conclusions into lines and add them
+                for line in llm_conclusions.split('\n'):
+                    ax.text(0.07, y_pos, line, fontsize=10, transform=ax.transAxes, wrap=True)
+                    y_pos -= 0.025 # Adjust line spacing
+                y_pos -= 0.03 # Space between sections
+
+            if llm_improvements:
+                ax.text(0.05, y_pos, 'Posibles Mejoras y Próximos Pasos:', fontsize=12, fontweight='bold', transform=ax.transAxes)
+                y_pos -= 0.02
+                # Split improvements into lines and add them
+                for line in llm_improvements.split('\n'):
+                    ax.text(0.07, y_pos, line, fontsize=10, transform=ax.transAxes, wrap=True)
+                    y_pos -= 0.025 # Adjust line spacing
+
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
+            pdf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
         
-        # Página 2: Definiciones de métricas
+        # Page 2: Definiciones de métricas
         fig, ax = plt.subplots(figsize=(8.5, 11))
         add_metric_definitions_page(pdf, ax)
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
         
-        # Página 3: Gráfico de comparación (si hay reranking)
+        # Page 3: Gráfico de comparación (si hay reranking)
         if use_llm_reranker and avg_before and avg_after:
             fig, ax = plt.subplots(figsize=(8.5, 11))
             
@@ -288,7 +319,8 @@ def generate_cumulative_pdf_report(results: Dict[str, Any], model_name: str, use
 
 
 def generate_multi_model_pdf_report(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool,
-                                   generative_model_name: str, top_k: int, evaluation_time: str) -> bytes:
+                                   generative_model_name: str, top_k: int, evaluation_time: str,
+                                   llm_conclusions: str = '', llm_improvements: str = '') -> bytes:
     """
     Genera un reporte PDF de comparación multi-modelo.
     
@@ -337,14 +369,44 @@ def generate_multi_model_pdf_report(results: Dict[str, Dict[str, Any]], use_llm_
         ax.axis('off')
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
+
+        # Page for LLM Conclusions and Improvements
+        if llm_conclusions or llm_improvements:
+            fig, ax = plt.subplots(figsize=(8.5, 11))
+            ax.text(0.5, 0.95, 'Conclusiones y Mejoras (Generado por LLM)', 
+                   fontsize=16, fontweight='bold', ha='center', transform=ax.transAxes)
+            
+            y_pos = 0.85
+            if llm_conclusions:
+                ax.text(0.05, y_pos, 'Conclusiones:', fontsize=12, fontweight='bold', transform=ax.transAxes)
+                y_pos -= 0.02
+                # Split conclusions into lines and add them
+                for line in llm_conclusions.split('\n'):
+                    ax.text(0.07, y_pos, line, fontsize=10, transform=ax.transAxes, wrap=True)
+                    y_pos -= 0.025 # Adjust line spacing
+                y_pos -= 0.03 # Space between sections
+
+            if llm_improvements:
+                ax.text(0.05, y_pos, 'Posibles Mejoras y Próximos Pasos:', fontsize=12, fontweight='bold', transform=ax.transAxes)
+                y_pos -= 0.02
+                # Split improvements into lines and add them
+                for line in llm_improvements.split('\n'):
+                    ax.text(0.07, y_pos, line, fontsize=10, transform=ax.transAxes, wrap=True)
+                    y_pos -= 0.025 # Adjust line spacing
+
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.axis('off')
+            pdf.savefig(fig, bbox_inches='tight')
+            plt.close(fig)
         
-        # Página 2: Definiciones
+        # Page 2: Definiciones
         fig, ax = plt.subplots(figsize=(8.5, 11))
         add_metric_definitions_page(pdf, ax)
         pdf.savefig(fig, bbox_inches='tight')
         plt.close(fig)
         
-        # Página 3: Gráfico comparativo
+        # Page 3: Gráfico comparativo
         fig, ax = plt.subplots(figsize=(8.5, 11))
         
         metrics_to_compare = ['Precision@5', 'Recall@5', 'F1@5', 'MRR']

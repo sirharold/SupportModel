@@ -9,7 +9,7 @@ import os
 from typing import List, Dict, Any
 
 # Importar utilidades
-from src.ui.enhanced_metrics_display import display_enhanced_cumulative_metrics, display_enhanced_models_comparison
+from src.ui.enhanced_metrics_display import display_enhanced_cumulative_metrics, display_enhanced_models_comparison, generate_analysis_with_llm
 from src.data.file_utils import display_download_section
 from src.evaluation.metrics import validate_data_integrity
 from src.services.storage.real_gdrive_integration import (
@@ -171,7 +171,14 @@ def show_selected_results(selected_file: Dict):
             
             # Mostrar información general
             display_results_summary(results_data, processed_results)
-            
+
+            # Automatically generate conclusions with LLM
+            generative_model_name = results_data.get('config', {}).get('generative_model_name', 'gpt-4') # Default to gpt-4 if not found
+            llm_analysis = generate_analysis_with_llm(results_data, generative_model_name)
+            st.session_state.llm_conclusions = llm_analysis['conclusions']
+            st.session_state.llm_improvements = llm_analysis['improvements']
+            st.success("✅ Análisis generado por LLM.")
+
             # Mostrar visualizaciones
             display_results_visualizations(results_data, processed_results)
             
@@ -266,7 +273,7 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                 use_llm_reranker = False
         
         # Use enhanced display with cleaner before/after LLM separation
-        display_enhanced_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
+        display_enhanced_cumulative_metrics(adapted_results, model_name, use_llm_reranker, results_data['config'])
         
     else:
         # Para múltiples modelos, usar display_enhanced_models_comparison
@@ -308,7 +315,7 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                 use_llm_reranker = False
         
         # Use enhanced display for cleaner multi-model comparison
-        display_enhanced_models_comparison(adapted_multi_results, use_llm_reranker)
+        display_enhanced_models_comparison(adapted_multi_results, use_llm_reranker, results_data['config'])
     
     # Sección de descarga
     st.markdown("---")
@@ -332,50 +339,59 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
     
     display_download_section(cached_results)
 
-
-def check_colab_evaluation_status():
-    """Verifica el estado de la evaluación en Google Drive"""
+    st.markdown("---")
+    st.subheader("📝 Conclusiones")
     
-    with st.spinner("🔍 Verificando estado de evaluación..."):
-        status_result = check_evaluation_status_in_drive()
-        
-        if status_result['success']:
-            status_data = status_result['data'] # Use 'data' key from the check_evaluation_status_in_drive output
-            
-            st.markdown("### 📊 Estado de Evaluación")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("🔄 Estado", status_data.get('status', 'Desconocido'))
-                st.metric("📅 Última actualización", status_data.get('timestamp', 'N/A')[:19] if status_data.get('timestamp') else 'N/A')
-            
-            with col2:
-                st.metric("🤖 Modelos", status_data.get('models_to_evaluate', 'N/A'))
-                st.metric("❓ Preguntas", status_data.get('questions_total', 'N/A'))
-            
-            with col3:
-                st.metric("🚀 GPU", "✅" if status_data.get('gpu_used') else "❌")
-                st.metric("⏱️ Tiempo", f"{status_data.get('total_time_seconds', 0):.1f}s" if status_data.get('total_time_seconds') else 'N/A')
-            
-            # Mostrar detalles adicionales
-            if status_data.get('status') == 'completed':
-                st.success("🎉 ¡Evaluación completada! Los resultados deberían estar disponibles arriba.")
-                
-                if st.button("🔄 Actualizar Lista de Resultados"):
-                    st.rerun()
-                    
-            elif status_data.get('status') == 'running':
-                st.info("⏳ Evaluación en progreso... Verifica nuevamente en unos minutos.")
-                
-                if st.button("🔄 Verificar Nuevamente"):
-                    st.rerun()
-                
-            elif status_data.get('status') == 'error':
-                st.error("❌ Error en la evaluación. Revisa los logs de Colab.")
-                
-        else:
-            st.warning("⚠️ No se pudo verificar el estado. Asegúrate de que Google Drive esté configurado correctamente.")
+    # Check if LLM-generated conclusions are in session state
+    if 'llm_conclusions' in st.session_state and st.session_state.llm_conclusions:
+        st.markdown(st.session_state.llm_conclusions)
+    else:
+        st.markdown("""
+        Basado en los resultados de la evaluación:
+        - **Rendimiento General:** [Insertar conclusión sobre el rendimiento general de los modelos, e.g., qué modelos destacan, si el reranking LLM es efectivo, etc.]
+        - **Impacto del Reranking LLM:** [Analizar si el reranking LLM consistentemente mejora las métricas de recuperación y RAG, o si hay casos donde no es beneficioso.]
+        - **Métricas Clave:** [Comentar sobre los valores de métricas importantes como F1-Score, Faithfulness, Answer Relevance. ¿Son aceptables? ¿Hay modelos que sobresalen en ciertas métricas?]
+        - **Comportamiento por K:** [Observaciones sobre cómo el rendimiento cambia a medida que K (número de documentos recuperados) varía.]
+        """)
+
+    st.subheader("💡 Posibles Mejoras y Próximos Pasos")
+    if 'llm_improvements' in st.session_state and st.session_state.llm_improvements:
+        st.markdown(st.session_state.llm_improvements)
+    else:
+        st.markdown("""
+        Para optimizar aún más el sistema RAG y la evaluación:
+        - **Análisis de Errores por Pregunta:** Implementar una sección para revisar preguntas individuales donde los modelos tuvieron bajo rendimiento. Esto podría revelar patrones en tipos de preguntas difíciles o problemas en los documentos fuente.
+        - **Análisis de Latencia:** Si los datos de tiempo de respuesta por pregunta/modelo están disponibles, visualizarlos para identificar cuellos de botella, especialmente con el reranking LLM.
+        - **Diversidad de Contexto:** Evaluar la diversidad de los documentos recuperados para asegurar que no se están obteniendo documentos redundantes o muy similares.
+        - **Evaluación Humana (Human-in-the-Loop):** Integrar un mecanismo para que evaluadores humanos revisen una muestra de respuestas generadas y proporcionen feedback cualitativo, especialmente para métricas subjetivas como `answer_relevance` y `answer_correctness`.
+        - **Optimización de Modelos:** Experimentar con diferentes modelos de embedding o configuraciones de LLM para el reranking y la generación de respuestas.
+        - **Robustez del Reranker:** Analizar el impacto del reranker en casos donde la recuperación inicial es muy pobre. ¿Puede el reranker recuperar una mala recuperación inicial?
+        - **Visualización de Distribución de Scores:** Añadir histogramas o box plots para ver la distribución de las métricas individuales (no solo promedios) para cada modelo, lo que daría una idea de la consistencia del rendimiento.
+        """)
+
+    # Sección de descarga (moved to the end)
+    st.markdown("---")
+    # Prepare data for the download section in the expected format
+    cached_results = {
+        'results': processed_results,
+        'evaluation_time': results_data['evaluation_info'].get('timestamp'),
+        'execution_time': results_data['evaluation_info'].get('total_time_seconds'),
+        'evaluate_all_models': len(processed_results) > 1,
+        'params': {
+            'num_questions': results_data['config']['num_questions'],
+            'selected_models': list(processed_results.keys()),
+            'embedding_model_name': list(processed_results.keys())[0] if len(processed_results) == 1 else 'Multi-Model',
+            'generative_model_name': results_data['config']['generative_model_name'],
+            'top_k': results_data['config']['top_k'],
+            'use_llm_reranker': results_data['config']['use_llm_reranker'],
+            'batch_size': results_data['config']['batch_size']
+        }
+    }
+    display_download_section(
+        cached_results,
+        llm_conclusions=st.session_state.get('llm_conclusions', ''),
+        llm_improvements=st.session_state.get('llm_improvements', '')
+    )
 
 
 if __name__ == "__main__":
