@@ -20,6 +20,8 @@ from src.apps.batch_queries_page import show_batch_queries_page
 from src.apps.data_analysis_page import show_data_analysis_page
 from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
+from src.apps.question_answer_comparison import show_question_answer_comparison_page
+from src.apps.cumulative_comparison import show_cumulative_comparison_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -114,6 +116,8 @@ page = st.sidebar.radio(
         "🔍 Búsqueda Individual",
         #"📊 Consultas en Lote",
         #"🔬 Comparación de Modelos",
+        "🔄 Comparador Pregunta vs Respuesta",
+        "📊 Análisis Acumulativo N Preguntas",
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",
@@ -886,6 +890,12 @@ elif page == "📊 Consultas en Lote":
 
 elif page == "🔬 Comparación de Modelos":
     show_comparison_page()
+
+elif page == "🔄 Comparador Pregunta vs Respuesta":
+    show_question_answer_comparison_page()
+
+elif page == "📊 Análisis Acumulativo N Preguntas":
+    show_cumulative_comparison_page()
 
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()
