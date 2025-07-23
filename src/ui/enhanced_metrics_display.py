@@ -45,8 +45,8 @@ def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_rer
     
     st.subheader("📊 Resumen de Métricas Principales")
     
-    # Select key metrics to highlight
-    key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
+    # Select key metrics to highlight (updated with new metrics)
+    key_metrics = ['precision@5', 'recall@5', 'f1@5', 'ndcg@5', 'map@5', 'mrr']
     
     if use_llm_reranker and avg_after:
         # Show before and after side by side
@@ -145,42 +145,43 @@ def display_before_after_comparison(avg_before: Dict, avg_after: Dict):
 
 
 def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool):
-    """Display metrics organized by K values in separate sections"""
+    """Display metrics organized by K values in 2x3 matrix format with charts and table"""
     
     st.subheader("📈 Métricas por Valores de K")
     
     k_values = [1, 3, 5, 10]
-    metric_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
+    # All metrics that are calculated in updated Colab notebook (v2.0)
+    k_metrics = ['precision', 'recall', 'f1', 'ndcg', 'map']  # Metrics that have @k values
+    single_metrics = ['mrr']  # Metrics that are single values (no @k)
     
-    # Create tabs for each K value
-    tabs = st.tabs([f"📊 Top-{k}" for k in k_values])
+    # Create 2x3 matrix of charts - one chart per metric type (X: K values, Y: metric values)
+    st.markdown("#### 📊 Gráficos por Métrica (X: Valores de K, Y: Valor de la Métrica)")
     
-    for i, k in enumerate(k_values):
-        with tabs[i]:
-            st.markdown(f"#### Métricas para Top-{k} documentos")
-            
-            if use_llm_reranker and avg_after:
-                # Show before and after for this K
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.markdown("**🔍 Antes del LLM**")
-                    display_k_metrics(avg_before, k, metric_types)
-                
-                with col2:
-                    st.markdown("**🤖 Después del LLM**") 
-                    display_k_metrics(avg_after, k, metric_types, avg_before)
-            else:
-                # Show only before metrics
-                st.markdown("**📊 Métricas de Retrieval**")
-                display_k_metrics(avg_before, k, metric_types)
-            
-            # Visualization for this K
-            if use_llm_reranker and avg_after:
-                create_k_comparison_chart(avg_before, avg_after, k, metric_types)
-            
-            # Table for this K
-            display_k_metrics_table(avg_before, avg_after, k, metric_types, use_llm_reranker)
+    # First row: Precision, Recall, F1
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        create_metric_across_k_chart(avg_before, avg_after, 'precision', k_values, use_llm_reranker)
+    with col2:
+        create_metric_across_k_chart(avg_before, avg_after, 'recall', k_values, use_llm_reranker)
+    with col3:
+        create_metric_across_k_chart(avg_before, avg_after, 'f1', k_values, use_llm_reranker)
+    
+    # Second row: MRR, NDCG, MAP
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        create_single_metric_chart(avg_before, avg_after, 'mrr', use_llm_reranker)
+    with col2:
+        create_metric_across_k_chart(avg_before, avg_after, 'ndcg', k_values, use_llm_reranker)
+    with col3:
+        create_metric_across_k_chart(avg_before, avg_after, 'map', k_values, use_llm_reranker)
+    
+    # Table with all metrics (now includes NDCG and MAP)
+    st.markdown("#### 📋 Tabla Completa de Métricas")
+    all_metric_types = k_metrics + single_metrics  # All metrics including NDCG and MAP
+    display_complete_metrics_table(avg_before, avg_after, k_values, all_metric_types, use_llm_reranker)
+    
+    # Add metrics explanation accordion
+    display_retrieval_metrics_explanation()
 
 
 def display_k_metrics(metrics_dict: Dict, k: int, metric_types: List[str], before_metrics: Dict = None):
@@ -1057,7 +1058,10 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         rag_before_metrics = model_results.get('avg_rag_before_metrics', {})
         rag_after_metrics = model_results.get('avg_rag_after_metrics', {})
         
-        # 2. Pre-calculated averages with RAG metrics mixed in (older format)
+        # 2. NEW FORMAT: RAG metrics section (v2.0 Colab format)
+        rag_metrics_section = model_results.get('rag_metrics', {})
+        
+        # 3. Pre-calculated averages with RAG metrics mixed in (older format)
         before_metrics = model_results.get('avg_before_metrics', {})
         after_metrics = model_results.get('avg_after_metrics', {})
         
@@ -1067,11 +1071,23 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         if rag_after_metrics:
             after_metrics = {**after_metrics, **rag_after_metrics}
         
-        # 3. Calculate from individual metrics if not in averages
+        # NEW: Extract from rag_metrics section (our new format)
+        if rag_metrics_section:
+            # RAG metrics are stored as 'avg_faithfulness', 'avg_answer_relevance', etc.
+            for key in rag_metric_keys:
+                avg_key = f'avg_{key}'
+                if avg_key in rag_metrics_section:
+                    before_metrics[key] = rag_metrics_section[avg_key]
+            
+            # Extract successfully found metrics
+            extracted_keys = [k for k in rag_metric_keys if k in before_metrics]
+        
+        # 4. Calculate from individual metrics if not in averages
         individual_before = model_results.get('individual_before_metrics', [])
         individual_after = model_results.get('individual_after_metrics', [])
+        individual_rag = model_results.get('individual_rag_metrics', [])  # NEW: dedicated RAG metrics
         
-        # 4. Fallback to old format individual_metrics
+        # 5. Fallback to old format individual_metrics
         if not individual_before and not individual_after:
             individual_metrics = model_results.get('individual_metrics', [])
             if individual_metrics:
@@ -1085,9 +1101,29 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         if not any(key in after_metrics for key in rag_metric_keys) and individual_after:
             extracted_after = extract_rag_metrics_from_individual(individual_after)
             after_metrics.update(extracted_after)
+        
+        # NEW: Extract from dedicated individual RAG metrics (v2.0 format)
+        if not any(key in before_metrics for key in rag_metric_keys) and individual_rag:
+            extracted_rag = extract_rag_metrics_from_individual(individual_rag)
+            before_metrics.update(extracted_rag)
 
         # Check if at least one RAG metric exists for this model
         model_has_rag = any(key in before_metrics or key in after_metrics for key in rag_metric_keys)
+        
+        # If generate_rag_metrics is True in config but no RAG metrics exist, show a message
+        config_wants_rag = config and config.get('generate_rag_metrics', False)
+        if config_wants_rag and not model_has_rag:
+            rag_available = rag_metrics_section.get('rag_available', False) if rag_metrics_section else False
+            if not rag_available:
+                st.warning("⚠️ Generación de métricas RAG está habilitada en la configuración pero no se pudieron generar. Posibles causas:")
+                st.markdown("""
+                - **OpenAI API no disponible**: Verifica que `OPENAI_API_KEY` esté configurada en Colab Secrets o .env
+                - **Errores en generación**: Revisa los logs del notebook para errores de OpenAI API
+                - **Formato de datos**: Los resultados pueden ser de una versión anterior sin RAG metrics
+                """)
+            else:
+                st.info("ℹ️ Generación de métricas RAG está habilitada pero no se encontraron métricas calculadas en los resultados.")
+            return
         if not model_has_rag:
             continue
         
@@ -1095,31 +1131,24 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
 
         for key in rag_metric_keys:
             metric_name = key.replace('_', ' ').replace('answer', '').strip().capitalize()
-            before_val = before_metrics.get(key)
-            after_val = after_metrics.get(key) if use_llm_reranker else None
+            # RAG metrics are only generated once, not before/after
+            metric_val = before_metrics.get(key)
 
-            row = {
-                'Modelo': model_name,
-                'Métrica RAG': metric_name,
-                'Antes LLM': f"{before_val:.3f}" if before_val is not None else "N/A"
-            }
-            
-            if before_val is not None:
-                chart_data.append({'Modelo': model_name, 'Métrica RAG': metric_name, 'Valor': before_val, 'Estado': 'Antes LLM'})
-
-            if use_llm_reranker:
-                row['Después LLM'] = f"{after_val:.3f}" if after_val is not None else "N/A"
-                if after_val is not None:
-                    chart_data.append({'Modelo': model_name, 'Métrica RAG': metric_name, 'Valor': after_val, 'Estado': 'Después LLM'})
-
-                if before_val is not None and after_val is not None and before_val > 0:
-                    improvement = after_val - before_val
-                    improvement_pct = (improvement / before_val) * 100
-                    row['Mejora'] = f"{improvement:+.3f} ({improvement_pct:+.1f}%)"
-                else:
-                    row['Mejora'] = "N/A"
-            
-            table_data.append(row)
+            if metric_val is not None:
+                row = {
+                    'Modelo': model_name,
+                    'Métrica RAG': metric_name,
+                    'Valor': f"{metric_val:.3f}"
+                }
+                
+                # Add to chart data
+                chart_data.append({
+                    'Modelo': model_name, 
+                    'Métrica RAG': metric_name, 
+                    'Valor': metric_val
+                })
+                
+                table_data.append(row)
 
     if not has_any_rag_metric:
         # Debug: Show what data structure we're working with
@@ -1128,13 +1157,29 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                 st.write(f"**Modelo: {model_name}**")
                 st.write(f"- Claves disponibles: {list(model_results.keys())}")
                 
-                if 'individual_metrics' in model_results:
-                    first_individual = model_results['individual_metrics'][0] if model_results['individual_metrics'] else {}
-                    st.write(f"- Claves en primera métrica individual: {list(first_individual.keys()) if first_individual else 'Sin métricas individuales'}")
-                
-                if 'individual_before_metrics' in model_results:
-                    first_before = model_results['individual_before_metrics'][0] if model_results['individual_before_metrics'] else {}
-                    st.write(f"- Claves en primera métrica before: {list(first_before.keys()) if first_before else 'Sin métricas before'}")
+                # Show RAG metrics section structure if available
+                if 'rag_metrics' in model_results:
+                    rag_section = model_results['rag_metrics']
+                    st.write(f"- Sección rag_metrics encontrada: {list(rag_section.keys())}")
+                    if 'avg_faithfulness' in rag_section:
+                        st.write(f"  avg_faithfulness: {rag_section['avg_faithfulness']}")
+                    if 'avg_answer_relevance' in rag_section:
+                        st.write(f"  avg_answer_relevance: {rag_section['avg_answer_relevance']}")
+                else:
+                    st.write("- No se encontró sección rag_metrics")
+                    
+                # Show individual RAG metrics structure
+                if 'individual_rag_metrics' in model_results:
+                    individual_rag = model_results['individual_rag_metrics']
+                    if individual_rag:
+                        first_rag = individual_rag[0]
+                        st.write(f"- Primera métrica individual RAG: {list(first_rag.keys())}")
+                        if 'faithfulness' in first_rag:
+                            st.write(f"  faithfulness: {first_rag['faithfulness']}")
+                    else:
+                        st.write("- individual_rag_metrics está vacío")
+                else:
+                    st.write("- No se encontró individual_rag_metrics")
         
         st.info("""
         **📝 No se encontraron métricas RAG en los resultados.**
@@ -1151,20 +1196,45 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         st.dataframe(df_rag, use_container_width=True)
 
     if chart_data:
-        df_chart = pd.DataFrame(chart_data)
-        fig = px.bar(
-            df_chart,
+        # Create line graph with metrics on X-axis and different lines for each model
+        df_line = pd.DataFrame(chart_data)
+        
+        # Create line graph
+        fig = px.line(
+            df_line,
             x='Métrica RAG',
             y='Valor',
-            color='Estado',
-            barmode='group',
-            facet_col='Modelo',
-            labels={'Valor': 'Puntuación', 'Métrica RAG': 'Métrica', 'Estado': 'Fase'},
-            title='Comparación de Métricas RAG por Modelo',
+            color='Modelo',
+            markers=True,
+            title='Métricas RAG por Modelo',
+            labels={'Valor': 'Puntuación', 'Métrica RAG': 'Métricas RAG'},
             range_y=[0, 1]
         )
-        fig.update_layout(height=400)
+        
+        # Update layout for better visualization
+        fig.update_traces(mode='lines+markers', marker=dict(size=10))
+        fig.update_layout(
+            height=400,
+            xaxis_title="Métricas RAG",
+            yaxis_title="Puntuación",
+            legend_title="Modelos",
+            legend=dict(
+                orientation="v",
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=1.01
+            )
+        )
+        
+        # Add grid for better readability
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
         st.plotly_chart(fig, use_container_width=True)
+    
+    # Add RAG metrics explanation accordion
+    display_rag_metrics_explanation()
 
 def get_improvement_status_icon(improvement: float) -> str:
     """Return a simple icon for improvement status."""
@@ -1197,3 +1267,240 @@ def get_improvement_status(improvement: float) -> str:
         return "📉 Empeoramiento significativo"
     else:
         return "➖ Sin cambio significativo"
+
+
+def create_metric_across_k_chart(avg_before: Dict, avg_after: Dict, metric_type: str, k_values: List[int], use_llm_reranker: bool):
+    """Create a chart showing one metric across different K values"""
+    
+    # Prepare data for the chart - X axis: K values, Y axis: metric values
+    k_labels = [str(k) for k in k_values]
+    values_before = []
+    values_after = []
+    
+    # Collect metric values for each K
+    for k in k_values:
+        metric_key = f"avg_{metric_type}@{k}"
+        
+        if metric_key in avg_before:
+            values_before.append(avg_before[metric_key])
+        else:
+            values_before.append(None)
+            
+        if use_llm_reranker and avg_after and metric_key in avg_after:
+            values_after.append(avg_after[metric_key])
+        else:
+            values_after.append(None)
+    
+    # Check if we have any data for this metric
+    has_before_data = any(v is not None for v in values_before)
+    has_after_data = any(v is not None for v in values_after)
+    
+    if not has_before_data:
+        st.write(f"No hay datos para {metric_type.upper()}")
+        return
+    
+    # Create the chart
+    fig = go.Figure()
+    
+    # Add before metrics line
+    valid_before_values = [v if v is not None else 0 for v in values_before]
+    fig.add_trace(go.Scatter(
+        name='Antes LLM' if use_llm_reranker and has_after_data else metric_type.upper(),
+        x=k_labels,
+        y=valid_before_values,
+        mode='lines+markers+text',
+        line=dict(color='blue', width=3),
+        marker=dict(size=8),
+        text=[f"{v:.3f}" if v is not None else "" for v in values_before],
+        textposition='top center',
+        textfont=dict(size=10)
+    ))
+    
+    # Add after metrics line if available
+    if use_llm_reranker and has_after_data:
+        valid_after_values = [v if v is not None else 0 for v in values_after]
+        fig.add_trace(go.Scatter(
+            name='Después LLM',
+            x=k_labels,
+            y=valid_after_values,
+            mode='lines+markers+text',
+            line=dict(color='green', width=3),
+            marker=dict(size=8),
+            text=[f"{v:.3f}" if v is not None else "" for v in values_after],
+            textposition='bottom center',
+            textfont=dict(size=10)
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title=f"{metric_type.upper()} por Valor de K",
+        xaxis_title="Valor de K",
+        yaxis_title=f"Valor de {metric_type.upper()}",
+        height=400,
+        showlegend=use_llm_reranker and has_after_data,
+        xaxis=dict(type='category'),  # Treat K values as categories
+        yaxis=dict(range=[0, max(max(valid_before_values), max(valid_after_values) if has_after_data else 0) * 1.1])
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def create_single_metric_chart(avg_before: Dict, avg_after: Dict, metric_type: str, use_llm_reranker: bool):
+    """Create a chart for single-value metrics (like MRR)"""
+    
+    # Get metric values (no @k suffix for single metrics)
+    metric_key = f"avg_{metric_type}"
+    
+    before_val = avg_before.get(metric_key)
+    after_val = avg_after.get(metric_key) if use_llm_reranker and avg_after else None
+    
+    if before_val is None:
+        st.write(f"No hay datos para {metric_type.upper()}")
+        return
+    
+    # Create bar chart for single value comparison
+    fig = go.Figure()
+    
+    categories = ['Antes LLM'] if not (use_llm_reranker and after_val is not None) else ['Antes LLM', 'Después LLM']
+    values = [before_val] if not (use_llm_reranker and after_val is not None) else [before_val, after_val]
+    colors = ['blue'] if len(values) == 1 else ['blue', 'green']
+    
+    fig.add_trace(go.Bar(
+        x=categories,
+        y=values,
+        marker_color=colors,
+        text=[f"{v:.3f}" for v in values],
+        textposition='auto',
+        name=metric_type.upper()
+    ))
+    
+    fig.update_layout(
+        title=f"{metric_type.upper()} (Valor Único)",
+        xaxis_title="Condición",
+        yaxis_title=f"Valor de {metric_type.upper()}",
+        height=400,
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def display_complete_metrics_table(avg_before: Dict, avg_after: Dict, k_values: List[int], metric_types: List[str], use_llm_reranker: bool):
+    """Display complete metrics table for all K values"""
+    
+    # Prepare table data
+    table_data = []
+    
+    for metric_type in metric_types:
+        if metric_type == 'mrr':
+            # Handle single-value metrics (no @k)
+            metric_key = f"avg_{metric_type}"
+            
+            if metric_key in avg_before:
+                row = {
+                    'Métrica': metric_type.upper(),
+                    'Valor': f"{avg_before[metric_key]:.3f}"
+                }
+                
+                if use_llm_reranker and avg_after and metric_key in avg_after:
+                    after_val = avg_after[metric_key]
+                    improvement = after_val - avg_before[metric_key]
+                    improvement_pct = (improvement / avg_before[metric_key] * 100) if avg_before[metric_key] > 0 else 0
+                    
+                    row.update({
+                        'Antes LLM': f"{avg_before[metric_key]:.3f}",
+                        'Después LLM': f"{after_val:.3f}",
+                        'Mejora': f"{improvement:+.3f}",
+                        'Mejora %': f"{improvement_pct:+.1f}%"
+                    })
+                    # Remove the single 'Valor' column since we have before/after
+                    del row['Valor']
+                
+                table_data.append(row)
+        else:
+            # Handle K-based metrics (precision, recall, f1)
+            for k in k_values:
+                metric_key = f"avg_{metric_type}@{k}"
+                
+                if metric_key in avg_before:
+                    row = {
+                        'Métrica': f"{metric_type.upper()}@{k}",
+                        'Valor': f"{avg_before[metric_key]:.3f}"
+                    }
+                    
+                    if use_llm_reranker and avg_after and metric_key in avg_after:
+                        after_val = avg_after[metric_key]
+                        improvement = after_val - avg_before[metric_key]
+                        improvement_pct = (improvement / avg_before[metric_key] * 100) if avg_before[metric_key] > 0 else 0
+                        
+                        row.update({
+                            'Antes LLM': f"{avg_before[metric_key]:.3f}",
+                            'Después LLM': f"{after_val:.3f}",
+                            'Mejora': f"{improvement:+.3f}",
+                            'Mejora %': f"{improvement_pct:+.1f}%"
+                        })
+                        # Remove the single 'Valor' column since we have before/after
+                        del row['Valor']
+                    
+                    table_data.append(row)
+    
+    if table_data:
+        df = pd.DataFrame(table_data)
+        
+        # Style the dataframe for better visualization
+        if use_llm_reranker and 'Mejora %' in df.columns:
+            def highlight_improvements(val):
+                if 'Mejora' in str(val) and '+' in str(val):
+                    return 'background-color: #d4edda'  # Light green
+                elif 'Mejora' in str(val) and '-' in str(val):
+                    return 'background-color: #f8d7da'  # Light red
+                return ''
+            
+            styled_df = df.style.applymap(highlight_improvements)
+            st.dataframe(styled_df, use_container_width=True)
+        else:
+            st.dataframe(df, use_container_width=True)
+    else:
+        st.write("No hay datos de métricas disponibles.")
+
+
+def display_retrieval_metrics_explanation():
+    """Display accordion with retrieval metrics explanations"""
+    with st.expander("📚 Explicación de Métricas de Recuperación", expanded=False):
+        st.markdown("""
+        **Precision@k**: Fracción de documentos recuperados en el top-k que son relevantes.
+        > **Fórmula**: `Precision@k = Documentos relevantes en top-k / k`
+        
+        **Recall@k**: Fracción de documentos relevantes que fueron recuperados en el top-k.
+        > **Fórmula**: `Recall@k = Documentos relevantes en top-k / Total documentos relevantes`
+        
+        **F1@k**: Media armónica entre Precision@k y Recall@k.
+        > **Fórmula**: `F1@k = 2 × (Precision@k × Recall@k) / (Precision@k + Recall@k)`
+        
+        **NDCG@k**: Ganancia acumulada descontada normalizada que considera el orden de los resultados.
+        > **Fórmula**: `NDCG@k = DCG@k / IDCG@k`
+        
+        **MAP@k**: Precisión promedio hasta el corte k para múltiples consultas.
+        > **Fórmula**: `MAP@k = Σ(Precision@i × relevancia_i) / Documentos relevantes`
+        
+        **MRR**: Rango recíproco promedio del primer documento relevante encontrado.
+        > **Fórmula**: `MRR = 1 / rank del primer documento relevante`
+        """)
+
+
+def display_rag_metrics_explanation():
+    """Display accordion with RAG metrics explanations"""
+    with st.expander("🤖 Explicación de Métricas RAG", expanded=False):
+        st.markdown("""
+        **Faithfulness**: Mide qué tan fiel es la respuesta generada al contexto recuperado.
+        > **Descripción**: Evalúa si las afirmaciones en la respuesta están respaldadas por el contexto.
+        
+        **Answer Relevance**: Evalúa qué tan relevante es la respuesta generada para la pregunta.
+        > **Descripción**: Mide si la respuesta aborda directamente lo que se preguntó.
+        
+        **Answer Correctness**: Combina exactitud factual y completitud de la respuesta.
+        > **Descripción**: Evalúa si la respuesta es factualmente correcta y completa.
+        
+        **Answer Similarity**: Mide la similitud semántica entre la respuesta generada y la esperada.
+        > **Descripción**: Compara la respuesta del modelo con una respuesta de referencia usando embeddings.
+        """)
