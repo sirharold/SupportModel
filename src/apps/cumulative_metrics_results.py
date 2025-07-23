@@ -23,6 +23,9 @@ from src.apps.cumulative_metrics_page import display_current_colab_status
 
 def get_local_results_files():
     """Busca archivos de resultados locales como fallback."""
+    import pytz
+    from datetime import datetime
+    
     local_results_folders = [
         ".",  # Directorio raíz del proyecto (donde están los archivos reales)
         "simulated_drive/results",
@@ -30,6 +33,9 @@ def get_local_results_files():
     ]
     
     found_files = []
+    
+    # Timezone de Chile
+    chile_tz = pytz.timezone('America/Santiago')
     
     for folder in local_results_folders:
         folder_path = os.path.join(os.getcwd(), folder)
@@ -41,10 +47,14 @@ def get_local_results_files():
                         file_path = os.path.join(folder_path, file)
                         file_stats = os.stat(file_path)
                         
+                        # Convertir timestamp UTC a hora de Chile
+                        utc_time = datetime.fromtimestamp(file_stats.st_mtime, tz=pytz.UTC)
+                        chile_time = utc_time.astimezone(chile_tz)
+                        
                         found_files.append({
                             'file_id': file_path,
                             'file_name': file,
-                            'modified_time': time.ctime(file_stats.st_mtime),
+                            'modified_time': chile_time.strftime('%Y-%m-%d %H:%M'),  # Formato hora Chile
                             'size': str(file_stats.st_size),
                             'source': 'local'
                         })
@@ -133,16 +143,11 @@ def show_available_results_section():
                 # Formatear fecha
                 if modified_time:
                     if is_local:
-                        # Para archivos locales, modified_time es ya formateado por time.ctime()
-                        date_str = modified_time[:16]
+                        # Para archivos locales, modified_time ya está en formato Chilean time
+                        date_str = modified_time
                     else:
-                        # Para archivos de Google Drive
-                        try:
-                            from datetime import datetime
-                            dt = datetime.fromisoformat(modified_time.replace('Z', '+00:00'))
-                            date_str = dt.strftime("%Y-%m-%d %H:%M")
-                        except:
-                            date_str = modified_time[:16]
+                        # Para archivos de Google Drive, modified_time ya viene convertido a Chilean time
+                        date_str = modified_time
                 else:
                     date_str = "N/A"
                 
@@ -337,6 +342,52 @@ def display_results_summary(results_data: Dict, processed_results: Dict):
         with col2:
             st.markdown("**📈 Información de Ejecución:**")
             st.json(eval_info)
+    
+    # Detalles de resultados - FULL JSON STRUCTURE
+    with st.expander("📋 Ver Resultados Completos (Full JSON)"):
+        st.markdown("**🔍 Archivo JSON Completo:**")
+        st.markdown("*Esta es toda la estructura de datos del archivo de resultados, incluyendo configuración y métricas RAG*")
+        
+        # Show the complete results_data structure (not just processed_results)
+        st.json(results_data)
+        
+        st.markdown("---")
+        st.markdown("**📊 Análisis Rápido de Estructura RAG:**")
+        
+        # Quick analysis of RAG structure
+        for model_name, model_data in processed_results.items():
+            st.write(f"**Modelo {model_name}:**")
+            st.write(f"- Claves disponibles: {list(model_data.keys())}")
+            
+            if 'rag_metrics' in model_data:
+                rag_section = model_data['rag_metrics']
+                st.write(f"- ✅ rag_metrics encontrada con claves: {list(rag_section.keys())}")
+                
+                # Show RAG averages if available
+                rag_averages = {}
+                for key in ['avg_faithfulness', 'avg_answer_relevance', 'avg_answer_correctness', 'avg_answer_similarity']:
+                    if key in rag_section:
+                        rag_averages[key] = rag_section[key]
+                
+                if rag_averages:
+                    st.write(f"- 📊 Promedios RAG: {rag_averages}")
+                else:
+                    st.write(f"- ❌ No se encontraron promedios RAG")
+            else:
+                st.write(f"- ❌ No se encontró sección rag_metrics")
+            
+            if 'individual_rag_metrics' in model_data:
+                individual_count = len(model_data['individual_rag_metrics'])
+                st.write(f"- ✅ individual_rag_metrics: {individual_count} entradas")
+                
+                if individual_count > 0:
+                    first_individual = model_data['individual_rag_metrics'][0]
+                    individual_keys = list(first_individual.keys())
+                    st.write(f"- 📝 Claves en primera entrada individual: {individual_keys}")
+            else:
+                st.write(f"- ❌ No se encontró individual_rag_metrics")
+            
+            st.write("")  # Empty line for spacing
 
 
 def display_results_visualizations(results_data: Dict, processed_results: Dict):
@@ -361,7 +412,9 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                 'avg_before_metrics': model_results['avg_before_metrics'],
                 'avg_after_metrics': model_results['avg_after_metrics'],
                 'individual_before_metrics': model_results.get('individual_before_metrics', []),
-                'individual_after_metrics': model_results.get('individual_after_metrics', [])
+                'individual_after_metrics': model_results.get('individual_after_metrics', []),
+                'rag_metrics': model_results.get('rag_metrics', {}),  # ✅ Add RAG metrics
+                'individual_rag_metrics': model_results.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
             }
             
             # Verificar si realmente hay métricas after
@@ -378,7 +431,9 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                 'avg_before_metrics': avg_metrics,  # Usar las métricas como "before"
                 'avg_after_metrics': {},  # Vacío porque no hay reranking
                 'individual_before_metrics': model_results.get('individual_metrics', []),
-                'individual_after_metrics': []
+                'individual_after_metrics': [],
+                'rag_metrics': model_results.get('rag_metrics', {}),  # ✅ Add RAG metrics for legacy format too
+                'individual_rag_metrics': model_results.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
             }
             
             if use_llm_reranker:
@@ -405,7 +460,9 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                     'avg_before_metrics': model_data['avg_before_metrics'],
                     'avg_after_metrics': model_data['avg_after_metrics'],
                     'individual_before_metrics': model_data.get('individual_before_metrics', []),
-                    'individual_after_metrics': model_data.get('individual_after_metrics', [])
+                    'individual_after_metrics': model_data.get('individual_after_metrics', []),
+                    'rag_metrics': model_data.get('rag_metrics', {}),  # ✅ Add RAG metrics
+                    'individual_rag_metrics': model_data.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
                 }
                 has_new_format = True
             else:
@@ -416,7 +473,9 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
                     'avg_before_metrics': avg_metrics,  # Usar métricas como "before"
                     'avg_after_metrics': {},  # Vacío porque no hay reranking
                     'individual_before_metrics': model_data.get('individual_metrics', []),
-                    'individual_after_metrics': []
+                    'individual_after_metrics': [],
+                    'rag_metrics': model_data.get('rag_metrics', {}),  # ✅ Add RAG metrics for legacy format
+                    'individual_rag_metrics': model_data.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
                 }
         
         # Verificar si hay métricas after disponibles para LLM reranking

@@ -112,8 +112,8 @@ page = st.sidebar.radio(
     "Selecciona una página:",
     [
         "🔍 Búsqueda Individual",
-        "📊 Consultas en Lote",
-        "🔬 Comparación de Modelos",
+        #"📊 Consultas en Lote",
+        #"🔬 Comparación de Modelos",
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",

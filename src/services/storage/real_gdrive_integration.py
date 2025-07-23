@@ -836,17 +836,38 @@ def get_all_results_files_from_drive():
         
         # Procesar archivos encontrados
         results_files = []
+        import pytz
+        from datetime import datetime
+        
+        # Timezone de Chile
+        chile_tz = pytz.timezone('America/Santiago')
+        
         for file in files:
             try:
                 # Extraer información del archivo
                 file_name = file.get('name', 'Unknown File')
-                modified_time = file.get('modifiedTime', 'N/A')
+                modified_time_iso = file.get('modifiedTime', 'N/A')
+                
+                # Convertir timestamp de Google Drive (UTC) a hora de Chile
+                if modified_time_iso != 'N/A':
+                    try:
+                        # Parse ISO timestamp from Google Drive (UTC)
+                        utc_time = datetime.fromisoformat(modified_time_iso.replace('Z', '+00:00'))
+                        # Convert to Chilean timezone
+                        chile_time = utc_time.astimezone(chile_tz)
+                        modified_time_chile = chile_time.strftime('%Y-%m-%d %H:%M')
+                    except:
+                        # Fallback to original format if conversion fails
+                        modified_time_chile = modified_time_iso[:19].replace('T', ' ')
+                else:
+                    modified_time_chile = 'N/A'
+                
                 file_info = {
                     'file_id': file.get('id', 'N/A'),
                     'file_name': file_name,
-                    'modified_time': modified_time,
+                    'modified_time': modified_time_chile,  # Now in Chilean time
                     'size': file.get('size', 'N/A'),
-                    'display_name': f"{file_name} ({modified_time[:19].replace('T', ' ') if modified_time != 'N/A' else 'N/A'})"
+                    'display_name': f"{file_name} ({modified_time_chile})"
                 }
                 results_files.append(file_info)
                 print(f"✅ Archivo de resultados encontrado: {file['name']}")
