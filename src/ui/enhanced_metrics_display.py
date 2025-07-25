@@ -1777,6 +1777,116 @@ def display_retrieval_metrics_explanation():
         """)
 
 
+def display_methodology_section():
+    """Display comprehensive methodology section with evaluation process explanation"""
+    with st.expander("🔬 Metodología de Evaluación", expanded=False):
+        st.markdown("""
+        ## 📋 Metodología Completa del Sistema de Evaluación RAG
+        
+        ### 🎯 1. Obtención de Scores de Recuperación (Pre y Post Reranking)
+        
+        **Proceso de Evaluación:**
+        - **Ground Truth**: Utilizamos los enlaces de Microsoft Learn contenidos en las respuestas aceptadas de Stack Overflow como referencias de documentos relevantes
+        - **Similitud de Enlaces**: Normalizamos los URLs eliminando fragmentos (#) y parámetros de consulta (?) para hacer comparaciones exactas
+        - **Métricas de Recuperación**: Calculamos Precision@k, Recall@k, F1@k, NDCG@k, MAP@k y MRR comparando los documentos recuperados vs. los enlaces de referencia
+        - **Evaluación por Pregunta**: Cada pregunta se evalúa individualmente y luego se promedian los resultados across todas las preguntas
+        
+        ### 🤖 2. Estrategia de Reranking con LLM
+        
+        **Método de Reordenamiento:**
+        - **Modelo**: OpenAI GPT-3.5-turbo para reordenar los documentos recuperados
+        - **Prompt Engineering**: Se envía la pregunta original junto con los primeros 200 caracteres de cada documento recuperado
+        - **Proceso**: El LLM ordena los documentos del 1 al 10 basándose en relevancia a la pregunta
+        - **Manejo de Errores**: Si el LLM no puede generar un ranking válido, se mantiene el orden original de similitud coseno
+        - **Temperatura**: 0.1 para generar rankings consistentes y determinísticos
+        
+        ### 🔍 3. Metodología de Evaluación General
+        
+        **Bibliotecas y Frameworks:**
+        - **RAGAS**: Framework oficial para evaluación de sistemas RAG con métricas validadas científicamente
+        - **BERTScore**: Evaluación semántica usando representaciones contextuales de BERT
+        - **OpenAI API**: Para generación de respuestas y reranking de documentos
+        - **scikit-learn**: Para cálculo de similitud coseno en la recuperación inicial
+        - **Sentence Transformers**: Para generación de embeddings de consultas
+        
+        **Proceso de Evaluación:**
+        1. **Carga de Datos**: Parquet files con embeddings pre-calculados (~187K documentos)
+        2. **Generación de Query**: Embedding de la pregunta usando el modelo correspondiente
+        3. **Recuperación**: Top-10 documentos usando similitud coseno
+        4. **Reranking** (opcional): Reordenamiento con LLM
+        5. **Generación RAG**: Respuesta usando contexto recuperado + OpenAI
+        6. **Evaluación RAGAS**: Métricas automáticas usando framework RAGAS
+        7. **BERTScore**: Evaluación semántica adicional
+        
+        ### 📊 4. Cálculo de Métricas Específicas
+        
+        **Métricas de Recuperación:**
+        - **Precision@k**: `Documentos relevantes en top-k / k`
+        - **Recall@k**: `Documentos relevantes en top-k / Total documentos relevantes`
+        - **F1@k**: `2 × (Precision@k × Recall@k) / (Precision@k + Recall@k)`
+        - **NDCG@k**: `DCG@k / IDCG@k` (considera orden de resultados)
+        - **MAP@k**: `Σ(Precision@i × relevancia_i) / Documentos relevantes`
+        - **MRR**: `1 / rank del primer documento relevante`
+        
+        **Métricas RAGAS:**
+        - **Faithfulness**: Evalúa fidelidad al contexto usando verificación de claims
+        - **Answer Relevancy**: Mide relevancia usando similitud de embeddings pregunta-respuesta
+        - **Answer Correctness**: Combina exactitud factual y completitud semántica
+        - **Semantic Similarity**: Similitud semántica entre respuesta generada y esperada
+        
+        **Métricas BERTScore:**
+        - **BERT Precision**: Proporción de tokens de respuesta presentes en referencia (usando BERT embeddings)
+        - **BERT Recall**: Proporción de tokens de referencia presentes en respuesta (usando BERT embeddings)
+        - **BERT F1**: Media armónica entre BERT Precision y BERT Recall
+        
+        ### 🔄 5. Diagrama de Proceso (1 Modelo, 1 Pregunta)
+        
+        ```
+        📝 PREGUNTA + MS LINKS (Ground Truth)
+                        ↓
+        🔤 GENERACIÓN DE EMBEDDING (Sentence Transformers / OpenAI)
+                        ↓
+        🔍 RECUPERACIÓN INICIAL (Similitud Coseno Top-10)
+                        ↓
+                    📊 EVALUACIÓN PRE-RERANKING
+                    (Precision, Recall, F1, NDCG, MAP, MRR)
+                        ↓
+        🤖 RERANKING LLM (GPT-3.5-turbo) [OPCIONAL]
+                        ↓
+                    📈 EVALUACIÓN POST-RERANKING
+                    (Mismas métricas de recuperación)
+                        ↓
+        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + Contexto)
+                        ↓
+                    🔬 EVALUACIÓN RAG
+                    ├── RAGAS (Faithfulness, Answer Relevancy, etc.)
+                    └── BERTScore (Precision, Recall, F1)
+                        ↓
+        📊 RESULTADOS FINALES (Promedios + Individuales)
+        
+        🔁 REPETIR PARA N PREGUNTAS → PROMEDIAR RESULTADOS
+        ```
+        
+        ### 🎯 6. Garantías de Calidad Científica
+        
+        **Reproducibilidad:**
+        - Todos los valores son determinísticos (temperatura 0.1 en LLM)
+        - Seeds fijos para operaciones aleatorias
+        - Mismos datasets y embeddings pre-calculados
+        
+        **Validación:**
+        - Sin valores simulados o aleatorios
+        - Verificación de integridad de datos en cada paso
+        - Logging detallado de errores y excepciones
+        - Validación de estructura de resultados JSON
+        
+        **Escalabilidad:**
+        - Procesamiento batch eficiente
+        - Manejo de memoria con garbage collection
+        - Paralelización cuando es posible
+        - Arquitectura modular para extensibilidad
+        """)
+
 def display_rag_metrics_explanation():
     """Display accordion with RAG metrics explanations"""
     with st.expander("🤖 Explicación de Métricas RAG", expanded=False):

@@ -10,7 +10,7 @@ import time
 from typing import List, Dict, Any
 
 # Importar utilidades
-from src.ui.enhanced_metrics_display import display_enhanced_cumulative_metrics, display_enhanced_models_comparison, generate_analysis_with_llm
+from src.ui.enhanced_metrics_display import display_enhanced_cumulative_metrics, display_enhanced_models_comparison, generate_analysis_with_llm, display_methodology_section
 from src.data.file_utils import display_download_section
 from src.evaluation.metrics import validate_data_integrity
 from src.services.storage.real_gdrive_integration import (
@@ -492,6 +492,10 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
         display_enhanced_models_comparison(adapted_multi_results, use_llm_reranker, results_data['config'])
     
     st.markdown("---")
+    
+    # Display methodology section before conclusions
+    display_methodology_section()
+    
     st.subheader("📝 Conclusiones")
     
     # Check if LLM-generated conclusions are in session state
