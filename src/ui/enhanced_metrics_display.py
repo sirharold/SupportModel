@@ -652,7 +652,9 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += "## Resultados Detallados por Modelo\n"
     k_values = [1, 3, 5, 10]
     metrics_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
-    rag_metrics_types = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    # Use STANDARD metric names from RAGAS and BERTScore libraries  
+    standard_ragas_types = ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall', 'answer_correctness', 'answer_similarity', 'semantic_similarity']
+    standard_bertscore_types = ['bert_precision', 'bert_recall', 'bert_f1']
 
     for model_name, model_data in results.items():
         formatted_string += f"### Modelo: {model_name}\n"
@@ -743,7 +745,7 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
             formatted_string += "#### Métricas RAG Promedio\n"
             formatted_string += "| Métrica | Antes LLM | Después LLM | Mejora Absoluta | Mejora % |\n"
             formatted_string += "|---|---|---|---|---|\n"
-            for metric_type in rag_metrics_types:
+            for metric_type in standard_ragas_types:
                 before_values = [
                     q.get('rag_metrics', {}).get(metric_type, np.nan)
                     for q in individual_before_metrics
@@ -782,11 +784,72 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
                     f"| {improvement_abs_str} "
                     f"| {improvement_pct_str} |\n"
                 )
+            
+            # Add BERTScore metrics section if available
+            has_bertscore_data = False
+            for metrics in individual_before_metrics + individual_after_metrics:
+                if isinstance(metrics, dict) and (
+                    'rag_metrics' in metrics or 'rag_metrics_after_rerank' in metrics
+                ):
+                    rag_data = metrics.get('rag_metrics') or metrics.get(
+                        'rag_metrics_after_rerank', {}
+                    )
+                    if rag_data and any(k in rag_data for k in standard_bertscore_types):
+                        has_bertscore_data = True
+                        break
+            
+            if has_bertscore_data:
+                formatted_string += "#### Métricas BERTScore Promedio\n"
+                formatted_string += "| Métrica | Antes LLM | Después LLM | Mejora Absoluta | Mejora % |\n"
+                formatted_string += "|---|---|---|---|---|\n"
+                for metric_type in standard_bertscore_types:
+                    before_values = [
+                        q.get('rag_metrics', {}).get(metric_type, np.nan)
+                        for q in individual_before_metrics
+                        if q.get('rag_metrics', {}).get(metric_type) is not None
+                    ]
+                    before_avg = np.mean(before_values) if before_values else np.nan
+
+                    after_values = []
+                    for q in individual_after_metrics:
+                        if not isinstance(q, dict):
+                            continue
+                        rag_after = q.get('rag_metrics_after_rerank') or q.get('rag_metrics')
+                        if rag_after and rag_after.get(metric_type) is not None:
+                            after_values.append(rag_after.get(metric_type, np.nan))
+                    after_avg = np.mean(after_values) if after_values else np.nan
+
+                    improvement_abs = 'N/A'
+                    improvement_pct = 'N/A'
+                    if not np.isnan(before_avg) and not np.isnan(after_avg):
+                        improvement_abs = after_avg - before_avg
+                        if before_avg != 0:
+                            improvement_pct = (improvement_abs / before_avg) * 100
+                        else:
+                            improvement_pct = 0 if improvement_abs == 0 else float('inf')
+
+                    # Format improvement values safely
+                    improvement_abs_str = f"{improvement_abs:+.3f}" if isinstance(improvement_abs, (int, float)) and not np.isinf(improvement_abs) else str(improvement_abs)
+                    improvement_pct_str = f"{improvement_pct:+.1f}%" if isinstance(improvement_pct, (int, float)) and not np.isinf(improvement_pct) else str(improvement_pct)
+                    before_avg_str = f"{before_avg:.3f}" if not np.isnan(before_avg) else 'N/A'
+                    after_avg_str = f"{after_avg:.3f}" if not np.isnan(after_avg) else 'N/A'
+                    
+                    # Clean metric name for display
+                    display_name = metric_type.replace('bert_', 'BERT ').title()
+                    
+                    formatted_string += (
+                        f"| {display_name} "
+                        f"| {before_avg_str} "
+                        f"| {after_avg_str} "
+                        f"| {improvement_abs_str} "
+                        f"| {improvement_pct_str} |\n"
+                    )
+
             formatted_string += "\n"
         else:
             # Add note about missing RAG metrics
-            formatted_string += "#### Métricas RAG\n"
-            formatted_string += "**Nota:** Las métricas RAG (Faithfulness, Answer Relevance, Answer Correctness, Answer Similarity) no están disponibles porque la evaluación se ejecutó en modo de solo recuperación (sin generación de respuestas).\n\n"
+            formatted_string += "#### Métricas RAG y BERTScore\n"
+            formatted_string += "**Nota:** Las métricas RAG (Faithfulness, Answer Relevance, Answer Correctness, Answer Similarity) y BERTScore (Precision, Recall, F1) no están disponibles porque la evaluación se ejecutó en modo de solo recuperación (sin generación de respuestas).\n\n"
 
     return formatted_string
 
@@ -1064,10 +1127,13 @@ def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_rera
 
 def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
     """
-    Extract and calculate average RAG metrics from individual question results.
+    Extract and calculate average RAG and BERTScore metrics from individual question results.
     Handles both old format (no retrieval/rag separation) and new format.
     """
     rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    bertscore_metric_keys = ['bert_precision', 'bert_recall', 'bert_f1']
+    all_metric_keys = rag_metric_keys + bertscore_metric_keys
+    
     rag_sums = {}
     rag_counts = {}
     
@@ -1080,7 +1146,8 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
             if not rag_data:
                 rag_data = individual
             
-            for key in rag_metric_keys:
+            # Process both RAG and BERTScore metrics
+            for key in all_metric_keys:
                 if key in rag_data and rag_data[key] is not None:
                     if key not in rag_sums:
                         rag_sums[key] = 0
@@ -1090,7 +1157,7 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
     
     # Calculate averages
     avg_rag_metrics = {}
-    for key in rag_metric_keys:
+    for key in all_metric_keys:
         if key in rag_sums and rag_counts[key] > 0:
             avg_rag_metrics[key] = rag_sums[key] / rag_counts[key]
     
@@ -1100,11 +1167,13 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
 def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
     Displays a summary of RAG metrics (faithfulness, answer relevance, etc.),
-    with simple table format: Modelo, Faithfulness, Relevance, Correctness, Similarity
+    with simple table format: Modelo, Faithfulness, Relevance, Correctness, Similarity, BERTScore metrics
     """
     st.subheader("📊 Métricas RAG")
 
     rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    bertscore_metric_keys = ['bert_precision', 'bert_recall', 'bert_f1']
+    all_metric_keys = rag_metric_keys + bertscore_metric_keys
     table_data = []
     chart_data = []
     
@@ -1136,6 +1205,12 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                 avg_key = f'avg_{key}'
                 if avg_key in rag_metrics_section:
                     before_metrics[key] = rag_metrics_section[avg_key]
+            
+            # BERTScore metrics are stored as 'avg_bert_precision', 'avg_bert_recall', etc.
+            for key in bertscore_metric_keys:
+                avg_key = f'avg_{key}'
+                if avg_key in rag_metrics_section:
+                    before_metrics[key] = rag_metrics_section[avg_key]
         
         # 4. Calculate from individual metrics if not in averages
         individual_before = model_results.get('individual_before_metrics', [])
@@ -1148,22 +1223,22 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
             if individual_metrics:
                 individual_before = individual_metrics
         
-        # Extract RAG metrics from individual data if not available in averages
-        if not any(key in before_metrics for key in rag_metric_keys) and individual_before:
+        # Extract RAG and BERTScore metrics from individual data if not available in averages
+        if not any(key in before_metrics for key in all_metric_keys) and individual_before:
             extracted_before = extract_rag_metrics_from_individual(individual_before)
             before_metrics.update(extracted_before)
         
-        if not any(key in after_metrics for key in rag_metric_keys) and individual_after:
+        if not any(key in after_metrics for key in all_metric_keys) and individual_after:
             extracted_after = extract_rag_metrics_from_individual(individual_after)
             after_metrics.update(extracted_after)
         
         # NEW: Extract from dedicated individual RAG metrics (v2.0 format)
-        if not any(key in before_metrics for key in rag_metric_keys) and individual_rag:
+        if not any(key in before_metrics for key in all_metric_keys) and individual_rag:
             extracted_rag = extract_rag_metrics_from_individual(individual_rag)
             before_metrics.update(extracted_rag)
 
-        # Check if at least one RAG metric exists for this model
-        model_has_rag = any(key in before_metrics or key in after_metrics for key in rag_metric_keys)
+        # Check if at least one RAG or BERTScore metric exists for this model
+        model_has_rag = any(key in before_metrics or key in after_metrics for key in all_metric_keys)
         
         # If generate_rag_metrics is True in config but no RAG metrics exist, show a message
         config_wants_rag = config and config.get('generate_rag_metrics', False)
@@ -1218,6 +1293,33 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                 elif key == 'answer_similarity':
                     row['Similarity'] = '-'
         
+        # Add BERTScore metrics as columns
+        for key in bertscore_metric_keys:
+            metric_val = before_metrics.get(key)
+            if metric_val is not None:
+                if key == 'bert_precision':
+                    row['BERT Precision'] = f"{metric_val:.3f}"
+                elif key == 'bert_recall':
+                    row['BERT Recall'] = f"{metric_val:.3f}"
+                elif key == 'bert_f1':
+                    row['BERT F1'] = f"{metric_val:.3f}"
+                
+                # Add to chart data for visualization
+                metric_name = key.replace('bert_', 'BERT ').replace('_', ' ').title()
+                chart_data.append({
+                    'Modelo': model_name, 
+                    'Métrica RAG': metric_name, 
+                    'Valor': metric_val
+                })
+            else:
+                # Add placeholder for missing BERTScore metrics
+                if key == 'bert_precision':
+                    row['BERT Precision'] = '-'
+                elif key == 'bert_recall':
+                    row['BERT Recall'] = '-'
+                elif key == 'bert_f1':
+                    row['BERT F1'] = '-'
+        
         table_data.append(row)
 
     if not has_any_rag_metric:
@@ -1252,12 +1354,14 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                     st.write("- No se encontró individual_rag_metrics")
         
         st.info("""
-        **📝 No se encontraron métricas RAG en los resultados.**
+        **📝 No se encontraron métricas RAG ni BERTScore en los resultados.**
         
-        Para generar estas métricas (Faithfulness, Answer Relevance, etc.), asegúrate de que la opción
+        Para generar estas métricas, asegúrate de que la opción
         `📝 Generar Métricas RAG` esté habilitada durante la configuración de la evaluación.
         
         **Métricas RAG esperadas:** faithfulness, answer_relevance, answer_correctness, answer_similarity
+        
+        **Métricas BERTScore esperadas:** bert_precision, bert_recall, bert_f1
         """)
         return
 
@@ -1303,8 +1407,112 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         
         st.plotly_chart(fig, use_container_width=True)
     
+    # Add BERTScore specific visualization
+    display_bertscore_detailed_charts(results, use_llm_reranker, config)
+    
     # Add RAG metrics explanation accordion
     display_rag_metrics_explanation()
+
+def display_bertscore_detailed_charts(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
+    """
+    Create specific visualizations for BERTScore metrics (precision, recall, F1)
+    """
+    bertscore_metric_keys = ['bert_precision', 'bert_recall', 'bert_f1']
+    bertscore_data = []
+    
+    # Check if any model has BERTScore metrics
+    has_bertscore = False
+    for model_name, model_results in results.items():
+        # Check various data sources for BERTScore metrics
+        sources = [
+            model_results.get('avg_rag_before_metrics', {}),
+            model_results.get('avg_before_metrics', {}),
+            model_results.get('rag_metrics', {}),
+        ]
+        
+        for source in sources:
+            if any(key in source for key in bertscore_metric_keys):
+                has_bertscore = True
+                for key in bertscore_metric_keys:
+                    if key in source and source[key] is not None:
+                        metric_name = key.replace('bert_', '').replace('_', ' ').title()
+                        bertscore_data.append({
+                            'Modelo': model_name,
+                            'Métrica': metric_name,
+                            'Valor': source[key]
+                        })
+                break
+    
+    if not has_bertscore:
+        return  # No BERTScore data to display
+    
+    if bertscore_data:
+        st.subheader("📊 Análisis Detallado BERTScore")
+        
+        # Create DataFrame
+        df_bert = pd.DataFrame(bertscore_data)
+        
+        # Create grouped bar chart
+        fig = px.bar(
+            df_bert,
+            x='Modelo',
+            y='Valor',
+            color='Métrica',
+            barmode='group',
+            title='Métricas BERTScore por Modelo',
+            labels={'Valor': 'Puntuación BERTScore', 'Modelo': 'Modelos de Embedding'},
+            range_y=[0, 1]
+        )
+        
+        # Update layout
+        fig.update_layout(
+            height=400,
+            xaxis_title="Modelos de Embedding",
+            yaxis_title="Puntuación BERTScore",
+            legend_title="Métricas BERTScore",
+            legend=dict(
+                orientation="v",
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=1.01
+            )
+        )
+        
+        # Add grid
+        fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='lightgray')
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Create a summary table for BERTScore
+        st.subheader("📋 Resumen BERTScore")
+        
+        # Pivot the data for better table display
+        df_pivot = df_bert.pivot(index='Modelo', columns='Métrica', values='Valor')
+        
+        # Format values to 3 decimal places
+        df_formatted = df_pivot.round(3)
+        
+        st.dataframe(df_formatted, use_container_width=True)
+        
+        # Add interpretation help
+        with st.expander("💡 Interpretación de BERTScore", expanded=False):
+            st.markdown("""
+            **Cómo interpretar BERTScore:**
+            
+            - **Precision > 0.8**: Excelente - La respuesta generada es muy precisa
+            - **Precision 0.6-0.8**: Buena - La respuesta tiene buena precisión semántica
+            - **Precision < 0.6**: Necesita mejora - La respuesta puede tener información irrelevante
+            
+            - **Recall > 0.8**: Excelente - La respuesta cubre muy bien el contenido de referencia
+            - **Recall 0.6-0.8**: Buena - La respuesta cubre adecuadamente el contenido
+            - **Recall < 0.6**: Necesita mejora - La respuesta puede omitir información importante
+            
+            - **F1 > 0.8**: Excelente balance entre precisión y cobertura
+            - **F1 0.6-0.8**: Buen balance general
+            - **F1 < 0.6**: El modelo necesita mejoras en precisión o cobertura
+            """)
 
 def get_improvement_status_icon(improvement: float) -> str:
     """Return a simple icon for improvement status."""
@@ -1573,6 +1781,8 @@ def display_rag_metrics_explanation():
     """Display accordion with RAG metrics explanations"""
     with st.expander("🤖 Explicación de Métricas RAG", expanded=False):
         st.markdown("""
+        ### Métricas RAGAS
+        
         **Faithfulness**: Mide qué tan fiel es la respuesta generada al contexto recuperado.
         > **Descripción**: Evalúa si las afirmaciones en la respuesta están respaldadas por el contexto.
         
@@ -1584,4 +1794,17 @@ def display_rag_metrics_explanation():
         
         **Answer Similarity**: Mide la similitud semántica entre la respuesta generada y la esperada.
         > **Descripción**: Compara la respuesta del modelo con una respuesta de referencia usando embeddings.
+        
+        ### Métricas BERTScore
+        
+        **BERT Precision**: Mide qué proporción de tokens en la respuesta generada están presentes en la respuesta de referencia.
+        > **Descripción**: Evalúa la precisión a nivel de token usando representaciones contextuales de BERT.
+        
+        **BERT Recall**: Mide qué proporción de tokens en la respuesta de referencia están presentes en la respuesta generada.
+        > **Descripción**: Evalúa la cobertura a nivel de token usando representaciones contextuales de BERT.
+        
+        **BERT F1**: Media armónica entre BERT Precision y BERT Recall.
+        > **Descripción**: Combina precisión y recall de BERTScore en una sola métrica balanceada.
+        
+        **Nota**: BERTScore utiliza embeddings contextuales de BERT para evaluar similitud semántica más allá de coincidencias exactas de texto.
         """)
