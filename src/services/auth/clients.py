@@ -47,7 +47,7 @@ def initialize_clients(model_name: str, generative_model_name: str = "llama-4-sc
     # Initialize Gemini client (only if API key is available)
     gemini_api_key = getattr(config, 'gemini_api_key', None)
     gemini_client = None
-    if gemini_api_key and generative_model_name == "gemini-pro":
+    if gemini_api_key and generative_model_name == "gemini-1.5-flash":
         genai.configure(api_key=gemini_api_key)
         gemini_client = genai.GenerativeModel(GENERATIVE_MODELS[generative_model_name])
     

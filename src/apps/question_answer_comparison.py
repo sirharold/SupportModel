@@ -157,7 +157,7 @@ Respond with only a number between 0.0 and 1.0 (e.g., 0.85)
                 temperature=0.1
             )
             score_text = response.choices[0].message.content.strip()
-        elif generative_model == "gemini-pro" and gemini_client:
+        elif generative_model == "gemini-1.5-flash" and gemini_client:
             response = gemini_client.generate_content(prompt)
             score_text = response.text.strip()
         elif generative_model in ["llama-3.3-70b", "deepseek-v3-chat"] and openrouter_client:

@@ -232,30 +232,26 @@ def upload_file_to_drive(service, folder_id, filename, file_path, mime_type='app
             'error': str(e)
         }
 
-def create_evaluation_config_in_drive(config_data):
+def create_evaluation_config_in_drive(config, filename):
     """Crea archivo de configuración de evaluación en Google Drive"""
     
     # Autenticar
     service = authenticate_gdrive()
     if not service:
-        return {'success': False, 'error': 'No se pudo autenticar con Google Drive'}
+        return False
     
     # Obtener ID de carpeta
     folder_id = load_gdrive_config()
     if not folder_id:
-        return {'success': False, 'error': 'No se pudo cargar configuración de carpetas'}
+        return False
     
-    # Nombre del archivo con timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"evaluation_config_{timestamp}.json"
-    
-    # Agregar timestamp a los datos
-    config_data['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    config_data['created_by'] = 'streamlit'
-    config_data['config_file'] = filename
+    # Agregar metadatos a la configuración
+    config['timestamp'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    config['created_by'] = 'streamlit'
+    config['config_file'] = filename
     
     # Subir archivo de configuración
-    result = upload_json_to_drive(service, folder_id, filename, config_data)
+    result = upload_json_to_drive(service, folder_id, filename, config)
     
     # Intentar también subir el archivo de credenciales para Colab
     credentials_uploaded = False
@@ -286,14 +282,16 @@ def create_evaluation_config_in_drive(config_data):
         
         return {
             'success': True,
-            'config_file_id': result['file_id'],
             'config_filename': filename,
-            'web_link': result['web_link'],
-            'status_updated': status_result['success'],
+            'file_id': result.get('file_id'),
+            'web_link': result.get('web_link'),
             'credentials_uploaded': credentials_uploaded
         }
     else:
-        return result
+        return {
+            'success': False,
+            'error': result.get('error', 'Error desconocido al subir configuración')
+        }
 
 def check_evaluation_status_in_drive():
     """Verifica el estado de la evaluación en Google Drive"""
@@ -537,27 +535,6 @@ def show_gdrive_status():
         if config:
             st.info(f"📁 Carpeta configurada: `{config}`")
         
-        # Columnas para botones adicionales
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Botón para limpiar carpetas duplicadas
-            if st.button("🧹 Limpiar Carpetas Duplicadas"):
-                with st.spinner("🧹 Limpiando carpetas duplicadas..."):
-                    cleanup_result = cleanup_duplicate_results_folders()
-                    
-                    if cleanup_result['success']:
-                        if 'folders_deleted' in cleanup_result and cleanup_result['folders_deleted'] > 0:
-                            st.success(f"✅ {cleanup_result['message']}")
-                            st.rerun()
-                        else:
-                            st.info(f"ℹ️ {cleanup_result['message']}")
-                    else:
-                        st.error(f"❌ Error durante limpieza: {cleanup_result['error']}")
-        
-        with col2:
-            # Placeholder para futuros botones de mantenimiento
-            st.empty()
         
         return True
     else:
@@ -732,33 +709,51 @@ def get_all_results_files_from_drive():
         return {'success': False, 'error': 'No se pudo cargar configuración de carpetas'}
     
     try:
-        # Primero intentar búsqueda específica para archivos de resultados
+        # Buscar ambos tipos de archivos de resultados
+        all_files = []
+        
+        # 1. Buscar archivos de resultados de N preguntas
+        # Patrón: n_questions_results_[timestamp].json donde timestamp es número Unix
+        query = f"'{folder_id}' in parents and name contains 'n_questions_results_'"
+        results = service.files().list(q=query, fields="files(id,name,modifiedTime,size)").execute()
+        n_questions_files = results.get('files', [])
+        
+        # 2. Buscar archivos de métricas acumulativas
         # Patrón: cumulative_results_[timestamp].json donde timestamp es número Unix
         query = f"'{folder_id}' in parents and name contains 'cumulative_results_'"
         results = service.files().list(q=query, fields="files(id,name,modifiedTime,size)").execute()
-        files = results.get('files', [])
+        cumulative_files = results.get('files', [])
+        
+        # Combinar ambos tipos de archivos
+        all_files = n_questions_files + cumulative_files
         
         # Filtrar solo archivos JSON y validar patrón
-        if files:
+        if all_files:
             import re
-            # Patrón: cumulative_results_ seguido de números y .json
-            pattern = re.compile(r'^cumulative_results_\d+\.json$')
+            # Patrones válidos: n_questions_results_ o cumulative_results_ seguido de números y .json
+            patterns = [
+                re.compile(r'^n_questions_results_\d+\.json$'),
+                re.compile(r'^cumulative_results_\d+\.json$')
+            ]
             
             valid_files = []
-            for file in files:
-                if file['name'].lower().endswith('.json') and pattern.match(file['name']):
-                    valid_files.append(file)
-                    print(f"✅ Archivo válido encontrado: {file['name']}")
-                elif file['name'].lower().endswith('.json'):
-                    print(f"🔍 Archivo cumulative_results pero formato diferente: {file['name']}")
+            for file in all_files:
+                if file['name'].lower().endswith('.json'):
+                    for pattern in patterns:
+                        if pattern.match(file['name']):
+                            valid_files.append(file)
+                            print(f"✅ Archivo válido encontrado: {file['name']}")
+                            break
             
             if valid_files:
                 files = valid_files
-                print(f"✅ Total archivos cumulative_results válidos: {len(files)}")
+                print(f"✅ Total archivos de resultados válidos: {len(files)} (N preguntas: {len(n_questions_files)}, Cumulative: {len(cumulative_files)})")
             else:
-                print(f"⚠️ Se encontraron {len(files)} archivos con 'cumulative_results_' pero ninguno con patrón válido")
-                # Incluir todos los archivos que contengan cumulative_results para ser más flexible
-                files = [f for f in files if f['name'].lower().endswith('.json')]
+                print(f"⚠️ Se encontraron {len(all_files)} archivos pero ninguno con patrón válido")
+                # Incluir todos los archivos JSON que contengan results para ser más flexible
+                files = [f for f in all_files if f['name'].lower().endswith('.json')]
+        else:
+            files = []
         
         # Si no encontramos archivos específicos, hacer una búsqueda más amplia para debug
         if not files:
@@ -886,15 +881,31 @@ def get_all_results_files_from_drive():
     except Exception as e:
         return {'success': False, 'error': f'Error buscando archivos de resultados: {str(e)}'}
 
-def get_specific_results_file_from_drive(file_id):
-    """Obtiene un archivo de resultados específico por su ID"""
+def get_specific_results_file_from_drive(filename_or_id):
+    """Obtiene un archivo de resultados específico por su nombre o ID"""
     
     # Autenticar
     service = authenticate_gdrive()
     if not service:
         return {'success': False, 'error': 'No se pudo autenticar con Google Drive'}
     
+    # Obtener ID de carpeta
+    folder_id = load_gdrive_config()
+    if not folder_id:
+        return {'success': False, 'error': 'No se pudo cargar configuración de carpetas'}
+    
     try:
+        file_id = filename_or_id
+        
+        # Si se pasó un nombre de archivo en lugar de un ID, buscar el archivo
+        if not filename_or_id.startswith('1') or len(filename_or_id) < 20:  # Likely a filename
+            find_result = find_file_in_drive(service, folder_id, filename_or_id)
+            if not find_result['success']:
+                return find_result
+            if not find_result['found']:
+                return {'success': False, 'error': f'Archivo no encontrado: {filename_or_id}'}
+            file_id = find_result['file_id']
+        
         # Descargar archivo específico
         download_result = download_json_from_drive(service, file_id)
         

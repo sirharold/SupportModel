@@ -22,6 +22,8 @@ from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_pa
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.apps.question_answer_comparison import show_question_answer_comparison_page
 from src.apps.cumulative_comparison import show_cumulative_comparison_page
+from src.apps.cumulative_n_questions_config import show_cumulative_n_questions_config_page
+from src.apps.cumulative_n_questions_results import show_cumulative_n_questions_results_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -121,6 +123,8 @@ page = st.sidebar.radio(
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",
+        "🔧 Configuración Análisis N Preguntas (Colab)",
+        "📊 Resultados Análisis N Preguntas (Colab)",
     ],
     index=0
 )
@@ -167,7 +171,7 @@ if generative_model_name in GENERATIVE_MODEL_DESCRIPTIONS:
 elif generative_model_name == "llama-4-scout":
     st.sidebar.success("🌟 **Modelo de API Gratuito** - Llama-4-Scout via OpenRouter")
     st.sidebar.info("ℹ️ Si el modelo no está disponible temporalmente, intenta con TinyLlama como alternativa local.")
-elif generative_model_name == "gemini-pro":
+elif generative_model_name == "gemini-1.5-flash":
     st.sidebar.warning("💰 **Modelo de API** - Incurre en costos por uso")
 elif generative_model_name == "gpt-4":
     st.sidebar.warning("💰 **Modelo de API** - Incurre en costos altos por uso")
@@ -904,6 +908,11 @@ elif page == "⚙️ Configuración Métricas Acumulativas":
     show_cumulative_metrics_create_page()
 elif page == "📈 Resultados Métricas Acumulativas":
     show_cumulative_metrics_results_page()
+
+elif page == "🔧 Configuración Análisis N Preguntas (Colab)":
+    show_cumulative_n_questions_config_page()
+elif page == "📊 Resultados Análisis N Preguntas (Colab)":
+    show_cumulative_n_questions_results_page()
 
 # Footer común
 st.markdown("---")

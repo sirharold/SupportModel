@@ -330,43 +330,71 @@ def show_colab_workflow(num_questions: int, selected_models: List[str],
 
 
 def create_config_and_send_to_drive(evaluation_config: Dict):
-    """Crea y envía configuración a Google Drive real"""
+    """Crea y envía configuración a Google Drive real - Compatible con cumulative metrics y N questions"""
     
     st.info("📤 Creando configuración y enviando a Google Drive...")
     
     try:
-        # Obtener preguntas reales de la base de datos
-        with st.spinner("📥 Obteniendo preguntas de ChromaDB..."):
-            from src.data.processing import fetch_random_questions_from_chromadb
-            from src.services.auth.clients import initialize_clients
-            
-            try:
-                # Usar el primer modelo seleccionado para obtener las preguntas
-                first_model = evaluation_config['selected_models'][0]
-                chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client = initialize_clients(
-                    model_name=first_model,
-                    generative_model_name=evaluation_config['generative_model_name']
-                )
-                questions = fetch_random_questions_from_chromadb(
-                    chromadb_wrapper=chromadb_wrapper,
-                    embedding_model_name=first_model,
-                    num_questions=evaluation_config['num_questions']
-                )
+        # Detectar tipo de evaluación
+        evaluation_type = evaluation_config.get('evaluation_type', 'cumulative_metrics')
+        
+        # Obtener preguntas reales de la base de datos solo si no están ya incluidas
+        if 'questions_data' not in evaluation_config or evaluation_config['questions_data'] is None:
+            with st.spinner("📥 Obteniendo preguntas de ChromaDB..."):
+                from src.data.processing import fetch_random_questions_from_chromadb
+                from src.services.auth.clients import initialize_clients
                 
-                if questions:
-                    evaluation_config['questions_data'] = questions
-                    st.success(f"✅ Obtenidas {len(questions)} preguntas con enlaces MS Learn")
-                else:
-                    st.warning("⚠️ No se encontraron preguntas, usando configuración sin datos")
-                    evaluation_config['questions_data'] = None
+                try:
+                    # Determinar modelo y configuración según el tipo
+                    if evaluation_type == 'n_questions_cumulative_analysis':
+                        # Para N questions, usar la configuración anidada
+                        first_model = list(evaluation_config['model_config']['embedding_models'].keys())[0]
+                        num_questions = evaluation_config['data_config']['num_questions']
+                        generative_model = evaluation_config['model_config']['generative_model']
+                    else:
+                        # Para cumulative metrics, usar la configuración plana
+                        first_model = evaluation_config['selected_models'][0]
+                        num_questions = evaluation_config['num_questions']
+                        generative_model = evaluation_config['generative_model_name']
                     
-            except Exception as e:
-                st.warning(f"⚠️ Error obteniendo preguntas: {e}")
-                evaluation_config['questions_data'] = None
+                    # Inicializar clientes
+                    chromadb_wrapper, embedding_client, openai_client, gemini_client, local_tinyllama_client, local_mistral_client, openrouter_client, client = initialize_clients(
+                        model_name=first_model,
+                        generative_model_name=generative_model
+                    )
+                    
+                    # Obtener preguntas
+                    questions = fetch_random_questions_from_chromadb(
+                        chromadb_wrapper=chromadb_wrapper,
+                        embedding_model_name=first_model,
+                        num_questions=num_questions
+                    )
+                    
+                    if questions:
+                        evaluation_config['questions_data'] = questions
+                        st.success(f"✅ Obtenidas {len(questions)} preguntas con enlaces MS Learn")
+                    else:
+                        st.warning("⚠️ No se encontraron preguntas, usando configuración sin datos")
+                        evaluation_config['questions_data'] = None
+                        
+                except Exception as e:
+                    st.warning(f"⚠️ Error obteniendo preguntas: {e}")
+                    evaluation_config['questions_data'] = None
+        else:
+            st.info("📝 Usando preguntas ya incluidas en la configuración")
         
         # Enviar a Google Drive real
         with st.spinner("☁️ Enviando configuración a Google Drive..."):
-            result = create_evaluation_config_in_drive(evaluation_config)
+            # Generar nombre de archivo basado en el tipo de evaluación
+            import time
+            timestamp = int(time.time())
+            
+            if evaluation_type == 'n_questions_cumulative_analysis':
+                filename = f"n_questions_config_{timestamp}.json"
+            else:
+                filename = f"evaluation_config_{timestamp}.json"
+            
+            result = create_evaluation_config_in_drive(evaluation_config, filename)
             
             if result['success']:
                 st.success("✅ ¡Configuración enviada exitosamente a Google Drive!")

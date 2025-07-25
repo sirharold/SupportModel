@@ -36,7 +36,7 @@ def get_local_results_files():
     
     # Timezone de Chile
     chile_tz = pytz.timezone('America/Santiago')
-    
+    print("antes de archivo·")
     for folder in local_results_folders:
         folder_path = os.path.join(os.getcwd(), folder)
         if os.path.exists(folder_path):

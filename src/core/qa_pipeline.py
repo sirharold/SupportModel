@@ -289,7 +289,7 @@ def answer_question(
                     retrieved_docs=reranked,
                     model_name="deepseek-v3-chat"
                 )
-            elif generative_model_name == "gemini-pro" and gemini_client:
+            elif generative_model_name == "gemini-1.5-flash" and gemini_client:
                 generated_answer, generation_info = generate_final_answer_gemini(
                     question=question,
                     retrieved_docs=reranked,

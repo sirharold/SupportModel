@@ -14,12 +14,12 @@ DEFAULT_EMBEDDING_MODEL = "multi-qa-mpnet-base-dot-v1"
 GENERATIVE_MODELS = {
     "llama-3.3-70b": "meta-llama/llama-3.3-70b-instruct:free",
     "gpt-4": "gpt-4",
-    "gemini-pro": "gemini-pro",
+    "gemini-1.5-flash": "gemini-1.5-flash",
     "tinyllama-1.1b": "tinyllama-1.1b",
-    "deepseek-v3-chat": "deepseek/deepseek-chat:free"
+    "deepseek-v3-chat": "deepseek/deepseek-v3:free"
 }
 
-DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Changed to OpenRouter model for better performance
+DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Free OpenRouter model - most reliable
 
 # Debug configuration
 DEBUG_MODE = False  # Set to True to enable debug messages, False to disable them
@@ -83,7 +83,7 @@ GENERATIVE_MODEL_DESCRIPTIONS = {
         "requirements": "1GB RAM, perfecto para laptops antiguos"
     },
     "deepseek-v3-chat": {
-        "description": "DeepSeek V3 Chat vía OpenRouter. Modelo de última generación optimizado para QA y razonamiento con contexto de 163k tokens.",
+        "description": "DeepSeek V3 vía OpenRouter. Modelo de última generación optimizado para QA y razonamiento con contexto de 163k tokens.",
         "provider": "DeepSeek (OpenRouter)",
         "cost": "Gratuito", 
         "requirements": "API key de OpenRouter requerida"
@@ -94,10 +94,10 @@ GENERATIVE_MODEL_DESCRIPTIONS = {
         "cost": "Pagado",
         "requirements": "API key de OpenAI requerida"
     },
-    "gemini-pro": {
-        "description": "Gemini Pro de Google. Modelo multimodal con costos por uso.",
+    "gemini-1.5-flash": {
+        "description": "Gemini 1.5 Flash de Google. Modelo rápido y gratuito optimizado para tareas de evaluación.",
         "provider": "Google",
-        "cost": "Pagado",
+        "cost": "Gratuito",
         "requirements": "API key de Google requerida"
     }
 }

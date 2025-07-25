@@ -101,7 +101,7 @@ def display_before_after_comparison(avg_before: Dict, avg_after: Dict):
     
     # Prepare comparison data
     comparison_data = []
-    metrics_to_compare = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
+    metrics_to_compare = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']  # MRR is a single value, not per-K
     
     for metric in metrics_to_compare:
         if metric in avg_before and metric in avg_after:
@@ -397,7 +397,7 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
         after_metrics = model_results.get('avg_after_metrics', {})
         
         # Calculate average performance (similar to create_models_summary_table)
-        all_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
+        all_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']  # MRR is a single value
         before_avg = np.mean([before_metrics.get(m, 0) for m in all_metrics if m in before_metrics])
         
         row_data = {
@@ -480,7 +480,11 @@ def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], 
             after_metrics = model_results.get('avg_after_metrics', {})
 
             # Data for 'Before LLM'
-            y_before = [before_metrics.get(f"{metric}@{k}", 0) for k in k_values]
+            if metric == 'mrr':
+                # MRR is a single value, not per K - show same value for all K points
+                y_before = [before_metrics.get('mrr', 0)] * len(k_values)
+            else:
+                y_before = [before_metrics.get(f"{metric}@{k}", 0) for k in k_values]
             fig.add_trace(
                 go.Scatter(
                     x=k_values,
@@ -495,7 +499,11 @@ def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], 
 
             # Data for 'After LLM' if applicable
             if use_llm_reranker and after_metrics:
-                y_after = [after_metrics.get(f"{metric}@{k}", 0) for k in k_values]
+                if metric == 'mrr':
+                    # MRR is a single value, not per K - show same value for all K points
+                    y_after = [after_metrics.get('mrr', 0)] * len(k_values)
+                else:
+                    y_after = [after_metrics.get(f"{metric}@{k}", 0) for k in k_values]
                 fig.add_trace(
                     go.Scatter(
                         x=k_values,
@@ -541,27 +549,71 @@ def create_all_metrics_by_k_table(results: Dict[str, Dict[str, Any]], use_llm_re
         for metric_type in metrics_to_display:
             row_base = {'Modelo': model_name, 'Métrica': metric_type.upper()}
 
-            for k in k_values:
-                metric_key = f"{metric_type}@{k}"
+            if metric_type == 'mrr':
+                # MRR is a single value, not per K - only process once
+                before_val = before_metrics.get('mrr')
                 
-                # Before LLM score
-                before_val = before_metrics.get(metric_key, np.nan)
-                row_base[f'Antes LLM @{k}'] = f"{before_val:.3f}" if not np.isnan(before_val) else 'N/A'
-
-                # After LLM score and improvement
-                if use_llm_reranker and after_metrics and metric_key in after_metrics:
-                    after_val = after_metrics.get(metric_key, np.nan)
-                    row_base[f'Después LLM @{k}'] = f"{after_val:.3f}" if not np.isnan(after_val) else 'N/A'
-                    
-                    if not np.isnan(before_val) and before_val > 0:
-                        improvement = after_val - before_val
-                        improvement_pct = (improvement / before_val) * 100
-                        row_base[f'Mejora @{k}'] = f"{improvement:+.3f} ({improvement_pct:+.1f}%) " + get_improvement_status_icon(improvement)
+                # DEBUG: Print MRR value for debugging
+                # st.write(f"DEBUG - {model_name} MRR before: {before_val} (type: {type(before_val)})")
+                
+                # Handle None/NaN values properly
+                if before_val is not None and not np.isnan(before_val):
+                    row_base['Antes LLM'] = f"{before_val:.3f}"
+                else:
+                    row_base['Antes LLM'] = '-'
+                
+                # Add empty columns for K values to match table structure
+                for k in k_values:
+                    row_base[f'Antes LLM @{k}'] = '-'  # MRR doesn't vary by K
+                    row_base[f'Después LLM @{k}'] = '-'
+                    row_base[f'Mejora @{k}'] = '-'
+                
+                # After LLM score and improvement for MRR
+                if use_llm_reranker and after_metrics and 'mrr' in after_metrics:
+                    after_val = after_metrics.get('mrr')
+                    if after_val is not None and not np.isnan(after_val):
+                        row_base['Después LLM'] = f"{after_val:.3f}"
+                        
+                        if before_val is not None and not np.isnan(before_val) and before_val > 0:
+                            improvement = after_val - before_val
+                            improvement_pct = (improvement / before_val) * 100
+                            row_base['Mejora'] = f"{improvement:+.3f} ({improvement_pct:+.1f}%) " + get_improvement_status_icon(improvement)
+                        else:
+                            row_base['Mejora'] = '-'
                     else:
-                        row_base[f'Mejora @{k}'] = 'N/A'
+                        row_base['Después LLM'] = '-'
+                        row_base['Mejora'] = '-'
                 elif use_llm_reranker:
-                    row_base[f'Después LLM @{k}'] = 'N/A'
-                    row_base[f'Mejora @{k}'] = 'N/A'
+                    row_base['Después LLM'] = '-'
+                    row_base['Mejora'] = '-'
+            else:
+                # Handle metrics that vary by K
+                # Add empty overall columns for K-based metrics
+                row_base['Antes LLM'] = '-'  # K-based metrics don't have overall values
+                row_base['Después LLM'] = '-'
+                row_base['Mejora'] = '-'
+                
+                for k in k_values:
+                    metric_key = f"{metric_type}@{k}"
+                    
+                    # Before LLM score
+                    before_val = before_metrics.get(metric_key, np.nan)
+                    row_base[f'Antes LLM @{k}'] = f"{before_val:.3f}" if not np.isnan(before_val) else '-'
+
+                    # After LLM score and improvement
+                    if use_llm_reranker and after_metrics and metric_key in after_metrics:
+                        after_val = after_metrics.get(metric_key, np.nan)
+                        row_base[f'Después LLM @{k}'] = f"{after_val:.3f}" if not np.isnan(after_val) else '-'
+                        
+                        if not np.isnan(before_val) and before_val > 0:
+                            improvement = after_val - before_val
+                            improvement_pct = (improvement / before_val) * 100
+                            row_base[f'Mejora @{k}'] = f"{improvement:+.3f} ({improvement_pct:+.1f}%) " + get_improvement_status_icon(improvement)
+                        else:
+                            row_base[f'Mejora @{k}'] = '-'
+                    elif use_llm_reranker:
+                        row_base[f'Después LLM @{k}'] = '-'
+                        row_base[f'Mejora @{k}'] = '-'
 
             table_data.append(row_base)
 
@@ -614,19 +666,25 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
         formatted_string += "| Métrica | Antes LLM | Después LLM | Mejora Absoluta | Mejora % |\n"
         formatted_string += "|---|---|---|---|---|\n"
         for metric_type in metrics_types:
-            for k in k_values:
-                metric_key = f"{metric_type}@{k}"
-                before_val = before_metrics.get(metric_key, np.nan)
-                after_val = after_metrics.get(metric_key, np.nan)
+            if metric_type == 'mrr':
+                # MRR is a single value, not per K - only process once
+                metric_key = 'mrr'
+                before_val = before_metrics.get('mrr')
+                after_val = after_metrics.get('mrr')
+                
+                # Handle None values properly
+                before_str = f"{before_val:.3f}" if before_val is not None and not np.isnan(before_val) else 'N/A'
+                after_str = f"{after_val:.3f}" if after_val is not None and not np.isnan(after_val) else 'N/A'
                 
                 improvement_abs = 'N/A'
                 improvement_pct = 'N/A'
-                if not np.isnan(before_val) and not np.isnan(after_val):
+                if (before_val is not None and not np.isnan(before_val) and 
+                    after_val is not None and not np.isnan(after_val)):
                     improvement_abs = after_val - before_val
                     if before_val != 0:
                         improvement_pct = (improvement_abs / before_val) * 100
                     else:
-                        improvement_pct = 0 if improvement_abs == 0 else float('inf') # Handle division by zero
+                        improvement_pct = 0 if improvement_abs == 0 else float('inf')
 
                 # Format improvement values safely
                 improvement_abs_str = f"{improvement_abs:+.3f}" if isinstance(improvement_abs, (int, float)) and not np.isinf(improvement_abs) else str(improvement_abs)
@@ -634,11 +692,37 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
                 
                 formatted_string += (
                     f"| {metric_key} "
-                    f"| {before_val:.3f} "
-                    f"| {after_val:.3f} "
+                    f"| {before_str} "
+                    f"| {after_str} "
                     f"| {improvement_abs_str} "
                     f"| {improvement_pct_str} |\n"
                 )
+            else:
+                for k in k_values:
+                    metric_key = f"{metric_type}@{k}"
+                    before_val = before_metrics.get(metric_key, np.nan)
+                    after_val = after_metrics.get(metric_key, np.nan)
+                    
+                    improvement_abs = 'N/A'
+                    improvement_pct = 'N/A'
+                    if not np.isnan(before_val) and not np.isnan(after_val):
+                        improvement_abs = after_val - before_val
+                        if before_val != 0:
+                            improvement_pct = (improvement_abs / before_val) * 100
+                        else:
+                            improvement_pct = 0 if improvement_abs == 0 else float('inf') # Handle division by zero
+
+                    # Format improvement values safely
+                    improvement_abs_str = f"{improvement_abs:+.3f}" if isinstance(improvement_abs, (int, float)) and not np.isinf(improvement_abs) else str(improvement_abs)
+                    improvement_pct_str = f"{improvement_pct:+.1f}%" if isinstance(improvement_pct, (int, float)) and not np.isinf(improvement_pct) else str(improvement_pct)
+                    
+                    formatted_string += (
+                        f"| {metric_key} "
+                        f"| {before_val:.3f} "
+                        f"| {after_val:.3f} "
+                        f"| {improvement_abs_str} "
+                        f"| {improvement_pct_str} |\n"
+                    )
         formatted_string += "\n"
 
         # Check if we have any RAG metrics data
@@ -732,9 +816,9 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
         
         if generative_model_name == "gpt-4" and config.openai_api_key:
             openai_client = OpenAI(api_key=config.openai_api_key)
-        elif generative_model_name == "gemini-pro" and config.gemini_api_key:
+        elif generative_model_name == "gemini-1.5-flash" and config.gemini_api_key:
             genai.configure(api_key=config.gemini_api_key)
-            gemini_client = genai.GenerativeModel('gemini-pro')
+            gemini_client = genai.GenerativeModel('gemini-1.5-flash')
         elif generative_model_name == "llama-4-scout":
             openrouter_client = get_cached_llama4_scout_client()
         elif generative_model_name == "tinyllama-1.1b":
@@ -746,9 +830,9 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
         if generative_model_name == "gpt-4" and openai_client:
             llm_client = openai_client
             model_to_use = "gpt-4"
-        elif generative_model_name == "gemini-pro" and gemini_client:
+        elif generative_model_name == "gemini-1.5-flash" and gemini_client:
             llm_client = gemini_client
-            model_to_use = "gemini-pro"
+            model_to_use = "gemini-1.5-flash"
         elif generative_model_name == "llama-4-scout" and openrouter_client:
             llm_client = openrouter_client
             model_to_use = "llama-4-scout"
@@ -790,7 +874,7 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
         full_response_content = ""
 
         try:
-            if model_to_use in ["gpt-4", "gemini-pro", "llama-4-scout"]:
+            if model_to_use in ["gpt-4", "gemini-1.5-flash", "llama-4-scout"]:
                 # For API-based models
                 messages = [
                     {"role": "system", "content": system_prompt},
@@ -804,7 +888,7 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                         max_tokens=1500
                     )
                     full_response_content = response.choices[0].message.content
-                elif model_to_use == "gemini-pro":
+                elif model_to_use == "gemini-1.5-flash":
                     response = llm_client.generate_content(messages)
                     full_response_content = response.text
                 elif model_to_use == "llama-4-scout":
@@ -928,8 +1012,8 @@ def get_improvement_status_icon(improvement: float) -> str:
     else:
         return "➡️"
 
-def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
 
+def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
     """Create summary table for model comparison"""
     
     st.subheader("📋 Tabla Resumen de Modelos")
@@ -939,9 +1023,15 @@ def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_rera
         before_metrics = model_results['avg_before_metrics']
         after_metrics = model_results.get('avg_after_metrics', {})
         
-        # Calculate average performance
-        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
-        before_avg = np.mean([before_metrics.get(m, 0) for m in key_metrics if m in before_metrics])
+        # Calculate average performance - handle MRR properly
+        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']
+        valid_before_metrics = []
+        for m in key_metrics:
+            val = before_metrics.get(m)
+            if val is not None and not np.isnan(val):
+                valid_before_metrics.append(val)
+        
+        before_avg = np.mean(valid_before_metrics) if valid_before_metrics else 0
         
         row = {
             'Modelo': model_name,
@@ -951,45 +1041,13 @@ def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_rera
         }
         
         if use_llm_reranker and after_metrics:
-            after_avg = np.mean([after_metrics.get(m, 0) for m in key_metrics if m in after_metrics])
-            improvement = after_avg - before_avg
+            valid_after_metrics = []
+            for m in key_metrics:
+                val = after_metrics.get(m)
+                if val is not None and not np.isnan(val):
+                    valid_after_metrics.append(val)
             
-            row.update({
-                'Promedio Después': f"{after_avg:.3f}",
-                'Mejora': f"{improvement:+.3f}",
-                'Mejora %': f"{(improvement/before_avg*100):+.1f}%" if before_avg > 0 else "N/A"
-            })
-        
-        summary_data.append(row)
-    
-    if summary_data:
-        df = pd.DataFrame(summary_data)
-        st.dataframe(df, use_container_width=True)
-
-
-def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
-    """Create summary table for model comparison"""
-    
-    st.subheader("📋 Tabla Resumen de Modelos")
-    
-    summary_data = []
-    for model_name, model_results in results.items():
-        before_metrics = model_results['avg_before_metrics']
-        after_metrics = model_results.get('avg_after_metrics', {})
-        
-        # Calculate average performance
-        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
-        before_avg = np.mean([before_metrics.get(m, 0) for m in key_metrics if m in before_metrics])
-        
-        row = {
-            'Modelo': model_name,
-            'Preguntas': model_results.get('num_questions_evaluated', 0),
-            'Promedio Antes': f"{before_avg:.3f}",
-            'Calidad': get_metric_quality(before_avg)
-        }
-        
-        if use_llm_reranker and after_metrics:
-            after_avg = np.mean([after_metrics.get(m, 0) for m in key_metrics if m in after_metrics])
+            after_avg = np.mean(valid_after_metrics) if valid_after_metrics else 0
             improvement = after_avg - before_avg
             
             row.update({
@@ -1042,9 +1100,9 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
 def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
     Displays a summary of RAG metrics (faithfulness, answer relevance, etc.),
-    comparing before and after LLM reranking if applicable.
+    with simple table format: Modelo, Faithfulness, Relevance, Correctness, Similarity
     """
-    st.subheader("📊 Métricas RAG (Generación de Respuesta)")
+    st.subheader("📊 Métricas RAG")
 
     rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
     table_data = []
@@ -1078,9 +1136,6 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                 avg_key = f'avg_{key}'
                 if avg_key in rag_metrics_section:
                     before_metrics[key] = rag_metrics_section[avg_key]
-            
-            # Extract successfully found metrics
-            extracted_keys = [k for k in rag_metric_keys if k in before_metrics]
         
         # 4. Calculate from individual metrics if not in averages
         individual_before = model_results.get('individual_before_metrics', [])
@@ -1129,26 +1184,41 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         
         has_any_rag_metric = True
 
+        # Create row for this model with all RAG metrics
+        row = {'Modelo': model_name}
+        
+        # Add each RAG metric as a column
         for key in rag_metric_keys:
-            metric_name = key.replace('_', ' ').replace('answer', '').strip().capitalize()
-            # RAG metrics are only generated once, not before/after
             metric_val = before_metrics.get(key)
-
             if metric_val is not None:
-                row = {
-                    'Modelo': model_name,
-                    'Métrica RAG': metric_name,
-                    'Valor': f"{metric_val:.3f}"
-                }
+                if key == 'faithfulness':
+                    row['Faithfulness'] = f"{metric_val:.3f}"
+                elif key == 'answer_relevance':
+                    row['Relevance'] = f"{metric_val:.3f}"
+                elif key == 'answer_correctness':
+                    row['Correctness'] = f"{metric_val:.3f}"
+                elif key == 'answer_similarity':
+                    row['Similarity'] = f"{metric_val:.3f}"
                 
-                # Add to chart data
+                # Add to chart data for visualization
+                metric_name = key.replace('_', ' ').replace('answer', '').strip().capitalize()
                 chart_data.append({
                     'Modelo': model_name, 
                     'Métrica RAG': metric_name, 
                     'Valor': metric_val
                 })
-                
-                table_data.append(row)
+            else:
+                # Add placeholder for missing metrics
+                if key == 'faithfulness':
+                    row['Faithfulness'] = '-'
+                elif key == 'answer_relevance':
+                    row['Relevance'] = '-'
+                elif key == 'answer_correctness':
+                    row['Correctness'] = '-'
+                elif key == 'answer_similarity':
+                    row['Similarity'] = '-'
+        
+        table_data.append(row)
 
     if not has_any_rag_metric:
         # Debug: Show what data structure we're working with
@@ -1279,7 +1349,7 @@ def create_metric_across_k_chart(avg_before: Dict, avg_after: Dict, metric_type:
     
     # Collect metric values for each K
     for k in k_values:
-        metric_key = f"avg_{metric_type}@{k}"
+        metric_key = f"{metric_type}@{k}"  # Remove 'avg_' prefix - data should be in format 'precision@5', not 'avg_precision@5'
         
         if metric_key in avg_before:
             values_before.append(avg_before[metric_key])
@@ -1348,8 +1418,8 @@ def create_metric_across_k_chart(avg_before: Dict, avg_after: Dict, metric_type:
 def create_single_metric_chart(avg_before: Dict, avg_after: Dict, metric_type: str, use_llm_reranker: bool):
     """Create a chart for single-value metrics (like MRR)"""
     
-    # Get metric values (no @k suffix for single metrics)
-    metric_key = f"avg_{metric_type}"
+    # Get metric values (no @k suffix for single metrics like MRR)
+    metric_key = metric_type  # For MRR, the key is just 'mrr', not 'avg_mrr'
     
     before_val = avg_before.get(metric_key)
     after_val = avg_after.get(metric_key) if use_llm_reranker and avg_after else None
@@ -1393,34 +1463,45 @@ def display_complete_metrics_table(avg_before: Dict, avg_after: Dict, k_values: 
     
     for metric_type in metric_types:
         if metric_type == 'mrr':
-            # Handle single-value metrics (no @k)
-            metric_key = f"avg_{metric_type}"
+            # Handle single-value metrics (no @k) - MRR key should be just 'mrr'
+            metric_key = metric_type  # For MRR, use 'mrr' not 'avg_mrr'
             
-            if metric_key in avg_before:
+            before_val = avg_before.get(metric_key)
+            if before_val is not None and not np.isnan(before_val):
                 row = {
                     'Métrica': metric_type.upper(),
-                    'Valor': f"{avg_before[metric_key]:.3f}"
+                    'Valor': f"{before_val:.3f}"
                 }
                 
                 if use_llm_reranker and avg_after and metric_key in avg_after:
-                    after_val = avg_after[metric_key]
-                    improvement = after_val - avg_before[metric_key]
-                    improvement_pct = (improvement / avg_before[metric_key] * 100) if avg_before[metric_key] > 0 else 0
-                    
-                    row.update({
-                        'Antes LLM': f"{avg_before[metric_key]:.3f}",
-                        'Después LLM': f"{after_val:.3f}",
-                        'Mejora': f"{improvement:+.3f}",
-                        'Mejora %': f"{improvement_pct:+.1f}%"
-                    })
-                    # Remove the single 'Valor' column since we have before/after
-                    del row['Valor']
+                    after_val = avg_after.get(metric_key)
+                    if after_val is not None and not np.isnan(after_val):
+                        improvement = after_val - before_val
+                        improvement_pct = (improvement / before_val * 100) if before_val > 0 else 0
+                        
+                        row.update({
+                            'Antes LLM': f"{before_val:.3f}",
+                            'Después LLM': f"{after_val:.3f}",
+                            'Mejora': f"{improvement:+.3f}",
+                            'Mejora %': f"{improvement_pct:+.1f}%"
+                        })
+                        # Remove the single 'Valor' column since we have before/after
+                        del row['Valor']
+                    else:
+                        # After value is None/NaN
+                        row.update({
+                            'Antes LLM': f"{before_val:.3f}",
+                            'Después LLM': 'N/A',
+                            'Mejora': 'N/A',
+                            'Mejora %': 'N/A'
+                        })
+                        del row['Valor']
                 
                 table_data.append(row)
         else:
             # Handle K-based metrics (precision, recall, f1)
             for k in k_values:
-                metric_key = f"avg_{metric_type}@{k}"
+                metric_key = f"{metric_type}@{k}"  # Remove 'avg_' prefix
                 
                 if metric_key in avg_before:
                     row = {

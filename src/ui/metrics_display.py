@@ -77,7 +77,7 @@ def display_metrics_tabs(avg_before: Dict, avg_after: Dict, use_llm_reranker: bo
             k_metrics = [f'Precision@{k}', f'Recall@{k}', f'F1@{k}', f'Accuracy@{k}', 
                         f'BinaryAccuracy@{k}', f'RankingAccuracy@{k}']
             if k == 5:  # Agregar MRR y nDCG solo para k=5
-                k_metrics.extend(['MRR@5', 'nDCG@5', 'MRR'])
+                k_metrics.extend(['MRR', 'nDCG@5'])  # MRR is a single value, not per-K
             
             col1, col2 = st.columns(2)
             
@@ -115,7 +115,7 @@ def display_visual_comparison(avg_before: Dict, avg_after: Dict, use_llm_reranke
         st.subheader("📈 Comparación Visual")
         
         # Preparar datos para el gráfico
-        metrics_to_plot = ['Precision@5', 'Recall@5', 'F1@5', 'Accuracy@5', 'BinaryAccuracy@5', 'RankingAccuracy@5', 'MRR', 'MRR@5', 'nDCG@5']
+        metrics_to_plot = ['Precision@5', 'Recall@5', 'F1@5', 'Accuracy@5', 'BinaryAccuracy@5', 'RankingAccuracy@5', 'MRR', 'nDCG@5']  # MRR is a single value
         before_values = [avg_before.get(m, 0) for m in metrics_to_plot]
         after_values = [avg_after.get(m, 0) for m in metrics_to_plot]
         
@@ -225,13 +225,13 @@ def display_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_rerank
     st.subheader("📈 Comparación Completa Entre Modelos")
 
     # Métricas principales para visualización (enfoque en k=5 para simplicidad en comparación)
-    main_metrics = ['Precision@5', 'Recall@5', 'F1@5', 'MRR@5', 'nDCG@5']
+    main_metrics = ['Precision@5', 'Recall@5', 'F1@5', 'MRR', 'nDCG@5']  # MRR is a single value, not per-K
     
     # Métricas completas para análisis detallado
     all_k_metrics = []
     for k in [1, 3, 5, 10]:
         all_k_metrics.extend([f'Precision@{k}', f'Recall@{k}', f'F1@{k}', f'Accuracy@{k}'])
-    all_k_metrics.extend(['MRR@5', 'nDCG@5'])
+    all_k_metrics.extend(['MRR', 'nDCG@5'])  # MRR is a single value, not per-K
     
     # Preparar datos para múltiples visualizaciones
     models_data = {}
@@ -315,7 +315,7 @@ def display_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_rerank
                 'Precision@5': f"{metrics.get('Precision@5', 0):.3f}",
                 'Recall@5': f"{metrics.get('Recall@5', 0):.3f}",
                 'F1@5': f"{metrics.get('F1@5', 0):.3f}",
-                'MRR@5': f"{metrics.get('MRR@5', 0):.3f}",
+                'MRR': f"{metrics.get('MRR', 0):.3f}",  # MRR is a single value
                 'nDCG@5': f"{metrics.get('nDCG@5', 0):.3f}",
                 'Preguntas': data['num_questions']
             })
@@ -552,7 +552,7 @@ def display_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_rerank
             'Precision@5': 0.25,
             'Recall@5': 0.25,
             'F1@5': 0.25,
-            'MRR@5': 0.15,
+            'MRR': 0.15,  # MRR is a single value, not per-K
             'nDCG@5': 0.10
         }
         

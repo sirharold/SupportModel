@@ -7,6 +7,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import time
+import json
+import io
+from datetime import datetime
 from typing import Dict, List, Tuple, Any
 import plotly.graph_objects as go
 import plotly.express as px
@@ -47,25 +50,39 @@ def show_cumulative_comparison_page():
         - **Score Compuesto**: Métrica final consolidada
         """)
     
+    # Add load/save section before configuration
+    st.markdown("---")
+    show_load_save_section()
+    st.markdown("---")
+    
     # Configuration Section
     config = get_configuration_parameters()
     
     # Processing Section
-    if st.button("🚀 Ejecutar Análisis Acumulativo", type="primary", key="run_analysis"):
-        with st.spinner("Ejecutando análisis acumulativo..."):
-            # Load questions
-            questions = load_random_questions(config['num_questions'])
-            
-            if not questions:
-                st.error("❌ No se pudieron cargar preguntas para el análisis")
-                return
-            
-            # Process all questions
-            results = process_cumulative_analysis(questions, config)
-            
-            # Store results in session state
-            st.session_state.cumulative_results = results
-            st.session_state.cumulative_config = config
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        if st.button("🚀 Ejecutar Análisis Acumulativo", type="primary", key="run_analysis"):
+            with st.spinner("Ejecutando análisis acumulativo..."):
+                # Load questions
+                questions = load_random_questions(config['num_questions'])
+                
+                if not questions:
+                    st.error("❌ No se pudieron cargar preguntas para el análisis")
+                    return
+                
+                # Process all questions
+                results = process_cumulative_analysis(questions, config)
+                
+                # Store results in session state
+                st.session_state.cumulative_results = results
+                st.session_state.cumulative_config = config
+                st.success("✅ Análisis completado exitosamente")
+    
+    with col2:
+        # Show save button if results exist
+        if 'cumulative_results' in st.session_state:
+            show_save_results_button()
     
     # Results Section
     if 'cumulative_results' in st.session_state:
@@ -673,6 +690,152 @@ def create_detailed_export_df(individual_results: Dict, config: Dict[str, Any]) 
                 export_data.append(row)
     
     return pd.DataFrame(export_data)
+
+
+def show_load_save_section():
+    """Sección para cargar resultados previos"""
+    st.subheader("💾 Gestión de Resultados")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("**📥 Cargar Resultados Previos**")
+        uploaded_file = st.file_uploader(
+            "Selecciona un archivo de resultados",
+            type=['json'],
+            help="Carga un archivo JSON con resultados de análisis previos para evitar recomputar",
+            key="load_results_uploader"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                # Load the JSON data
+                results_data = json.load(uploaded_file)
+                
+                # Validate the structure
+                if validate_results_structure(results_data):
+                    # Store in session state
+                    st.session_state.cumulative_results = results_data['results']
+                    st.session_state.cumulative_config = results_data['config']
+                    st.session_state.loaded_filename = uploaded_file.name
+                    st.session_state.loaded_timestamp = results_data.get('metadata', {}).get('timestamp', 'Desconocido')
+                    
+                    st.success(f"✅ Resultados cargados exitosamente")
+                    st.info(f"📄 Archivo: {uploaded_file.name}")
+                    st.info(f"🕒 Fecha: {st.session_state.loaded_timestamp}")
+                    st.info(f"📊 Preguntas: {results_data['config']['num_questions']}")
+                    st.info(f"🤖 Modelos: {len(results_data['config']['models'])}")
+                    
+                    # Option to clear loaded results
+                    if st.button("🗑️ Limpiar resultados cargados", key="clear_loaded"):
+                        for key in ['cumulative_results', 'cumulative_config', 'loaded_filename', 'loaded_timestamp']:
+                            if key in st.session_state:
+                                del st.session_state[key]
+                        st.rerun()
+                        
+                else:
+                    st.error("❌ El archivo no tiene el formato correcto de resultados")
+                    
+            except json.JSONDecodeError:
+                st.error("❌ Error al leer el archivo JSON")
+            except Exception as e:
+                st.error(f"❌ Error cargando resultados: {str(e)}")
+    
+    with col2:
+        st.markdown("**ℹ️ Información**")
+        if 'loaded_filename' in st.session_state:
+            st.info(f"🔄 **Resultados Cargados:**")
+            st.write(f"📄 Archivo: `{st.session_state.loaded_filename}`")
+            st.write(f"🕒 Fecha: {st.session_state.loaded_timestamp}")
+        else:
+            st.info("""
+            **💡 Consejos:**
+            - Los archivos guardados contienen todos los datos del análisis
+            - Puedes cargar resultados previos para evitar recalcular
+            - Los resultados incluyen configuración y métricas detalladas
+            - El formato es JSON estándar
+            """)
+
+
+def show_save_results_button():
+    """Botón para descargar resultados actuales"""
+    if st.button("💾 Guardar Resultados", type="secondary", key="save_results"):
+        save_data = prepare_results_for_save()
+        
+        # Create download button
+        json_str = json.dumps(save_data, indent=2, ensure_ascii=False)
+        
+        # Generate filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"cumulative_analysis_results_{timestamp}.json"
+        
+        st.download_button(
+            label="📥 Descargar archivo JSON",
+            data=json_str,
+            file_name=filename,
+            mime="application/json",
+            key="download_results"
+        )
+        
+        st.success("✅ Archivo preparado para descarga")
+        st.info(f"📄 Nombre: {filename}")
+        st.info(f"📊 Tamaño: {len(json_str):,} caracteres")
+
+
+def prepare_results_for_save() -> Dict[str, Any]:
+    """Prepara los resultados para guardar en JSON"""
+    if 'cumulative_results' not in st.session_state or 'cumulative_config' not in st.session_state:
+        return {}
+    
+    # Create comprehensive save data
+    save_data = {
+        'metadata': {
+            'timestamp': datetime.now().isoformat(),
+            'version': '1.0',
+            'description': 'Cumulative N Questions Analysis Results',
+            'generated_by': 'Streamlit Cumulative Analysis Tool'
+        },
+        'config': st.session_state.cumulative_config,
+        'results': st.session_state.cumulative_results
+    }
+    
+    # Add summary statistics
+    if st.session_state.cumulative_results.get('individual_results'):
+        results = st.session_state.cumulative_results['individual_results']
+        save_data['summary'] = {
+            'total_questions': len(results),
+            'models_analyzed': list(st.session_state.cumulative_config['models']),
+            'metrics_included': list(results[list(results.keys())[0]]['results'][list(st.session_state.cumulative_config['models'])[0]]['metrics'].keys()) if results else [],
+            'analysis_completion_time': datetime.now().isoformat()
+        }
+    
+    return save_data
+
+
+def validate_results_structure(data: Dict[str, Any]) -> bool:
+    """Valida que los datos cargados tengan la estructura correcta"""
+    try:
+        # Check for required top-level keys
+        required_keys = ['results', 'config']
+        if not all(key in data for key in required_keys):
+            return False
+        
+        # Check config structure
+        config = data['config']
+        config_keys = ['num_questions', 'models', 'top_k']
+        if not all(key in config for key in config_keys):
+            return False
+        
+        # Check results structure
+        results = data['results']
+        if not isinstance(results, dict):
+            return False
+        
+        # Basic validation passed
+        return True
+        
+    except Exception:
+        return False
 
 
 if __name__ == "__main__":

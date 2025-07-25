@@ -46,7 +46,7 @@ def generate_final_answer_gemini(
             "context_length": len(context),
             "context_info": context_info,
             "generation_info": generation_info,
-            "model_used": "gemini-pro"
+            "model_used": "gemini-1.5-flash"
         }
 
         return answer, debug_info

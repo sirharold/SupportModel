@@ -378,7 +378,7 @@ def generate_cumulative_pdf_report(results: Dict[str, Any], model_name: str, use
                       'recall@1', 'recall@3', 'recall@5', 'recall@10',
                       'f1@1', 'f1@3', 'f1@5', 'f1@10',
                       'map@1', 'map@3', 'map@5', 'map@10',
-                      'mrr@1', 'mrr@3', 'mrr@5', 'mrr@10',
+                      'mrr',  # MRR is a single value, not per-K
                       'ndcg@1', 'ndcg@3', 'ndcg@5', 'ndcg@10']
         
         table_data = []
@@ -724,7 +724,7 @@ def generate_multi_model_pdf_report(results: Dict[str, Dict[str, Any]], use_llm_
         
         # Crear tabla de métricas
         model_names = list(results.keys())
-        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr@5', 'ndcg@5']
+        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']
         
         # Preparar datos para la tabla
         table_data = []
@@ -908,7 +908,7 @@ def generate_multi_model_pdf_report(results: Dict[str, Dict[str, Any]], use_llm_
             
             # Crear tabla comparativa
             comparison_data = []
-            key_metrics = ['precision@5', 'recall@5', 'f1@5', 'mrr@5']
+            key_metrics = ['precision@5', 'recall@5', 'f1@5', 'mrr']
             
             for model in model_names:
                 before_metrics = results[model].get('avg_before_metrics', {})
