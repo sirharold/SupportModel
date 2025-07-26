@@ -45,6 +45,9 @@ def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str
     # Main metrics overview
     display_main_metrics_overview(avg_before, avg_after, use_llm_reranker, reranking_method)
     
+    # NEW: Enhanced scoring methodology display
+    display_enhanced_scoring_section(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+    
     # Before/After reranking comparison section
     if use_llm_reranker and avg_after:
         display_before_after_comparison(avg_before, avg_after, reranking_method)
@@ -54,6 +57,9 @@ def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str
     
     # Performance visualization
     display_performance_charts(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+
+    # NEW: Document-level score analysis
+    display_document_score_analysis(results, use_llm_reranker, model_name, reranking_method)
 
     # New section: RAG Metrics Summary (for single model, adapt results structure)
     # Create a dummy results dict for display_rag_metrics_summary
@@ -435,68 +441,20 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
     
     st.subheader("🏆 Comparación Avanzada Entre Modelos")
     
-    # Prepare data for visualization using average scores
-    models_data = []
-    for model_name, model_results in results.items():
-        before_metrics = model_results['avg_before_metrics']
-        after_metrics = model_results.get('avg_after_metrics', {})
-        
-        # Calculate average performance (similar to create_models_summary_table)
-        all_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']  # MRR is a single value
-        before_avg = np.mean([before_metrics.get(m, 0) for m in all_metrics if m in before_metrics])
-        
-        row_data = {
-            'Modelo': model_name,
-            'Promedio Antes LLM': before_avg,
-        }
-        
-        if use_llm_reranker and after_metrics:
-            after_avg = np.mean([after_metrics.get(m, 0) for m in all_metrics if m in after_metrics])
-            row_data['Promedio Después LLM'] = after_avg
-        
-        models_data.append(row_data)
-    
-    if models_data:
-        df = pd.DataFrame(models_data)
-        
-        # Create comparison visualization
-        if use_llm_reranker and 'Promedio Después LLM' in df.columns and df['Promedio Después LLM'].notna().any():
-            # Before vs After comparison
-            fig = px.bar(
-                df, 
-                x='Modelo', 
-                y=['Promedio Antes LLM', 'Promedio Después LLM'], 
-                barmode='group',
-                title='Comparación de Modelos: Promedio de Score (Antes vs Después LLM)',
-                labels={'value': 'Promedio de Score', 'variable': 'Estado'}
-            )
-        else:
-            # Only before metrics
-            fig = px.bar(
-                df,
-                x='Modelo',
-                y='Promedio Antes LLM',
-                title='Comparación de Modelos: Promedio de Score (Solo Retrieval)',
-                labels={'Promedio Antes LLM': 'Promedio de Score'}
-            )
-        
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Summary table
-        create_models_summary_table(results, use_llm_reranker)
+    # Enhanced multi-model scoring analysis section only
+    display_multi_model_scoring_analysis(results, use_llm_reranker, reranking_method)
 
-        # New section: All metrics by K for all models
-        display_all_metrics_by_k_for_all_models(results, use_llm_reranker)
+    # New section: All metrics by K for all models
+    display_all_metrics_by_k_for_all_models(results, use_llm_reranker)
 
-        # Table with data for metrics by K
-        create_all_metrics_by_k_table(results, use_llm_reranker)
+    # Table with data for metrics by K
+    create_all_metrics_by_k_table(results, use_llm_reranker)
 
-        # Add metric definitions table before RAG metrics
-        display_metric_definitions_table()
+    # Add metric definitions table before RAG metrics
+    display_metric_definitions_table()
 
-        # New section: RAG Metrics Summary
-        display_rag_metrics_summary(results, use_llm_reranker, config)
+    # New section: RAG Metrics Summary
+    display_rag_metrics_summary(results, use_llm_reranker, config)
 
 
 def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
@@ -1142,54 +1100,6 @@ def get_improvement_status_icon(improvement: float) -> str:
         return "➡️"
 
 
-def create_models_summary_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
-    """Create summary table for model comparison"""
-    
-    st.subheader("📋 Tabla Resumen de Modelos")
-    
-    summary_data = []
-    for model_name, model_results in results.items():
-        before_metrics = model_results['avg_before_metrics']
-        after_metrics = model_results.get('avg_after_metrics', {})
-        
-        # Calculate average performance - handle MRR properly
-        key_metrics = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']
-        valid_before_metrics = []
-        for m in key_metrics:
-            val = before_metrics.get(m)
-            if val is not None and not np.isnan(val):
-                valid_before_metrics.append(val)
-        
-        before_avg = np.mean(valid_before_metrics) if valid_before_metrics else 0
-        
-        row = {
-            'Modelo': model_name,
-            'Preguntas': model_results.get('num_questions_evaluated', 0),
-            'Promedio Antes': f"{before_avg:.3f}",
-            'Calidad': get_metric_quality(before_avg)
-        }
-        
-        if use_llm_reranker and after_metrics:
-            valid_after_metrics = []
-            for m in key_metrics:
-                val = after_metrics.get(m)
-                if val is not None and not np.isnan(val):
-                    valid_after_metrics.append(val)
-            
-            after_avg = np.mean(valid_after_metrics) if valid_after_metrics else 0
-            improvement = after_avg - before_avg
-            
-            row.update({
-                'Promedio Después': f"{after_avg:.3f}",
-                'Mejora': f"{improvement:+.3f}",
-                'Mejora %': f"{(improvement/before_avg*100):+.1f}%" if before_avg > 0 else "N/A"
-            })
-        
-        summary_data.append(row)
-    
-    if summary_data:
-        df = pd.DataFrame(summary_data)
-        st.dataframe(df, use_container_width=True)
 
 def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
     """
@@ -2120,3 +2030,654 @@ def display_rag_metrics_explanation():
         
         **Nota**: BERTScore utiliza embeddings contextuales de BERT para evaluar similitud semántica más allá de coincidencias exactas de texto.
         """)
+
+
+# =============================================================================
+# 🆕 ENHANCED SCORING METHODOLOGY DISPLAY FUNCTIONS
+# =============================================================================
+
+def display_enhanced_scoring_section(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard'):
+    """Display enhanced scoring methodology information matching individual search page"""
+    
+    st.subheader("🎯 Metodología de Scoring Enhanced")
+    
+    # Explain scoring methodology alignment
+    with st.expander("📖 Metodología de Scoring (Alineada con Búsqueda Individual)", expanded=False):
+        st.markdown("""
+        ### 🔄 Pipeline de Scoring Implementado
+        
+        El sistema de scoring implementado en este análisis **replica exactamente** la metodología 
+        utilizada en la página de búsqueda individual para garantizar consistencia:
+        
+        #### 1. **Cosine Similarity Score (Inicial)**
+        ```python
+        score = max(0, min(1, 1 - distance))
+        ```
+        - **Fuente**: Similitud coseno entre query embedding y document embedding
+        - **Rango**: [0, 1] donde 1 = máxima similitud
+        - **Uso**: Score base antes de reranking
+        
+        #### 2. **CrossEncoder Reranking**
+        - **Modelo**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
+        - **Input**: Pares [query, document_content]
+        - **Output**: Logits raw del modelo
+        
+        #### 3. **Sigmoid Normalization**
+        ```python
+        final_score = 1 / (1 + exp(-raw_logits))
+        ```
+        - **Propósito**: Mapear logits a probabilidades [0, 1]
+        - **Beneficio**: Scores comparables entre diferentes embeddings
+        
+        #### 4. **Multi-Level Score Preservation**
+        - **📄 Document Level**: Scores individuales por documento
+        - **❓ Question Level**: Estadísticas por pregunta (avg, max, min)
+        - **🏷️ Model Level**: Agregaciones a nivel de modelo
+        """)
+    
+    # Display model-level score statistics if available
+    display_model_level_score_stats(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+
+
+def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str):
+    """Display model-level score statistics from enhanced Colab results"""
+    
+    st.markdown("#### 📊 Estadísticas de Scores a Nivel de Modelo")
+    
+    # Check for model-level score metrics
+    model_score_keys = [
+        'model_avg_score', 'model_max_score', 'model_min_score',
+        'model_all_documents_avg_score', 'model_all_documents_max_score', 
+        'model_all_documents_min_score', 'model_all_documents_std_score',
+        'model_total_documents_evaluated'
+    ]
+    
+    crossencoder_keys = [
+        'model_avg_crossencoder_score', 'model_max_crossencoder_score', 
+        'model_min_crossencoder_score', 'model_all_documents_avg_crossencoder_score',
+        'model_all_documents_max_crossencoder_score', 'model_all_documents_min_crossencoder_score'
+    ]
+    
+    # Check if we have model-level statistics
+    has_before_scores = any(key in avg_before for key in model_score_keys)
+    has_after_scores = any(key in avg_after for key in crossencoder_keys) if avg_after else False
+    
+    if has_before_scores or has_after_scores:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 🔍 Cosine Similarity Scores")
+            if has_before_scores:
+                # Display cosine similarity statistics
+                total_docs = avg_before.get('model_total_documents_evaluated', 0)
+                avg_score = avg_before.get('model_all_documents_avg_score', 0)
+                max_score = avg_before.get('model_all_documents_max_score', 0)
+                min_score = avg_before.get('model_all_documents_min_score', 0)
+                std_score = avg_before.get('model_all_documents_std_score', 0)
+                
+                st.metric("📊 Documentos Evaluados", f"{total_docs:,}" if total_docs else "N/A")
+                st.metric("📈 Score Promedio", f"{avg_score:.3f}" if avg_score else "N/A")
+                st.metric("🔝 Score Máximo", f"{max_score:.3f}" if max_score else "N/A")
+                st.metric("🔻 Score Mínimo", f"{min_score:.3f}" if min_score else "N/A")
+                st.metric("📏 Desviación Estándar", f"{std_score:.3f}" if std_score else "N/A")
+            else:
+                st.info("ℹ️ Estadísticas de cosine similarity no disponibles en este resultado")
+        
+        with col2:
+            st.markdown("##### 🧠 CrossEncoder Scores")
+            if has_after_scores and use_llm_reranker:
+                # Display CrossEncoder statistics
+                total_reranked = avg_after.get('model_total_documents_reranked', 0)
+                avg_ce_score = avg_after.get('model_all_documents_avg_crossencoder_score', 0)
+                max_ce_score = avg_after.get('model_all_documents_max_crossencoder_score', 0)
+                min_ce_score = avg_after.get('model_all_documents_min_crossencoder_score', 0)
+                avg_per_question = avg_after.get('model_avg_documents_reranked_per_question', 0)
+                
+                st.metric("🔄 Documentos Rerankeados", f"{total_reranked:,}" if total_reranked else "N/A")
+                st.metric("📈 CE Score Promedio", f"{avg_ce_score:.3f}" if avg_ce_score else "N/A")
+                st.metric("🔝 CE Score Máximo", f"{max_ce_score:.3f}" if max_ce_score else "N/A")
+                st.metric("🔻 CE Score Mínimo", f"{min_ce_score:.3f}" if min_ce_score else "N/A")
+                st.metric("📊 Promedio por Pregunta", f"{avg_per_question:.1f}" if avg_per_question else "N/A")
+            else:
+                if use_llm_reranker:
+                    st.info("ℹ️ Estadísticas de CrossEncoder no disponibles en este resultado")
+                else:
+                    st.info("ℹ️ CrossEncoder no se utilizó en esta evaluación")
+    else:
+        st.info("ℹ️ Las estadísticas de scores a nivel de modelo no están disponibles en este resultado. Esto indica que se usó una versión anterior del notebook de evaluación.")
+
+
+def display_document_score_analysis(results: Dict[str, Any], use_llm_reranker: bool, model_name: str, reranking_method: str):
+    """Display detailed document-level score analysis from individual metrics"""
+    
+    st.subheader("📄 Análisis de Scores por Documento")
+    
+    # Get individual metrics
+    individual_before = results.get('individual_before_metrics', [])
+    individual_after = results.get('individual_after_metrics', []) if use_llm_reranker else []
+    
+    # Check if we have document scores in the individual metrics
+    has_document_scores_before = any('document_scores' in metrics for metrics in individual_before)
+    has_document_scores_after = any('document_scores' in metrics for metrics in individual_after)
+    
+    if has_document_scores_before or has_document_scores_after:
+        st.success("✅ Datos de scores por documento encontrados en los resultados")
+        
+        # Analysis tabs
+        tab1, tab2, tab3 = st.tabs(["📊 Distribución de Scores", "📈 Análisis por Pregunta", "🔍 Top Documentos"])
+        
+        with tab1:
+            display_score_distribution_analysis(individual_before, individual_after, use_llm_reranker, reranking_method)
+        
+        with tab2:
+            display_question_level_score_analysis(individual_before, individual_after, use_llm_reranker, reranking_method)
+        
+        with tab3:
+            display_top_documents_analysis(individual_before, individual_after, use_llm_reranker, model_name)
+            
+    else:
+        st.info("ℹ️ Los scores por documento no están disponibles en este resultado. Para obtener esta información detallada, utiliza la versión enhanced del notebook de evaluación.")
+
+
+def display_score_distribution_analysis(individual_before: List[Dict], individual_after: List[Dict], use_llm_reranker: bool, reranking_method: str):
+    """Display score distribution analysis"""
+    
+    st.markdown("#### 📊 Distribución de Scores")
+    
+    # NEW: Add candlestick chart for document scores across all questions
+    display_document_scores_candlestick(individual_before, individual_after, use_llm_reranker, reranking_method)
+    
+    # Extract all document scores
+    all_cosine_scores = []
+    all_crossencoder_scores = []
+    
+    # Extract scores from before metrics
+    for question_metrics in individual_before:
+        if 'document_scores' in question_metrics:
+            doc_scores = question_metrics['document_scores']
+            cosine_scores = [doc['cosine_similarity'] for doc in doc_scores]
+            all_cosine_scores.extend(cosine_scores)
+    
+    # Extract CrossEncoder scores from after metrics
+    if use_llm_reranker and individual_after:
+        for question_metrics in individual_after:
+            if 'document_scores' in question_metrics:
+                doc_scores = question_metrics['document_scores']
+                ce_scores = [doc.get('crossencoder_score') for doc in doc_scores if 'crossencoder_score' in doc]
+                all_crossencoder_scores.extend([s for s in ce_scores if s is not None])
+    
+    if all_cosine_scores:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("##### 🔍 Cosine Similarity Distribution")
+            
+            # Create histogram
+            fig = px.histogram(
+                x=all_cosine_scores,
+                title="Distribución de Cosine Similarity Scores",
+                labels={'x': 'Cosine Similarity Score', 'y': 'Frecuencia'},
+                nbins=20
+            )
+            fig.update_layout(height=400)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Statistics
+            st.markdown("**📈 Estadísticas:**")
+            st.write(f"• Total documentos: {len(all_cosine_scores):,}")
+            st.write(f"• Score promedio: {np.mean(all_cosine_scores):.3f}")
+            st.write(f"• Score máximo: {np.max(all_cosine_scores):.3f}")
+            st.write(f"• Score mínimo: {np.min(all_cosine_scores):.3f}")
+            st.write(f"• Desviación estándar: {np.std(all_cosine_scores):.3f}")
+        
+        with col2:
+            if all_crossencoder_scores and use_llm_reranker:
+                st.markdown("##### 🧠 CrossEncoder Score Distribution")
+                
+                # Create histogram
+                fig = px.histogram(
+                    x=all_crossencoder_scores,
+                    title="Distribución de CrossEncoder Scores",
+                    labels={'x': 'CrossEncoder Score', 'y': 'Frecuencia'},
+                    nbins=20
+                )
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Statistics
+                st.markdown("**📈 Estadísticas:**")
+                st.write(f"• Total documentos rerankeados: {len(all_crossencoder_scores):,}")
+                st.write(f"• Score promedio: {np.mean(all_crossencoder_scores):.3f}")
+                st.write(f"• Score máximo: {np.max(all_crossencoder_scores):.3f}")
+                st.write(f"• Score mínimo: {np.min(all_crossencoder_scores):.3f}")
+                st.write(f"• Desviación estándar: {np.std(all_crossencoder_scores):.3f}")
+            else:
+                st.info("ℹ️ CrossEncoder scores no disponibles o reranking no utilizado")
+
+
+def display_question_level_score_analysis(individual_before: List[Dict], individual_after: List[Dict], use_llm_reranker: bool, reranking_method: str):
+    """Display question-level score analysis"""
+    
+    st.markdown("#### 📈 Análisis por Pregunta")
+    
+    # Prepare question-level data
+    question_data = []
+    
+    for i, question_metrics in enumerate(individual_before):
+        question_text = question_metrics.get('original_question', f'Pregunta {i+1}')
+        
+        # Get question-level score statistics
+        row = {
+            'Pregunta': i + 1,
+            'Texto': question_text[:100] + "..." if len(question_text) > 100 else question_text,
+        }
+        
+        # Before metrics (cosine similarity)
+        if 'question_avg_score' in question_metrics:
+            row['Avg Score (Cosine)'] = f"{question_metrics['question_avg_score']:.3f}"
+            row['Max Score (Cosine)'] = f"{question_metrics.get('question_max_score', 0):.3f}"
+            row['Min Score (Cosine)'] = f"{question_metrics.get('question_min_score', 0):.3f}"
+        
+        # After metrics (CrossEncoder) if available
+        if use_llm_reranker and i < len(individual_after):
+            after_metrics = individual_after[i]
+            if 'question_avg_crossencoder_score' in after_metrics:
+                row['Avg Score (CrossEncoder)'] = f"{after_metrics['question_avg_crossencoder_score']:.3f}"
+                row['Max Score (CrossEncoder)'] = f"{after_metrics.get('question_max_crossencoder_score', 0):.3f}"
+                row['Min Score (CrossEncoder)'] = f"{after_metrics.get('question_min_crossencoder_score', 0):.3f}"
+        
+        # Reranking info
+        docs_reranked = question_metrics.get('documents_reranked', 0)
+        row['Docs Rerankeados'] = docs_reranked
+        
+        question_data.append(row)
+    
+    if question_data:
+        # Display as table
+        df = pd.DataFrame(question_data)
+        st.dataframe(df, use_container_width=True, height=400)
+        
+        # Question-level score trends
+        if len(question_data) > 1:
+            st.markdown("##### 📊 Tendencias de Scores por Pregunta")
+            
+            # Extract numeric scores for plotting
+            question_numbers = [row['Pregunta'] for row in question_data]
+            cosine_avgs = []
+            crossencoder_avgs = []
+            
+            for row in question_data:
+                if 'Avg Score (Cosine)' in row:
+                    cosine_avgs.append(float(row['Avg Score (Cosine)']))
+                if 'Avg Score (CrossEncoder)' in row:
+                    crossencoder_avgs.append(float(row['Avg Score (CrossEncoder)']))
+            
+            # Create line chart
+            fig = go.Figure()
+            
+            if cosine_avgs:
+                fig.add_trace(go.Scatter(
+                    x=question_numbers,
+                    y=cosine_avgs,
+                    mode='lines+markers',
+                    name='Cosine Similarity Avg',
+                    line=dict(color='blue')
+                ))
+            
+            if crossencoder_avgs:
+                fig.add_trace(go.Scatter(
+                    x=question_numbers[:len(crossencoder_avgs)],
+                    y=crossencoder_avgs,
+                    mode='lines+markers',
+                    name='CrossEncoder Avg',
+                    line=dict(color='red')
+                ))
+            
+            fig.update_layout(
+                title="Scores Promedio por Pregunta",
+                xaxis_title="Número de Pregunta",
+                yaxis_title="Score Promedio",
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("ℹ️ No se encontraron estadísticas por pregunta en los resultados")
+
+
+def display_top_documents_analysis(individual_before: List[Dict], individual_after: List[Dict], use_llm_reranker: bool, model_name: str):
+    """Display analysis of top-scoring documents"""
+    
+    st.markdown("#### 🔍 Análisis de Top Documentos")
+    
+    # Collect all documents with their scores
+    all_docs_with_scores = []
+    
+    for q_idx, question_metrics in enumerate(individual_before):
+        if 'document_scores' in question_metrics:
+            doc_scores = question_metrics['document_scores']
+            question_text = question_metrics.get('original_question', f'Pregunta {q_idx+1}')
+            
+            for doc in doc_scores:
+                doc_info = {
+                    'question_number': q_idx + 1,
+                    'question_text': question_text,
+                    'rank': doc.get('rank', 0),
+                    'cosine_similarity': doc.get('cosine_similarity', 0),
+                    'title': doc.get('title', 'Sin título'),
+                    'link': doc.get('link', ''),
+                    'relevant': doc.get('relevant', False),
+                    'reranked': doc.get('reranked', False)
+                }
+                
+                # Add CrossEncoder score if available
+                if 'crossencoder_score' in doc:
+                    doc_info['crossencoder_score'] = doc['crossencoder_score']
+                
+                all_docs_with_scores.append(doc_info)
+    
+    if all_docs_with_scores:
+        # Top documents by cosine similarity
+        st.markdown("##### 🔝 Top 10 Documentos por Cosine Similarity")
+        
+        top_cosine_docs = sorted(all_docs_with_scores, key=lambda x: x['cosine_similarity'], reverse=True)[:10]
+        
+        cosine_table_data = []
+        for i, doc in enumerate(top_cosine_docs, 1):
+            cosine_table_data.append({
+                'Rank': i,
+                'Pregunta': doc['question_number'],
+                'Cosine Score': f"{doc['cosine_similarity']:.3f}",
+                'Título': doc['title'][:80] + "..." if len(doc['title']) > 80 else doc['title'],
+                'Relevante': "✅" if doc['relevant'] else "❌",
+                'Rerankeado': "🔄" if doc['reranked'] else "➖"
+            })
+        
+        df_cosine = pd.DataFrame(cosine_table_data)
+        st.dataframe(df_cosine, use_container_width=True)
+        
+        # Top documents by CrossEncoder if available
+        if use_llm_reranker:
+            crossencoder_docs = [doc for doc in all_docs_with_scores if 'crossencoder_score' in doc]
+            if crossencoder_docs:
+                st.markdown("##### 🧠 Top 10 Documentos por CrossEncoder Score")
+                
+                top_ce_docs = sorted(crossencoder_docs, key=lambda x: x['crossencoder_score'], reverse=True)[:10]
+                
+                ce_table_data = []
+                for i, doc in enumerate(top_ce_docs, 1):
+                    ce_table_data.append({
+                        'Rank': i,
+                        'Pregunta': doc['question_number'],
+                        'CrossEncoder Score': f"{doc['crossencoder_score']:.3f}",
+                        'Cosine Score': f"{doc['cosine_similarity']:.3f}",
+                        'Título': doc['title'][:80] + "..." if len(doc['title']) > 80 else doc['title'],
+                        'Relevante': "✅" if doc['relevant'] else "❌"
+                    })
+                
+                df_ce = pd.DataFrame(ce_table_data)
+                st.dataframe(df_ce, use_container_width=True)
+        
+        # Score correlation analysis
+        if use_llm_reranker:
+            ce_docs = [doc for doc in all_docs_with_scores if 'crossencoder_score' in doc]
+            if len(ce_docs) > 5:
+                st.markdown("##### 📊 Correlación entre Cosine Similarity y CrossEncoder")
+                
+                cosine_scores = [doc['cosine_similarity'] for doc in ce_docs]
+                ce_scores = [doc['crossencoder_score'] for doc in ce_docs]
+                
+                # Create scatter plot
+                fig = px.scatter(
+                    x=cosine_scores,
+                    y=ce_scores,
+                    title="Correlación: Cosine Similarity vs CrossEncoder Score",
+                    labels={'x': 'Cosine Similarity', 'y': 'CrossEncoder Score'},
+                    hover_data={'Documento': [doc['title'][:50] for doc in ce_docs]}
+                )
+                
+                # Add trend line
+                import numpy as np
+                z = np.polyfit(cosine_scores, ce_scores, 1)
+                p = np.poly1d(z)
+                fig.add_trace(go.Scatter(x=cosine_scores, y=p(cosine_scores), mode='lines', name='Tendencia'))
+                
+                fig.update_layout(height=400)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Calculate correlation coefficient
+                correlation = np.corrcoef(cosine_scores, ce_scores)[0, 1]
+                st.metric("📈 Coeficiente de Correlación", f"{correlation:.3f}")
+                
+                if correlation > 0.7:
+                    st.success("🎯 Alta correlación positiva - Los métodos de scoring son consistentes")
+                elif correlation > 0.4:
+                    st.info("📊 Correlación moderada - Los métodos de scoring se complementan")
+                else:
+                    st.warning("⚠️ Baja correlación - Los métodos de scoring evalúan aspectos diferentes")
+    else:
+        st.info("ℹ️ No se encontraron datos de documentos individuales en los resultados")
+
+
+def display_multi_model_scoring_analysis(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, reranking_method: str):
+    """Display scoring analysis across multiple models"""
+    
+    st.subheader("🏆 Análisis de Scoring Multi-Modelo")
+    
+    # Collect model-level scoring statistics
+    model_stats = []
+    
+    for model_name, model_results in results.items():
+        before_metrics = model_results.get('avg_before_metrics', {})
+        after_metrics = model_results.get('avg_after_metrics', {})
+        
+        stats = {'Modelo': model_name}
+        
+        # Cosine similarity statistics
+        stats['Docs Evaluados'] = before_metrics.get('model_total_documents_evaluated', 0)
+        stats['Avg Cosine Score'] = before_metrics.get('model_all_documents_avg_score', 0)
+        stats['Max Cosine Score'] = before_metrics.get('model_all_documents_max_score', 0)
+        stats['Std Cosine Score'] = before_metrics.get('model_all_documents_std_score', 0)
+        
+        # CrossEncoder statistics if available
+        if use_llm_reranker and after_metrics:
+            stats['Docs Rerankeados'] = after_metrics.get('model_total_documents_reranked', 0)
+            stats['Avg CE Score'] = after_metrics.get('model_all_documents_avg_crossencoder_score', 0)
+            stats['Max CE Score'] = after_metrics.get('model_all_documents_max_crossencoder_score', 0)
+        
+        model_stats.append(stats)
+    
+    # Check if we have scoring statistics
+    has_scoring_stats = any(stat['Docs Evaluados'] > 0 for stat in model_stats)
+    
+    if has_scoring_stats:
+        st.success("✅ Estadísticas de scoring encontradas para comparación multi-modelo")
+        
+        # Model comparison table
+        st.markdown("#### 📊 Comparación de Estadísticas de Scoring")
+        
+        df_stats = pd.DataFrame(model_stats)
+        
+        # Format numeric columns
+        numeric_cols = ['Docs Evaluados', 'Avg Cosine Score', 'Max Cosine Score', 'Std Cosine Score']
+        if use_llm_reranker:
+            numeric_cols.extend(['Docs Rerankeados', 'Avg CE Score', 'Max CE Score'])
+        
+        for col in numeric_cols:
+            if col in df_stats.columns:
+                if 'Score' in col:
+                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:.3f}" if x > 0 else "N/A")
+                elif 'Docs' in col:
+                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:,}" if x > 0 else "N/A")
+        
+        st.dataframe(df_stats, use_container_width=True)
+        
+        # Single unified score comparison chart
+        if len(model_stats) > 1:
+            st.markdown("#### 📈 Comparación de Scores por Modelo")
+            
+            # Prepare data for unified comparison
+            models = [stat['Modelo'] for stat in model_stats]
+            cosine_scores = [float(stat['Avg Cosine Score']) if stat['Avg Cosine Score'] != "N/A" else 0 for stat in model_stats]
+            
+            chart_data = []
+            for i, model in enumerate(models):
+                chart_data.append({
+                    'Modelo': model,
+                    'Score': cosine_scores[i],
+                    'Tipo': 'Pre-Reranking (Cosine)'
+                })
+            
+            # Add CrossEncoder scores if available
+            if use_llm_reranker:
+                for stat in model_stats:
+                    if stat.get('Avg CE Score', "N/A") != "N/A":
+                        chart_data.append({
+                            'Modelo': stat['Modelo'],
+                            'Score': float(stat['Avg CE Score']),
+                            'Tipo': 'Post-Reranking (CrossEncoder)'
+                        })
+            
+            if chart_data:
+                df_chart = pd.DataFrame(chart_data)
+                
+                # Create side-by-side comparison with different colors
+                fig = px.bar(
+                    df_chart,
+                    x='Modelo',
+                    y='Score',
+                    color='Tipo',
+                    barmode='group',
+                    title="Comparación de Scores: Pre vs Post Reranking por Modelo",
+                    labels={'Score': 'Score Value', 'Tipo': 'Método de Scoring'},
+                    color_discrete_map={
+                        'Pre-Reranking (Cosine)': '#3498db',      # Blue for before
+                        'Post-Reranking (CrossEncoder)': '#e74c3c' # Red for after
+                    }
+                )
+                fig.update_layout(height=500)
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("ℹ️ No hay datos de scores disponibles para comparación")
+    else:
+        st.info("ℹ️ Las estadísticas de scoring detalladas no están disponibles en estos resultados. Utiliza la versión enhanced del notebook para obtener esta información.")
+
+
+def display_document_scores_candlestick(individual_before: List[Dict], individual_after: List[Dict], use_llm_reranker: bool, reranking_method: str):
+    """Display candlestick chart showing document score ranges across all questions"""
+    
+    st.markdown("##### 🕯️ Gráfico de Velas: Rangos de Scores por Pregunta")
+    
+    # Collect score statistics for each question
+    question_stats = []
+    
+    for i, question_metrics in enumerate(individual_before):
+        if 'document_scores' in question_metrics:
+            doc_scores = question_metrics['document_scores']
+            cosine_scores = [doc['cosine_similarity'] for doc in doc_scores]
+            
+            if cosine_scores:
+                stats = {
+                    'Pregunta': i + 1,
+                    'Open': cosine_scores[0],     # First document score
+                    'High': max(cosine_scores),   # Highest score
+                    'Low': min(cosine_scores),    # Lowest score
+                    'Close': cosine_scores[-1],  # Last document score
+                    'Tipo': 'Cosine Similarity'
+                }
+                question_stats.append(stats)
+    
+    # Add CrossEncoder stats if available
+    if use_llm_reranker and individual_after:
+        for i, question_metrics in enumerate(individual_after):
+            if 'document_scores' in question_metrics and i < len(question_stats):
+                doc_scores = question_metrics['document_scores']
+                ce_scores = [doc.get('crossencoder_score') for doc in doc_scores if 'crossencoder_score' in doc]
+                ce_scores = [s for s in ce_scores if s is not None]
+                
+                if ce_scores:
+                    stats = {
+                        'Pregunta': i + 1,
+                        'Open': ce_scores[0],      # First document score
+                        'High': max(ce_scores),    # Highest score
+                        'Low': min(ce_scores),     # Lowest score
+                        'Close': ce_scores[-1],   # Last document score
+                        'Tipo': 'CrossEncoder'
+                    }
+                    question_stats.append(stats)
+    
+    if question_stats:
+        df_candlestick = pd.DataFrame(question_stats)
+        
+        # Create candlestick chart using go.Candlestick
+        fig = go.Figure()
+        
+        # Add cosine similarity candlesticks
+        cosine_data = df_candlestick[df_candlestick['Tipo'] == 'Cosine Similarity']
+        if not cosine_data.empty:
+            fig.add_trace(go.Candlestick(
+                x=cosine_data['Pregunta'],
+                open=cosine_data['Open'],
+                high=cosine_data['High'],
+                low=cosine_data['Low'],
+                close=cosine_data['Close'],
+                name='Cosine Similarity',
+                increasing_line_color='#2E86AB',  # Blue for increasing
+                decreasing_line_color='#A23B72',  # Purple for decreasing
+                showlegend=True
+            ))
+        
+        # Add CrossEncoder candlesticks if available
+        if use_llm_reranker:
+            ce_data = df_candlestick[df_candlestick['Tipo'] == 'CrossEncoder']
+            if not ce_data.empty:
+                fig.add_trace(go.Candlestick(
+                    x=ce_data['Pregunta'] + 0.3,  # Offset slightly for visibility
+                    open=ce_data['Open'],
+                    high=ce_data['High'],
+                    low=ce_data['Low'],
+                    close=ce_data['Close'],
+                    name='CrossEncoder',
+                    increasing_line_color='#F18F01',  # Orange for increasing
+                    decreasing_line_color='#C73E1D',  # Red for decreasing
+                    showlegend=True
+                ))
+        
+        fig.update_layout(
+            title="Distribución de Scores por Pregunta (Gráfico de Velas)",
+            xaxis_title="Número de Pregunta",
+            yaxis_title="Score Range",
+            height=500,
+            xaxis=dict(type='category'),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Add explanation
+        with st.expander("📖 Explicación del Gráfico de Velas"):
+            st.markdown("""
+            **Interpretación del Gráfico de Velas:**
+            
+            - **Apertura (Open)**: Score del primer documento en el ranking
+            - **Máximo (High)**: Score más alto entre todos los documentos de la pregunta
+            - **Mínimo (Low)**: Score más bajo entre todos los documentos de la pregunta  
+            - **Cierre (Close)**: Score del último documento en el ranking
+            
+            **Colores:**
+            - **Azul/Naranja**: Cuando el score de cierre > score de apertura (mejora en el ranking)
+            - **Púrpura/Rojo**: Cuando el score de cierre < score de apertura (declive en el ranking)
+            
+            **Interpretación:**
+            - **Velas altas**: Gran variabilidad de scores entre documentos
+            - **Velas cortas**: Scores similares entre documentos
+            - **Comparación**: Cosine Similarity vs CrossEncoder para cada pregunta
+            """)
+    else:
+        st.info("ℹ️ No se encontraron datos de scores por documento para crear el gráfico de velas")
