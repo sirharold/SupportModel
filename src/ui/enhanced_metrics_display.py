@@ -11,28 +11,49 @@ import numpy as np
 from typing import Dict, Any, List
 
 
+def get_reranking_labels(reranking_method: str = 'standard'):
+    """Get before/after labels based on reranking method"""
+    if reranking_method == 'crossencoder':
+        return {
+            'before': 'Antes CrossEncoder',
+            'after': 'Después CrossEncoder',
+            'before_short': 'Antes CE',
+            'after_short': 'Después CE'
+        }
+    else:
+        return {
+            'before': 'Antes LLM',
+            'after': 'Después LLM', 
+            'before_short': 'Antes LLM',
+            'after_short': 'Después LLM'
+        }
+
+
 def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str, use_llm_reranker: bool, config: Dict = None):
     """
-    Enhanced display for cumulative metrics with clear before/after LLM sections
+    Enhanced display for cumulative metrics with clear before/after reranking sections
     """
     num_questions = results['num_questions_evaluated']
     avg_before = results['avg_before_metrics']
     avg_after = results.get('avg_after_metrics', {})
     
+    # Determine reranking method from config
+    reranking_method = config.get('reranking_method', 'standard') if config else 'standard'
+    
     st.success(f"✅ Evaluación completada para {num_questions} preguntas con modelo {model_name}")
     
     # Main metrics overview
-    display_main_metrics_overview(avg_before, avg_after, use_llm_reranker)
+    display_main_metrics_overview(avg_before, avg_after, use_llm_reranker, reranking_method)
     
-    # Before/After LLM comparison section
+    # Before/After reranking comparison section
     if use_llm_reranker and avg_after:
-        display_before_after_comparison(avg_before, avg_after)
+        display_before_after_comparison(avg_before, avg_after, reranking_method)
     
     # Metrics by K values section
-    display_metrics_by_k_values(avg_before, avg_after, use_llm_reranker)
+    display_metrics_by_k_values(avg_before, avg_after, use_llm_reranker, reranking_method)
     
     # Performance visualization
-    display_performance_charts(avg_before, avg_after, use_llm_reranker, model_name)
+    display_performance_charts(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
 
     # New section: RAG Metrics Summary (for single model, adapt results structure)
     # Create a dummy results dict for display_rag_metrics_summary
@@ -40,7 +61,7 @@ def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str
     display_rag_metrics_summary(single_model_results_for_rag, use_llm_reranker, config)
 
 
-def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool):
+def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, reranking_method: str = 'standard'):
     """Display main metrics overview with key performance indicators"""
     
     st.subheader("📊 Resumen de Métricas Principales")
@@ -48,12 +69,22 @@ def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_rer
     # Select key metrics to highlight (updated with new metrics)
     key_metrics = ['precision@5', 'recall@5', 'f1@5', 'ndcg@5', 'map@5', 'mrr']
     
+    # Determine display names based on reranking method
+    if reranking_method == 'crossencoder':
+        before_title = "🔍 Antes de usar CrossEncoder"
+        after_title = "🧠 Después de usar CrossEncoder"
+        help_suffix = "CrossEncoder"
+    else:
+        before_title = "🔍 Antes del LLM Reranking"
+        after_title = "🤖 Después del LLM Reranking"
+        help_suffix = "LLM reranking"
+    
     if use_llm_reranker and avg_after:
         # Show before and after side by side
         col1, col2 = st.columns(2)
         
         with col1:
-            st.markdown("#### 🔍 Antes del LLM Reranking")
+            st.markdown(f"#### {before_title}")
             for metric in key_metrics:
                 if metric in avg_before:
                     value = avg_before[metric]
@@ -64,7 +95,7 @@ def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_rer
                     )
         
         with col2:
-            st.markdown("#### 🤖 Después del LLM Reranking")
+            st.markdown(f"#### {after_title}")
             for metric in key_metrics:
                 if metric in avg_after:
                     after_value = avg_after[metric]
@@ -75,7 +106,7 @@ def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_rer
                         label=metric.upper().replace('@', ' @ '),
                         value=f"{after_value:.3f}",
                         delta=f"{delta:+.3f}",
-                        help=f"Valor después del LLM reranking. Delta vs embedding-only: {delta:+.3f}"
+                        help=f"Valor después del {help_suffix}. Delta vs embedding-only: {delta:+.3f}"
                     )
     else:
         # Show only before metrics
@@ -94,14 +125,25 @@ def display_main_metrics_overview(avg_before: Dict, avg_after: Dict, use_llm_rer
                     )
 
 
-def display_before_after_comparison(avg_before: Dict, avg_after: Dict):
-    """Display dedicated before/after LLM comparison section"""
+def display_before_after_comparison(avg_before: Dict, avg_after: Dict, reranking_method: str = 'standard'):
+    """Display dedicated before/after reranking comparison section"""
     
-    st.subheader("🔄 Comparación: Antes vs Después del LLM Reranking")
+    # Determine title based on reranking method
+    if reranking_method == 'crossencoder':
+        title = "🔄 Comparación: Antes vs Después de usar CrossEncoder"
+    else:
+        title = "🔄 Comparación: Antes vs Después del LLM Reranking"
     
-    # Prepare comparison data
+    st.subheader(title)
+    
+    # Prepare comparison data with dynamic column names
     comparison_data = []
     metrics_to_compare = ['precision@5', 'recall@5', 'f1@5', 'map@5', 'mrr', 'ndcg@5']  # MRR is a single value, not per-K
+    
+    # Get labels based on reranking method
+    labels = get_reranking_labels(reranking_method)
+    before_col = labels['before']
+    after_col = labels['after']
     
     for metric in metrics_to_compare:
         if metric in avg_before and metric in avg_after:
@@ -112,8 +154,8 @@ def display_before_after_comparison(avg_before: Dict, avg_after: Dict):
             
             comparison_data.append({
                 'Métrica': metric.upper().replace('@', ' @ '),
-                'Antes LLM': f"{before_val:.3f}",
-                'Después LLM': f"{after_val:.3f}",
+                before_col: f"{before_val:.3f}",
+                after_col: f"{after_val:.3f}",
                 'Mejora Absoluta': f"{improvement:+.3f}",
                 'Mejora %': f"{improvement_pct:+.1f}%",
                 'Estado': get_improvement_status(improvement)
@@ -144,7 +186,7 @@ def display_before_after_comparison(avg_before: Dict, avg_after: Dict):
             st.warning(f"⚠️ LLM Reranking solo mejoró {positive_improvements}/{len(improvements)} métricas")
 
 
-def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool):
+def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, reranking_method: str = 'standard'):
     """Display metrics organized by K values in 2x3 matrix format with charts and table"""
     
     st.subheader("📈 Métricas por Valores de K")
@@ -332,7 +374,7 @@ def display_k_metrics_table(avg_before: Dict, avg_after: Dict, k: int, metric_ty
         st.dataframe(df_table, use_container_width=True)
 
 
-def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str):
+def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard'):
     """Display comprehensive performance visualization"""
     
     st.subheader("📈 Visualización de Rendimiento")
@@ -387,6 +429,9 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
 
 def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """Enhanced comparison visualization for multiple models"""
+    
+    # Determine reranking method from config
+    reranking_method = config.get('reranking_method', 'standard') if config else 'standard'
     
     st.subheader("🏆 Comparación Avanzada Entre Modelos")
     

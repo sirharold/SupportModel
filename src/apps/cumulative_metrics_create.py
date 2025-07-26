@@ -87,12 +87,21 @@ def show_cumulative_metrics_create_page():
             help="Número máximo de documentos a recuperar"
         )
         
-        # Usar reranking LLM
-        use_llm_reranker = st.checkbox(
-            "🤖 Usar Reranking LLM",
-            value=True,
-            help="Activar reordenamiento de documentos con LLM"
+        # Método de reranking
+        reranking_method = st.selectbox(
+            "🔄 Método de Reranking:",
+            options=["crossencoder", "standard", "none"],
+            index=0,  # CrossEncoder por defecto
+            format_func=lambda x: {
+                "crossencoder": "🧠 CrossEncoder (Recomendado)",
+                "standard": "📊 Reranking Estándar",
+                "none": "❌ Sin Reranking"
+            }[x],
+            help="Método de reranking: CrossEncoder usa ms-marco-MiniLM-L-6-v2 para mejor calidad"
         )
+        
+        # Mantener compatibilidad hacia atrás
+        use_llm_reranker = reranking_method != "none"
         
         # NUEVO: Generar métricas RAG
         generate_rag_metrics = st.checkbox(
@@ -148,7 +157,7 @@ def show_cumulative_metrics_create_page():
             st.markdown("**⚙️ Configuración:**")
             st.write(f"• Preguntas: {num_questions:,}")
             st.write(f"• Top-K: {top_k}")
-            st.write(f"• LLM Reranking: {'✅' if use_llm_reranker else '❌'}")
+            st.write(f"• Reranking: {reranking_method}")
             st.write(f"• Métricas RAG: {'✅' if generate_rag_metrics else '❌'}")
             st.write(f"• Lote: {batch_size}")
         else:
@@ -183,7 +192,8 @@ def show_cumulative_metrics_create_page():
             'selected_models': selected_models,
             'generative_model_name': generative_model_name,
             'top_k': top_k,
-            'use_llm_reranker': use_llm_reranker,
+            'use_llm_reranker': use_llm_reranker,  # Compatibilidad hacia atrás
+            'reranking_method': reranking_method,  # Nuevo campo
             'generate_rag_metrics': generate_rag_metrics,
             'batch_size': batch_size,
             'evaluate_all_models': evaluate_all_models,
@@ -204,6 +214,7 @@ def show_cumulative_metrics_create_page():
                 'selected_models': selected_models,
                 'generative_model': generative_model_name,
                 'top_k': top_k,
+                'reranking_method': reranking_method,
                 'llm_reranker': use_llm_reranker,
                 'rag_metrics': generate_rag_metrics,
                 'batch_size': batch_size
