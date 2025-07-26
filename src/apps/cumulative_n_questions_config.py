@@ -21,12 +21,14 @@ from src.apps.cumulative_metrics_page import display_current_colab_status
 
 
 def load_questions_for_config(num_questions: int):
-    """Cargar N preguntas aleatorias desde ChromaDB."""
+    """Cargar N preguntas aleatorias desde ChromaDB que tengan links presentes en la colección de documentos."""
     import random
+    import re
+    from urllib.parse import urlparse, urlunparse
     from src.services.storage.chromadb_utils import ChromaDBConfig, get_chromadb_client
     
     try:
-        st.info(f"🔍 Buscando {num_questions} preguntas aleatorias en ChromaDB...")
+        st.info(f"🔍 Buscando {num_questions} preguntas con links válidos en ChromaDB...")
         
         # Conectar a ChromaDB usando la configuración del sistema
         try:
@@ -38,76 +40,108 @@ def load_questions_for_config(num_questions: int):
             st.error(f"❌ Error conectando a ChromaDB: {e}")
             return []
         
-        # Usar la colección seleccionada desde session_state
+        # Función para normalizar URLs (quita query params y anchors)
+        def normalize_link(url):
+            try:
+                parsed = urlparse(url)
+                normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, '', '', ''))
+                return normalized.rstrip('/')
+            except:
+                return None
+        
+        # Obtener links de la colección de documentos
         try:
             if 'selected_question_collection' not in st.session_state:
                 st.error("❌ No se ha seleccionado una colección de preguntas")
                 return []
             
+            # Determinar colección de documentos basada en la colección de preguntas
             collection_name = st.session_state.selected_question_collection
-            collection = client.get_collection(name=collection_name)
-            total_docs = collection.count()
+            docs_collection_name = collection_name.replace('questions_', 'docs_')
             
-            st.info(f"📊 Usando colección '{collection_name}' con {total_docs:,} preguntas")
+            st.info(f"📊 Obteniendo links de colección '{docs_collection_name}'...")
+            docs_collection = client.get_collection(name=docs_collection_name)
+            docs_metadatas = docs_collection.get(include=["metadatas"], limit=200000)["metadatas"]
+            
+            doc_links = set()
+            for meta in docs_metadatas:
+                link = meta.get("link")
+                if link:
+                    normalized = normalize_link(link)
+                    if normalized:
+                        doc_links.add(normalized)
+            
+            st.success(f"✅ Obtenidos {len(doc_links):,} links únicos de documentos")
             
         except Exception as e:
-            st.error(f"❌ Error accediendo a colección '{collection_name}': {e}")
+            st.error(f"❌ Error accediendo a colección de documentos '{docs_collection_name}': {e}")
             return []
         
-        # Obtener preguntas aleatorias
+        # Obtener y filtrar preguntas con links válidos
         try:
-            # Obtener todos los IDs
-            all_results = collection.get()
-            all_ids = all_results['ids']
+            questions_collection = client.get_collection(name=collection_name)
+            total_questions = questions_collection.count()
             
-            if len(all_ids) < num_questions:
-                st.warning(f"⚠️ Solo hay {len(all_ids)} preguntas disponibles, ajustando cantidad...")
-                num_questions = len(all_ids)
+            st.info(f"📊 Filtrando preguntas de '{collection_name}' ({total_questions:,} total)...")
             
-            # Seleccionar IDs aleatorios
+            # Obtener todas las preguntas para filtrar
+            all_questions = questions_collection.get(include=["metadatas"], limit=15000)["metadatas"]
+            matched_questions = []
+            
+            progress_bar = st.progress(0)
+            for i, meta in enumerate(all_questions):
+                if i % 100 == 0:
+                    progress_bar.progress(i / len(all_questions))
+                
+                accepted_answer = meta.get("accepted_answer", "")
+                if "http" in accepted_answer:
+                    urls = re.findall(r'https?://[^\s\)\]]+', accepted_answer)
+                    for url in urls:
+                        norm_url = normalize_link(url)
+                        if norm_url and norm_url in doc_links:
+                            matched_questions.append(meta)
+                            break  # basta con una coincidencia por pregunta
+            
+            progress_bar.progress(1.0)
+            st.success(f"✅ Encontradas {len(matched_questions):,} preguntas con links válidos")
+            
+            if len(matched_questions) < num_questions:
+                st.warning(f"⚠️ Solo hay {len(matched_questions)} preguntas con links válidos, ajustando cantidad...")
+                num_questions = len(matched_questions)
+            
+            # Seleccionar aleatoriamente del subconjunto filtrado
             random.seed(42)  # Seed fijo para reproducibilidad
-            selected_ids = random.sample(all_ids, num_questions)
-            
-            # Obtener datos de las preguntas seleccionadas
-            selected_results = collection.get(ids=selected_ids)
-            
-            st.success(f"✅ Obtenidos {len(selected_results['ids'])} documentos aleatorios")
+            selected_questions = random.sample(matched_questions, num_questions)
             
         except Exception as e:
-            st.error(f"❌ Error obteniendo preguntas aleatorias: {e}")
+            st.error(f"❌ Error filtrando preguntas: {e}")
             return []
         
         # Procesar preguntas al formato esperado
         questions_data = []
         
-        for i in range(len(selected_results['ids'])):
+        for i, metadata in enumerate(selected_questions):
             try:
-                metadata = selected_results['metadatas'][i]
-                document = selected_results['documents'][i]
-                
-                # Extraer información de la pregunta desde metadata o document
+                # Extraer información de la pregunta desde metadata
                 question = {
-                    'id': selected_results['ids'][i],
-                    'title': metadata.get('title', metadata.get('question', document[:100] if document else 'Sin título')),
-                    'question_content': metadata.get('question_content', metadata.get('question', document if document else '')),
+                    'id': f"filtered_q_{i}",  # ID único para preguntas filtradas
+                    'title': metadata.get('title', metadata.get('question', 'Sin título')),
+                    'question_content': metadata.get('question_content', metadata.get('question', '')),
                     'accepted_answer': metadata.get('accepted_answer', metadata.get('answer', 'Sin respuesta')),
                     'tags': metadata.get('tags', []),
                     'ms_links': metadata.get('ms_links', metadata.get('links', [])),
                     'metadata': metadata
                 }
                 
-                # Si no hay ms_links, intentar extraer de la respuesta aceptada
-                if not question['ms_links'] and question['accepted_answer']:
-                    # Buscar enlaces de Microsoft en la respuesta
-                    import re
-                    ms_patterns = [
-                        r'https?://(?:docs\.microsoft\.com|learn\.microsoft\.com)[^\s\)]+',
-                        r'https?://[^\s]*microsoft[^\s]*',
-                    ]
-                    found_links = []
-                    for pattern in ms_patterns:
-                        found_links.extend(re.findall(pattern, question['accepted_answer'], re.IGNORECASE))
-                    question['ms_links'] = list(set(found_links))  # Eliminar duplicados
+                # Extraer links válidos de la respuesta aceptada (ya sabemos que tiene al menos uno)
+                if question['accepted_answer'] and "http" in question['accepted_answer']:
+                    urls = re.findall(r'https?://[^\s\)\]]+', question['accepted_answer'])
+                    valid_links = []
+                    for url in urls:
+                        norm_url = normalize_link(url)
+                        if norm_url and norm_url in doc_links:
+                            valid_links.append(url)
+                    question['ms_links'] = list(set(valid_links))  # Eliminar duplicados
                 
                 # Validar que tenga al menos título
                 if question['title'] and question['title'] != 'Sin título':
@@ -123,14 +157,17 @@ def load_questions_for_config(num_questions: int):
             st.error("❌ No se pudieron procesar preguntas válidas")
             return []
         
-        st.success(f"✅ {len(questions_data)} preguntas válidas extraídas desde ChromaDB")
+        st.success(f"✅ {len(questions_data)} preguntas válidas con links verificados extraídas desde ChromaDB")
         
         # Mostrar muestra de preguntas
-        with st.expander(f"📋 Muestra de preguntas seleccionadas", expanded=False):
+        with st.expander(f"📋 Muestra de preguntas seleccionadas (con links válidos)", expanded=False):
             for i, q in enumerate(questions_data[:3]):
                 st.write(f"**{i+1}.** {q['title'][:80]}...")
-                st.write(f"   - Enlaces MS: {len(q['ms_links'])}")
-                st.write(f"   - Tags: {', '.join(q['tags'][:3])}...")
+                st.write(f"   - Enlaces válidos: {len(q['ms_links'])}")
+                st.write(f"   - Tags: {', '.join(q['tags'][:3]) if q['tags'] else 'Sin tags'}...")
+                # Mostrar un link de ejemplo para verificación
+                if q['ms_links']:
+                    st.write(f"     Ejemplo: {q['ms_links'][0][:60]}...")
             
             if len(questions_data) > 3:
                 st.write(f"... y {len(questions_data)-3} preguntas más")
@@ -225,11 +262,12 @@ def show_cumulative_n_questions_config_page():
     # Mostrar información del flujo
     st.info(f"""
     📋 **Flujo de trabajo:**
-    1. **Seleccionar N preguntas** aleatorias desde ChromaDB ({total_questions:,} disponibles)
-    2. **Configurar evaluación** en esta página
-    3. **Enviar a Google Drive** para Colab (incluye las preguntas seleccionadas)
-    4. **Ejecutar en Google Colab** con GPU usando embeddings pre-calculados
-    5. **Ver resultados** en la página de resultados
+    1. **Filtrar preguntas** con links válidos desde ChromaDB ({total_questions:,} total → ~2,067 con links válidos)
+    2. **Seleccionar N preguntas** aleatoriamente del subconjunto filtrado
+    3. **Configurar evaluación** en esta página
+    4. **Enviar a Google Drive** para Colab (incluye las preguntas seleccionadas)
+    5. **Ejecutar en Google Colab** con GPU usando embeddings pre-calculados
+    6. **Ver resultados** en la página de resultados
     """)
     
     # Configuración inicial
@@ -239,17 +277,17 @@ def show_cumulative_n_questions_config_page():
         st.subheader("📊 Configuración de Datos")
         
         # Información sobre la fuente de datos
-        st.info(f"📊 Las preguntas se seleccionan aleatoriamente desde ChromaDB ({total_questions:,} disponibles) para comparar recuperación usando pregunta vs respuesta.")
+        st.info(f"📊 Las preguntas se seleccionan aleatoriamente desde ChromaDB ({total_questions:,} total) pero **solo se usan preguntas con links presentes en la colección de documentos** (~2,067 estimadas) para comparar recuperación usando pregunta vs respuesta.")
         
         # Número de preguntas
-        max_questions = min(total_questions, 3000)  # Límite práctico
+        max_questions = min(2067, 3000)  # Límite basado en preguntas con links válidos
         num_questions = st.number_input(
             "Número de preguntas a evaluar:",
             min_value=10,
             max_value=max_questions,
             value=min(100, max_questions),
             step=10,
-            help=f"Cantidad de preguntas aleatorias para analizar (máximo {max_questions:,} de {total_questions:,} disponibles)"
+            help=f"Cantidad de preguntas aleatorias para analizar (máximo {max_questions:,} de ~2,067 con links válidos)"
         )
         
         # Top-k documentos
@@ -262,11 +300,17 @@ def show_cumulative_n_questions_config_page():
             help="Cantidad de documentos a recuperar para cada query"
         )
         
-        # Usar reranking
-        use_reranking = st.checkbox(
-            "🔄 Usar Reranking",
-            value=True,
-            help="Aplicar reranking a los documentos recuperados"
+        # Método de reranking
+        reranking_method = st.selectbox(
+            "🔄 Método de Reranking:",
+            options=["crossencoder", "standard", "none"],
+            index=0,  # CrossEncoder por defecto
+            format_func=lambda x: {
+                "crossencoder": "🧠 CrossEncoder (Recomendado)",
+                "standard": "📊 Reranking Estándar",
+                "none": "❌ Sin Reranking"
+            }[x],
+            help="Método de reranking: CrossEncoder usa ms-marco-MiniLM-L-6-v2 para mejor calidad"
         )
     
     with col2:
@@ -352,7 +396,7 @@ def show_cumulative_n_questions_config_page():
         config = create_n_questions_evaluation_config(
             num_questions=num_questions,
             top_k=top_k,
-            use_reranking=use_reranking,
+            reranking_method=reranking_method,
             generative_model=generative_model,
             selected_models=selected_models,
             calculate_traditional_metrics=calculate_traditional_metrics,
@@ -440,7 +484,7 @@ def show_cumulative_n_questions_config_page():
 def create_n_questions_evaluation_config(
     num_questions: int,
     top_k: int,
-    use_reranking: bool,
+    reranking_method: str,
     generative_model: str,
     selected_models: List[str],
     calculate_traditional_metrics: bool,
@@ -476,7 +520,8 @@ def create_n_questions_evaluation_config(
         "data_config": {
             "num_questions": len(questions_data),  # Usar cantidad real de preguntas cargadas
             "top_k": top_k,
-            "use_reranking": use_reranking,
+            "reranking_method": reranking_method,
+            "use_reranking": reranking_method != "none",  # Compatibilidad hacia atrás
             "data_source": "chromadb_random_selection"
         },
         
@@ -520,7 +565,7 @@ def create_n_questions_evaluation_config(
         # Metadatos
         "metadata": {
             "description": f"Análisis acumulativo de {len(questions_data)} preguntas con comparación pregunta vs respuesta",
-            "expected_duration_minutes": estimate_processing_time(len(questions_data), len(selected_models), use_reranking),
+            "expected_duration_minutes": estimate_processing_time(len(questions_data), len(selected_models), reranking_method != "none"),
             "models_count": len(selected_models),
             "total_comparisons": len(questions_data) * len(selected_models),
             "questions_source": "chromadb_random_selection"

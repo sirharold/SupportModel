@@ -118,13 +118,13 @@ page = st.sidebar.radio(
         "🔍 Búsqueda Individual",
         #"📊 Consultas en Lote",
         #"🔬 Comparación de Modelos",
-        "🔄 Comparador Pregunta vs Respuesta",
-        "📊 Análisis Acumulativo N Preguntas",
+        #"🔄 Comparador Pregunta vs Respuesta",
+        #"📊 Análisis Acumulativo N Preguntas",
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",
-        "🔧 Configuración Análisis N Preguntas (Colab)",
-        "📊 Resultados Análisis N Preguntas (Colab)",
+        #"🔧 Configuración Análisis N Preguntas (Colab)",
+        #"📊 Resultados Análisis N Preguntas (Colab)",
     ],
     index=0
 )

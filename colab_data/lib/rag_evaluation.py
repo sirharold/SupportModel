@@ -190,11 +190,12 @@ class RAGCalculator:
 
 
 class LLMReranker:
-    """LLM-based document reranker using OpenAI API"""
+    """LLM-based document reranker using OpenAI API with enhanced content limits"""
     
-    def __init__(self, model_name: str = "gpt-3.5-turbo", debug: bool = False):
+    def __init__(self, model_name: str = "gpt-3.5-turbo", debug: bool = False, max_content_length: int = 4000):
         self.model_name = model_name
         self.debug = debug
+        self.max_content_length = max_content_length  # Enhanced from 3000 to 4000
         self.client = openai.OpenAI()  # Uses OPENAI_API_KEY from environment
     
     def rerank_documents(self, query: str, documents: List[Dict], top_k: int = 5) -> List[Dict]:
@@ -217,9 +218,11 @@ class LLMReranker:
             doc_texts = []
             for i, doc in enumerate(documents):
                 content = doc.get('content', str(doc))
-                # Truncate very long documents
-                if len(content) > 1000:
-                    content = content[:1000] + "..."
+                # Truncate very long documents (configurable limit for better document context)
+                if len(content) > self.max_content_length:
+                    # Use intelligent truncation: keep beginning and end
+                    half_length = self.max_content_length // 2
+                    content = content[:half_length] + "\n\n[...CONTENIDO MEDIO OMITIDO...]\n\n" + content[-half_length:]
                 doc_texts.append(f"Document {i+1}: {content}")
             
             # Create prompt for LLM
@@ -380,15 +383,15 @@ class BERTScoreEvaluator:
 
 
 class RAGEvaluationPipeline:
-    """Complete RAG evaluation pipeline combining all components"""
+    """Complete RAG evaluation pipeline combining all components with enhanced content limits"""
     
-    def __init__(self, llm_model: str = "gpt-3.5-turbo", debug: bool = False):
+    def __init__(self, llm_model: str = "gpt-3.5-turbo", debug: bool = False, max_content_length: int = 4000):
         self.llm_model = llm_model
         self.debug = debug
         
-        # Initialize components
+        # Initialize components with enhanced content limits
         self.rag_calculator = RAGCalculator(llm_model, debug)
-        self.llm_reranker = LLMReranker(llm_model, debug)
+        self.llm_reranker = LLMReranker(llm_model, debug, max_content_length)  # Enhanced from 3000 to 4000
         self.bert_evaluator = BERTScoreEvaluator(debug=debug)
         
     def evaluate_single_question(self, question: str, retrieved_docs: List[Dict], 
@@ -592,17 +595,17 @@ def create_rag_calculator(model_name: str = "gpt-3.5-turbo", debug: bool = False
     """Create and return a RAGCalculator instance"""
     return RAGCalculator(model_name, debug)
 
-def create_llm_reranker(model_name: str = "gpt-3.5-turbo", debug: bool = False) -> LLMReranker:
-    """Create and return a LLMReranker instance"""
-    return LLMReranker(model_name, debug)
+def create_llm_reranker(model_name: str = "gpt-3.5-turbo", debug: bool = False, max_content_length: int = 4000) -> LLMReranker:
+    """Create and return a LLMReranker instance with enhanced content limits"""
+    return LLMReranker(model_name, debug, max_content_length)
 
 def create_bert_evaluator(model_type: str = "microsoft/deberta-xlarge-mnli", debug: bool = False) -> BERTScoreEvaluator:
     """Create and return a BERTScoreEvaluator instance"""
     return BERTScoreEvaluator(model_type, debug)
 
-def create_rag_pipeline(llm_model: str = "gpt-3.5-turbo", debug: bool = False) -> RAGEvaluationPipeline:
-    """Create and return a RAGEvaluationPipeline instance"""
-    return RAGEvaluationPipeline(llm_model, debug)
+def create_rag_pipeline(llm_model: str = "gpt-3.5-turbo", debug: bool = False, max_content_length: int = 4000) -> RAGEvaluationPipeline:
+    """Create and return a RAGEvaluationPipeline instance with enhanced content limits"""
+    return RAGEvaluationPipeline(llm_model, debug, max_content_length)
 
 
 if __name__ == "__main__":

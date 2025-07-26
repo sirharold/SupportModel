@@ -447,6 +447,9 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
         # Table with data for metrics by K
         create_all_metrics_by_k_table(results, use_llm_reranker)
 
+        # Add metric definitions table before RAG metrics
+        display_metric_definitions_table()
+
         # New section: RAG Metrics Summary
         display_rag_metrics_summary(results, use_llm_reranker, config)
 
@@ -646,6 +649,23 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += f"- Modelo generativo (reranking/respuesta): {config.get('generative_model_name', 'N/A')}\n"
     formatted_string += f"- Top-K documentos recuperados: {config.get('top_k', 'N/A')}\n"
     formatted_string += f"- Reranking LLM habilitado: {config.get('use_llm_reranker', 'N/A')}\n"
+    
+    # Document aggregation information
+    chunk_to_doc_config = config.get('chunk_to_document_config', {})
+    if chunk_to_doc_config and chunk_to_doc_config.get('enabled', False):
+        formatted_string += f"- **Agregación de Documentos habilitada**: Sí\n"
+        formatted_string += f"  - Multiplicador de chunks: {chunk_to_doc_config.get('chunk_multiplier', 'N/A')}\n"
+        formatted_string += f"  - Documentos objetivo: {chunk_to_doc_config.get('target_documents', 'N/A')}\n"
+        formatted_string += f"  - Método: Chunks → Documentos completos mediante agrupación por enlace\n"
+        formatted_string += f"  - **Límites de Contenido Optimizados**:\n"
+        formatted_string += f"    - Generación de respuestas: 2000 chars/doc (mejorado desde 500)\n"
+        formatted_string += f"    - Contexto RAGAS: 3000 chars/doc (mejorado desde 1000)\n"
+        formatted_string += f"    - Reranking LLM: 4000 chars/doc (mejorado desde 3000)\n"
+        formatted_string += f"    - BERTScore: Sin límite (anteriormente limitado)\n"
+    else:
+        formatted_string += f"- **Agregación de Documentos**: No habilitada (usando chunks directamente)\n"
+        formatted_string += f"- **Límites de Contenido**: Optimizados para chunks individuales\n"
+    
     formatted_string += f"- Tiempo total de ejecución: {evaluation_info.get('total_time_seconds', 'N/A')} segundos\n"
     formatted_string += f"- GPU utilizada: {'Sí' if evaluation_info.get('gpu_used') else 'No'}\n\n"
 
@@ -924,6 +944,7 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
             "Tu respuesta debe estar estructurada en dos secciones: 'Conclusiones' y 'Posibles Mejoras y Próximos Pasos'. "
             "Utiliza un lenguaje claro y técnico, y basa tus afirmaciones estrictamente en los datos proporcionados. "
             "Si el reranking LLM fue utilizado, comenta específicamente sobre su impacto. "
+            "Si la agregación de documentos está habilitada, considera su efecto en la recuperación y contexto. "
             "Las conclusiones deben ser en formato de lista de puntos y las mejoras en formato de lista numerada. "
             "No incluyas preámbulos ni postámbulos, solo las dos secciones solicitadas."
         )
@@ -1130,7 +1151,7 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
     Extract and calculate average RAG and BERTScore metrics from individual question results.
     Handles both old format (no retrieval/rag separation) and new format.
     """
-    rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    rag_metric_keys = ['faithfulness', 'answer_relevancy', 'answer_correctness', 'semantic_similarity', 'context_precision', 'context_recall']
     bertscore_metric_keys = ['bert_precision', 'bert_recall', 'bert_f1']
     all_metric_keys = rag_metric_keys + bertscore_metric_keys
     
@@ -1164,14 +1185,79 @@ def extract_rag_metrics_from_individual(individual_metrics: List[Dict]) -> Dict:
     return avg_rag_metrics
 
 
+def display_metric_definitions_table():
+    """Display accordion table with metric definitions and formulas"""
+    
+    with st.expander("📚 Definiciones y Fórmulas de Métricas", expanded=False):
+        st.markdown("### Métricas de Recuperación de Información")
+        
+        # Create DataFrame with metric definitions
+        metrics_data = [
+            {
+                "Métrica": "Precision@K",
+                "Definición": "Proporción de documentos relevantes entre los K primeros resultados",
+                "Fórmula": "P@K = (Documentos relevantes en top-K) / K",
+                "Interpretación": "Valores altos indican que los primeros K resultados son muy relevantes"
+            },
+            {
+                "Métrica": "Recall@K", 
+                "Definición": "Proporción de documentos relevantes totales que están en los K primeros",
+                "Fórmula": "R@K = (Documentos relevantes en top-K) / (Total documentos relevantes)",
+                "Interpretación": "Valores altos indican buena cobertura de documentos relevantes"
+            },
+            {
+                "Métrica": "F1@K",
+                "Definición": "Media armónica entre Precision@K y Recall@K",
+                "Fórmula": "F1@K = 2 × (P@K × R@K) / (P@K + R@K)",
+                "Interpretación": "Balance entre precisión y cobertura"
+            },
+            {
+                "Métrica": "MAP@K",
+                "Definición": "Media de Average Precision para todas las consultas hasta posición K",
+                "Fórmula": "MAP@K = (1/Q) × Σ(AP@K_q) para todas las consultas q",
+                "Interpretación": "Considera el orden de los documentos relevantes"
+            },
+            {
+                "Métrica": "MRR",
+                "Definición": "Media del recíproco del rango del primer documento relevante",
+                "Fórmula": "MRR = (1/Q) × Σ(1/rank_q) donde rank_q es la posición del primer relevante",
+                "Interpretación": "Valores altos indican que el primer resultado suele ser relevante"
+            },
+            {
+                "Métrica": "NDCG@K",
+                "Definición": "Normalized Discounted Cumulative Gain hasta posición K",
+                "Fórmula": "NDCG@K = DCG@K / IDCG@K, donde DCG considera relevancia graduada",
+                "Interpretación": "Métrica sofisticada que considera orden y grados de relevancia"
+            }
+        ]
+        
+        # Display as table
+        df_metrics = pd.DataFrame(metrics_data)
+        st.dataframe(df_metrics, use_container_width=True, hide_index=True)
+        
+        st.markdown("### Notas Importantes")
+        st.info("""
+        **📊 Interpretación de Valores:**
+        - **0.8-1.0**: Excelente rendimiento
+        - **0.6-0.8**: Buen rendimiento  
+        - **0.4-0.6**: Rendimiento moderado
+        - **< 0.4**: Necesita mejoras
+        
+        **🔍 Consideraciones:**
+        - Los valores @K dependen del valor de K seleccionado
+        - MAP y NDCG son más sensibles al orden de los resultados
+        - MRR es especialmente útil para tareas donde solo importa encontrar UN documento relevante
+        """)
+
+
 def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
     Displays a summary of RAG metrics (faithfulness, answer relevance, etc.),
     with simple table format: Modelo, Faithfulness, Relevance, Correctness, Similarity, BERTScore metrics
     """
-    st.subheader("📊 Métricas RAG")
+    st.subheader("📊 Métricas RAGAS/BERTScore")
 
-    rag_metric_keys = ['faithfulness', 'answer_relevance', 'answer_correctness', 'answer_similarity']
+    rag_metric_keys = ['faithfulness', 'answer_relevancy', 'answer_correctness', 'semantic_similarity', 'context_precision', 'context_recall']
     bertscore_metric_keys = ['bert_precision', 'bert_recall', 'bert_f1']
     all_metric_keys = rag_metric_keys + bertscore_metric_keys
     table_data = []
@@ -1268,15 +1354,19 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
             if metric_val is not None:
                 if key == 'faithfulness':
                     row['Faithfulness'] = f"{metric_val:.3f}"
-                elif key == 'answer_relevance':
-                    row['Relevance'] = f"{metric_val:.3f}"
+                elif key == 'answer_relevancy':
+                    row['Relevancy'] = f"{metric_val:.3f}"
                 elif key == 'answer_correctness':
                     row['Correctness'] = f"{metric_val:.3f}"
-                elif key == 'answer_similarity':
+                elif key == 'semantic_similarity':
                     row['Similarity'] = f"{metric_val:.3f}"
+                elif key == 'context_precision':
+                    row['Context Precision'] = f"{metric_val:.3f}"
+                elif key == 'context_recall':
+                    row['Context Recall'] = f"{metric_val:.3f}"
                 
                 # Add to chart data for visualization
-                metric_name = key.replace('_', ' ').replace('answer', '').strip().capitalize()
+                metric_name = key.replace('_', ' ').replace('answer', '').replace('semantic', '').strip().title()
                 chart_data.append({
                     'Modelo': model_name, 
                     'Métrica RAG': metric_name, 
@@ -1286,12 +1376,16 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
                 # Add placeholder for missing metrics
                 if key == 'faithfulness':
                     row['Faithfulness'] = '-'
-                elif key == 'answer_relevance':
-                    row['Relevance'] = '-'
+                elif key == 'answer_relevancy':
+                    row['Relevancy'] = '-'
                 elif key == 'answer_correctness':
                     row['Correctness'] = '-'
-                elif key == 'answer_similarity':
+                elif key == 'semantic_similarity':
                     row['Similarity'] = '-'
+                elif key == 'context_precision':
+                    row['Context Precision'] = '-'
+                elif key == 'context_recall':
+                    row['Context Recall'] = '-'
         
         # Add BERTScore metrics as columns
         for key in bertscore_metric_keys:
@@ -1359,7 +1453,7 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         Para generar estas métricas, asegúrate de que la opción
         `📝 Generar Métricas RAG` esté habilitada durante la configuración de la evaluación.
         
-        **Métricas RAG esperadas:** faithfulness, answer_relevance, answer_correctness, answer_similarity
+        **Métricas RAG esperadas:** faithfulness, answer_relevancy, answer_correctness, semantic_similarity, context_precision, context_recall
         
         **Métricas BERTScore esperadas:** bert_precision, bert_recall, bert_f1
         """)
@@ -1367,7 +1461,30 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
 
     if table_data:
         df_rag = pd.DataFrame(table_data)
-        st.dataframe(df_rag, use_container_width=True)
+        
+        # Apply color styling to both RAGAS and BERTScore columns
+        def get_metrics_color_for_column(value, column_name):
+            # Apply colors to RAGAS and BERTScore columns (all use 0-1 scale)
+            ragas_columns = ['Faithfulness', 'Relevancy', 'Correctness', 'Similarity', 'Context Precision', 'Context Recall']
+            bertscore_columns = ['BERT Precision', 'BERT Recall', 'BERT F1']
+            
+            if (column_name in ragas_columns or column_name in bertscore_columns) and value != '-':
+                try:
+                    numeric_value = float(value)
+                    if numeric_value > 0.8:
+                        return 'background-color: #d4edda; color: #155724'  # Green for Excelente
+                    elif numeric_value >= 0.6:
+                        return 'background-color: #fff3cd; color: #856404'  # Yellow for Bueno
+                    else:
+                        return 'background-color: #f8d7da; color: #721c24'  # Red for Necesita mejora
+                except:
+                    pass
+            return ''  # No styling for non-metric columns or invalid values
+        
+        # Apply styling with apply for the whole dataframe
+        styled_df_rag = df_rag.style.apply(lambda x: [get_metrics_color_for_column(val, col) for val, col in zip(x, df_rag.columns)], axis=1)
+        
+        st.dataframe(styled_df_rag, use_container_width=True)
 
     if chart_data:
         # Create line graph with metrics on X-axis and different lines for each model
@@ -1407,8 +1524,7 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         
         st.plotly_chart(fig, use_container_width=True)
     
-    # Add BERTScore specific visualization
-    display_bertscore_detailed_charts(results, use_llm_reranker, config)
+    # BERTScore visualization is now handled separately to avoid duplication
     
     # Add RAG metrics explanation accordion
     display_rag_metrics_explanation()
@@ -1491,10 +1607,24 @@ def display_bertscore_detailed_charts(results: Dict[str, Dict[str, Any]], use_ll
         # Pivot the data for better table display
         df_pivot = df_bert.pivot(index='Modelo', columns='Métrica', values='Valor')
         
-        # Format values to 3 decimal places
+        # Format values to 3 decimal places and add color-coding
         df_formatted = df_pivot.round(3)
         
-        st.dataframe(df_formatted, use_container_width=True)
+        # Function to determine color based on BERTScore interpretation ranges
+        def get_bertscore_color(value):
+            if pd.isna(value):
+                return 'background-color: #f0f0f0'  # Light gray for missing values
+            elif value > 0.8:
+                return 'background-color: #d4edda; color: #155724'  # Green for Excelente
+            elif value >= 0.6:
+                return 'background-color: #fff3cd; color: #856404'  # Yellow for Bueno
+            else:
+                return 'background-color: #f8d7da; color: #721c24'  # Red for Necesita mejora
+        
+        # Apply color styling to the dataframe
+        styled_df = df_formatted.style.map(get_bertscore_color)
+        
+        st.dataframe(styled_df, use_container_width=True)
         
         # Add interpretation help
         with st.expander("💡 Interpretación de BERTScore", expanded=False):
@@ -1795,12 +1925,30 @@ def display_methodology_section():
         
         **Método de Reordenamiento:**
         - **Modelo**: OpenAI GPT-3.5-turbo para reordenar los documentos recuperados
-        - **Prompt Engineering**: Se envía la pregunta original junto con los primeros 200 caracteres de cada documento recuperado
+        - **Prompt Engineering**: Se envía la pregunta original junto con hasta 4000 caracteres de cada documento recuperado (con truncación inteligente)
         - **Proceso**: El LLM ordena los documentos del 1 al 10 basándose en relevancia a la pregunta
         - **Manejo de Errores**: Si el LLM no puede generar un ranking válido, se mantiene el orden original de similitud coseno
         - **Temperatura**: 0.1 para generar rankings consistentes y determinísticos
         
-        ### 🔍 3. Metodología de Evaluación General
+        ### 📄 3. Agregación de Chunks a Documentos
+        
+        **Estrategia de Conversión:**
+        - **Problema**: Los embeddings están calculados a nivel de chunks (fragmentos de documentos), pero necesitamos documentos completos para evaluación
+        - **Solución**: DocumentAggregator que convierte chunks en documentos mediante agrupación inteligente
+        - **Configuración**: chunk_multiplier (por defecto 3.0) determina cuántos chunks recuperar inicialmente (ej: 30 chunks → 10 documentos)
+        - **Normalización de Enlaces**: URLs se normalizan eliminando fragmentos (#) y parámetros (?) para agrupación consistente
+        - **Agregación de Contenido**: Chunks del mismo documento se concatenan preservando el contexto completo
+        - **Deduplicación**: Se eliminan documentos duplicados basándose en enlaces normalizados
+        - **Orden Preservado**: Se mantiene el orden de relevancia del chunk con mayor score por documento
+        
+        **Límites de Contenido Optimizados:**
+        - **Generación de Respuestas**: 2000 caracteres por documento (mejorado desde 500)
+        - **Contexto RAGAS**: 3000 caracteres por documento (mejorado desde 1000)
+        - **Reranking LLM**: 4000 caracteres por documento (mejorado desde 3000)
+        - **Evaluación BERTScore**: Sin límite - contenido completo (anteriormente limitado)
+        - **Objetivo**: Aprovechar completamente los documentos agregados vs. truncación severa de chunks individuales
+        
+        ### 🔍 4. Metodología de Evaluación General
         
         **Bibliotecas y Frameworks:**
         - **RAGAS**: Framework oficial para evaluación de sistemas RAG con métricas validadas científicamente
@@ -1810,13 +1958,14 @@ def display_methodology_section():
         - **Sentence Transformers**: Para generación de embeddings de consultas
         
         **Proceso de Evaluación:**
-        1. **Carga de Datos**: Parquet files con embeddings pre-calculados (~187K documentos)
+        1. **Carga de Datos**: Parquet files con embeddings pre-calculados (~187K chunks de documentos)
         2. **Generación de Query**: Embedding de la pregunta usando el modelo correspondiente
-        3. **Recuperación**: Top-10 documentos usando similitud coseno
-        4. **Reranking** (opcional): Reordenamiento con LLM
-        5. **Generación RAG**: Respuesta usando contexto recuperado + OpenAI
-        6. **Evaluación RAGAS**: Métricas automáticas usando framework RAGAS
-        7. **BERTScore**: Evaluación semántica adicional
+        3. **Recuperación Inicial**: Top-K chunks usando similitud coseno (donde K = target_documents × chunk_multiplier)
+        4. **Agregación de Documentos**: Conversión de chunks a documentos completos mediante agrupación por enlace normalizado
+        5. **Reranking** (opcional): Reordenamiento con LLM de los documentos agregados
+        6. **Generación RAG**: Respuesta usando contexto de documentos completos + OpenAI
+        7. **Evaluación RAGAS**: Métricas automáticas usando framework RAGAS
+        8. **BERTScore**: Evaluación semántica adicional
         
         ### 📊 4. Cálculo de Métricas Específicas
         
@@ -1839,39 +1988,47 @@ def display_methodology_section():
         - **BERT Recall**: Proporción de tokens de referencia presentes en respuesta (usando BERT embeddings)
         - **BERT F1**: Media armónica entre BERT Precision y BERT Recall
         
-        ### 🔄 5. Diagrama de Proceso (1 Modelo, 1 Pregunta)
+        ### 🔄 6. Diagrama de Proceso (1 Modelo, 1 Pregunta)
         
         ```
         📝 PREGUNTA + MS LINKS (Ground Truth)
                         ↓
         🔤 GENERACIÓN DE EMBEDDING (Sentence Transformers / OpenAI)
                         ↓
-        🔍 RECUPERACIÓN INICIAL (Similitud Coseno Top-10)
+        🔍 RECUPERACIÓN DE CHUNKS (Similitud Coseno Top-K)
+               K = target_documents × chunk_multiplier
+                        ↓
+        📄 AGREGACIÓN DE DOCUMENTOS (DocumentAggregator)
+               ├── Normalización de enlaces
+               ├── Agrupación por documento
+               ├── Concatenación de contenido
+               └── Deduplicación → Top-10 documentos
                         ↓
                     📊 EVALUACIÓN PRE-RERANKING
                     (Precision, Recall, F1, NDCG, MAP, MRR)
                         ↓
-        🤖 RERANKING LLM (GPT-3.5-turbo) [OPCIONAL]
+        🤖 RERANKING LLM (GPT-3.5-turbo + 4000 chars/doc) [OPCIONAL]
                         ↓
                     📈 EVALUACIÓN POST-RERANKING
                     (Mismas métricas de recuperación)
                         ↓
-        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + Contexto)
+        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + 2000 chars/doc)
                         ↓
                     🔬 EVALUACIÓN RAG
-                    ├── RAGAS (Faithfulness, Answer Relevancy, etc.)
-                    └── BERTScore (Precision, Recall, F1)
+                    ├── RAGAS (Faithfulness, Answer Relevancy, etc.) [3000 chars/doc]
+                    └── BERTScore (Precision, Recall, F1) [Sin límite]
                         ↓
         📊 RESULTADOS FINALES (Promedios + Individuales)
         
         🔁 REPETIR PARA N PREGUNTAS → PROMEDIAR RESULTADOS
         ```
         
-        ### 🎯 6. Garantías de Calidad Científica
+        ### 🎯 7. Garantías de Calidad Científica
         
         **Reproducibilidad:**
-        - Todos los valores son determinísticos (temperatura 0.1 en LLM)
-        - Seeds fijos para operaciones aleatorias
+        - Evaluación completamente determinística (temperatura 0.1 en LLM)
+        - Sin operaciones aleatorias en el cálculo de métricas
+        - Selección de preguntas con seed fijo (42) solo durante configuración
         - Mismos datasets y embeddings pre-calculados
         
         **Validación:**

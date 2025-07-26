@@ -1,203 +1,264 @@
-# 📈 Métricas Acumulativas - Documentación
+# 📈 Métricas Acumulativas - Documentación Actualizada
 
 ## Descripción
 
-La página de **Métricas Acumulativas** permite evaluar múltiples preguntas de forma automática y calcular métricas promedio para obtener una visión estadística del rendimiento del sistema de recuperación de información.
+El sistema de **Métricas Acumulativas** permite evaluar múltiples preguntas de forma automática, calcular métricas promedio y analizar el rendimiento del sistema RAG a gran escala. Incluye integración con Google Colab para procesamiento con GPU y análisis avanzado con métricas RAGAS y BERTScore.
+
+## Arquitectura del Sistema
+
+### 🏗️ **Componentes Principales**
+
+1. **Configuración Local (Streamlit)**
+   - `cumulative_n_questions_config.py`: Configuración y selección de preguntas
+   - `cumulative_metrics_results.py`: Visualización de resultados
+   - Integración con Google Drive para transferencia de datos
+
+2. **Procesamiento en Colab**
+   - `Colab_Modular_Embeddings_Evaluation.ipynb`: Notebook principal
+   - Procesamiento con GPU para acelerar cálculos
+   - Evaluación con múltiples modelos de embedding
+
+3. **Biblioteca Externa**
+   - `colab_data/lib/rag_evaluation.py`: Clases y funciones reutilizables
+   - Implementaciones optimizadas de métricas
 
 ## Características Principales
 
-### 🎯 **Filtrado Inteligente**
-- **Solo preguntas con links**: Se evalúan únicamente preguntas que contienen enlaces de Microsoft Learn en la respuesta aceptada
-- **Extracción automática**: Los links se extraen automáticamente usando regex pattern: `https://learn\.microsoft\.com[\w/\-\?=&%\.]+`
-- **Validación de calidad**: Asegura que cada pregunta tenga ground truth válido
+### 🎯 **Filtrado Inteligente Mejorado**
+- **Validación de links en documentos**: Solo se seleccionan preguntas cuyos links existen en la colección de documentos
+- **Normalización de URLs**: Elimina parámetros y anchors para comparación precisa
+- **~2,067 preguntas válidas**: De ~15,000 totales, solo estas tienen links verificados
+- **Selección reproducible**: Seed fijo (42) para resultados consistentes
 
 ### 📊 **Métricas Calculadas**
-- **MRR**: Mean Reciprocal Rank global
-- **Recall@k**: Cobertura para k=1,3,5,10
-- **Precision@k**: Precisión para k=1,3,5,10
-- **F1@k**: Balance entre precisión y recall para k=1,3,5,10
-- **Accuracy@k**: Exactitud de clasificación para k=1,3,5,10
 
-### 🔄 **Antes y Después del Reranking**
-- **Métricas base**: Resultados usando solo similarity search
-- **Métricas post-LLM**: Resultados después del reranking con GPT-4
-- **Comparación visual**: Gráficos que muestran la mejora/deterioro
-- **Cálculo de delta**: Diferencia entre antes y después
+#### Métricas IR Tradicionales
+- **Precision@K**: Proporción de documentos relevantes en top-K (K=1,2,3,4,5,6,7,8,9,10)
+- **Recall@K**: Cobertura de documentos relevantes
+- **F1@K**: Balance entre precisión y recall
+- **MAP@K**: Mean Average Precision
+- **MRR**: Mean Reciprocal Rank
+- **NDCG@K**: Normalized Discounted Cumulative Gain
 
-## Configuración
+#### Métricas RAGAS (0-1 scale)
+- **Faithfulness**: Fidelidad de la respuesta al contexto (sin alucinaciones)
+- **Answer Relevancy**: Relevancia de la respuesta a la pregunta
+- **Answer Correctness**: Exactitud factual y completitud
+- **Semantic Similarity**: Similitud semántica con respuesta esperada
+- **Context Precision**: Calidad del ranking de documentos relevantes
+- **Context Recall**: Cobertura del contexto necesario
 
-### Parámetros Principales
+#### Métricas BERTScore (0-1 scale)
+- **BERT Precision**: Precisión a nivel de tokens usando embeddings contextuales
+- **BERT Recall**: Cobertura a nivel de tokens
+- **BERT F1**: Media armónica de precision y recall
+
+### 🔄 **Agregación de Documentos**
+- **Conversión chunks → documentos**: Combina chunks del mismo documento
+- **Multiplicador configurable**: Por defecto 3x chunks para asegurar cobertura
+- **Preservación de metadatos**: Mantiene título, link y contenido original
+
+### 📊 **Límites de Contenido Optimizados**
+- **Generación de Respuestas**: 2000 caracteres por documento (antes 500)
+- **Contexto RAGAS**: 3000 caracteres por documento (antes 1000)
+- **Reranking LLM**: 4000 caracteres por documento (antes 3000)
+- **Evaluación BERTScore**: Sin límite - contenido completo
+
+## Configuración Mejorada
+
+### Parámetros de Evaluación
 
 | Parámetro | Valor Por Defecto | Descripción |
 |-----------|-------------------|-------------|
-| **Número de preguntas** | 5 | Cantidad de preguntas a evaluar (rango: 5-3035) |
-| **Modelo de Embedding** | multi-qa-mpnet-base-dot-v1 | Modelo para generar embeddings |
-| **Top-K documentos** | 10 | Número de documentos a recuperar |
-| **LLM Reranking** | Habilitado | Usar GPT-4 para reordenar documentos |
+| **Número de preguntas** | 100 | Cantidad a evaluar (máx: 2,067 con links válidos) |
+| **Modelos de Embedding** | Múltiples | mpnet, minilm, ada, e5-large |
+| **Top-K documentos** | 10 | Documentos a recuperar |
+| **LLM Reranking** | Habilitado | CrossEncoder MS-MARCO |
+| **Modelo Generativo** | tinyllama-1.1b | Para evaluación RAGAS |
+| **Agregación Documentos** | Habilitada | Chunks → documentos completos |
 
-### Fuente de Datos
-- **Archivos disponibles**: 
-  - `data/val_set.json` (1,035 preguntas de validación)
-  - `data/train_set.json` (2,000 preguntas de entrenamiento)
-  - **Total combinado**: 3,035 preguntas
-- **Formato**: JSON con structure `{title, question_content, accepted_answer, tags, url}`
-- **Filtrado**: Solo preguntas con enlaces de Microsoft Learn (100% del dataset)
-- **Opciones de dataset**: 
-  - Dataset Completo (train + val): 3,035 preguntas
-  - Solo Validación: 1,035 preguntas  
-  - Solo Entrenamiento: 2,000 preguntas
+### Proceso de Selección de Preguntas
 
-## Uso Paso a Paso
-
-### 1. **Configuración**
 ```python
-# En la interfaz de Streamlit:
-- Seleccionar número de preguntas (1-50)
-- Elegir modelo de embedding
-- Configurar Top-K documentos
-- Habilitar/deshabilitar LLM reranking
+# 1. Cargar links de documentos
+doc_links = obtener_links_normalizados(docs_collection)
+
+# 2. Filtrar preguntas con links válidos
+preguntas_validas = []
+for pregunta in todas_las_preguntas:
+    if tiene_link_en_documentos(pregunta, doc_links):
+        preguntas_validas.append(pregunta)
+
+# 3. Selección aleatoria reproducible
+random.seed(42)
+preguntas_seleccionadas = random.sample(preguntas_validas, n)
 ```
 
-### 2. **Ejecución**
-```python
-# Al hacer clic en "🚀 Ejecutar Evaluación":
-1. Carga preguntas desde val_set.json
-2. Filtra preguntas con links de MS Learn
-3. Selecciona N preguntas aleatoriamente
-4. Evalúa cada pregunta individualmente
-5. Calcula métricas promedio
+## Flujo de Trabajo Actualizado
+
+### 1. **Configuración en Streamlit**
+```
+1. Filtrar preguntas con links válidos (~2,067)
+2. Seleccionar N preguntas aleatoriamente
+3. Configurar modelos y parámetros
+4. Generar archivo de configuración JSON
+5. Subir a Google Drive
 ```
 
-### 3. **Resultados**
-```python
-# Visualización de resultados:
-- Métricas promedio en columnas
-- Gráfico comparativo (antes vs después)
-- Tabla detallada por pregunta
-- Estadísticas de evaluación
+### 2. **Procesamiento en Colab**
+```
+1. Cargar configuración desde Google Drive
+2. Inicializar modelos con GPU
+3. Para cada pregunta y modelo:
+   - Recuperar documentos (con agregación)
+   - Aplicar reranking si está habilitado
+   - Generar respuesta
+   - Calcular todas las métricas
+4. Guardar resultados en Drive
 ```
 
-## Algoritmo de Cálculo
-
-### Métricas Promedio
-```python
-def calculate_average_metrics(all_metrics):
-    metric_sums = {}
-    metric_counts = {}
-    
-    for metrics in all_metrics:
-        for key, value in metrics.items():
-            if isinstance(value, (int, float)) and not np.isnan(value):
-                metric_sums[key] = metric_sums.get(key, 0) + value
-                metric_counts[key] = metric_counts.get(key, 0) + 1
-    
-    return {key: metric_sums[key] / metric_counts[key] 
-            for key in metric_sums if metric_counts[key] > 0}
+### 3. **Visualización de Resultados**
 ```
-
-### Ejemplo de Cálculo
-```python
-# Si F1@5 en 3 preguntas es: [0.3, 0.4, 0.5]
-# Promedio = (0.3 + 0.4 + 0.5) / 3 = 0.4
-
-# Si una pregunta falla y no tiene F1@5:
-# F1@5 en 3 preguntas: [0.3, NaN, 0.5]
-# Promedio = (0.3 + 0.5) / 2 = 0.4
+1. Cargar resultados desde Google Drive
+2. Mostrar resumen de evaluación
+3. Visualizar comparación entre modelos
+4. Aplicar color-coding a métricas:
+   - Verde: >0.8 (Excelente)
+   - Amarillo: 0.6-0.8 (Bueno)
+   - Rojo: <0.6 (Necesita mejora)
 ```
 
 ## Interpretación de Resultados
 
-### 📊 **Métricas Principales**
-- **Valores ≥ 0.7**: 🟢 *Muy buenos*
-- **Valores 0.4 - 0.7**: 🟡 *Buenos*
-- **Valores < 0.4**: 🔴 *Malos*
-- **MRR** evalúa la posición del primer relevante
-- **Recall/Precision/F1/Accuracy@k** se reportan para k=1,3,5,10
+### 📊 **Rangos de Interpretación Unificados**
 
-### 🔄 **Impacto del Reranking**
-- **Delta positivo**: El reranking LLM mejora la métrica
-- **Delta negativo**: El reranking LLM empeora la métrica
-- **Delta ~0**: El reranking no tiene impacto significativo
+Para RAGAS y BERTScore (escala 0-1):
+- **0.8-1.0**: 🟢 Excelente rendimiento
+- **0.6-0.8**: 🟡 Buen rendimiento
+- **0.4-0.6**: 🟠 Rendimiento moderado
+- **< 0.4**: 🔴 Necesita mejoras
 
-## Exportación de Datos
+### 🔍 **Análisis de Métricas Específicas**
 
-### 📋 **CSV Detallado**
-```csv
-question_num,ground_truth_links,docs_retrieved,before_precision_5,after_precision_5,...
-1,3,10,0.400,0.600,...
-2,2,10,0.200,0.400,...
-```
+**Context Precision/Recall**:
+- Evalúan la calidad del sistema de recuperación
+- Valores bajos indican problemas en el retrieval
 
-### 📊 **CSV Promedio**
-```csv
-Metric,Before_Reranking,After_Reranking
-Precision@5,0.350,0.450
-Recall@5,0.280,0.380
-F1@5,0.310,0.410
-```
+**Faithfulness**:
+- Mide alucinaciones en las respuestas
+- Crítico para aplicaciones de alta confiabilidad
 
-## Casos de Uso
+**BERTScore**:
+- Evaluación semántica profunda
+- Más robusto que métricas léxicas tradicionales
 
-### 🔬 **Evaluación de Modelos**
+## Mejoras Implementadas
+
+### ✅ **Calidad de Datos**
+- Filtrado inteligente de preguntas con validación de links
+- Normalización de URLs para comparación precisa
+- Solo preguntas con ground truth verificado
+
+### ✅ **Procesamiento Optimizado**
+- Agregación de chunks en documentos completos
+- Límites de contenido aumentados para mejor contexto
+- Procesamiento paralelo en Colab con GPU
+
+### ✅ **Visualización Mejorada**
+- Color-coding automático para interpretación rápida
+- Tablas interactivas con definiciones de métricas
+- Gráficos comparativos multi-modelo
+
+### ✅ **Evaluación Completa**
+- 16 métricas diferentes por pregunta
+- Análisis antes/después del reranking
+- Métricas tanto de recuperación como de generación
+
+## Archivos Clave del Sistema
+
+### 📁 **Configuración y UI**
+- `src/apps/cumulative_n_questions_config.py`: Configuración y filtrado
+- `src/apps/cumulative_metrics_results.py`: Visualización de resultados
+- `src/ui/enhanced_metrics_display.py`: Funciones de display mejoradas
+
+### 🔧 **Procesamiento**
+- `colab_data/Colab_Modular_Embeddings_Evaluation.ipynb`: Notebook principal
+- `colab_data/lib/rag_evaluation.py`: Biblioteca de evaluación
+- `src/core/document_processor.py`: Agregación de documentos
+
+### 📊 **Datos**
+- ChromaDB: Colecciones de preguntas y documentos
+- Google Drive: Almacenamiento de configuraciones y resultados
+- JSON: Formato de intercambio de datos
+
+## Ejemplo de Uso Completo
+
 ```python
-# Comparar diferentes modelos de embedding:
-1. Ejecutar con multi-qa-mpnet-base-dot-v1
-2. Ejecutar con all-MiniLM-L6-v2
-3. Comparar métricas promedio
-4. También puedes habilitar **Evaluar los 3 modelos** para ejecutarlos en una sola corrida
+# 1. En Streamlit - Configuración
+- Seleccionar 500 preguntas
+- Habilitar todos los modelos (mpnet, minilm, ada, e5-large)
+- Activar reranking y agregación de documentos
+- Crear configuración y subir a Drive
+
+# 2. En Colab - Procesamiento
+!python -m pip install -r requirements.txt
+# Ejecutar notebook con la configuración
+# Proceso toma ~45-60 minutos para 500 preguntas
+
+# 3. En Streamlit - Resultados
+- Ver resumen: 4 modelos evaluados
+- Comparar métricas con color-coding
+- Analizar mejoras por reranking
+- Exportar resultados
 ```
 
-### 📈 **Análisis de Rendimiento**
-```python
-# Evaluar impacto del reranking:
-1. Ejecutar con reranking habilitado
-2. Ejecutar con reranking deshabilitado
-3. Analizar diferencias en métricas
-```
+## Consideraciones de Rendimiento
 
-### 🎯 **Optimización de Parámetros**
-```python
-# Encontrar mejor configuración:
-1. Probar diferentes valores de Top-K
-2. Evaluar con diferentes números de preguntas
-3. Seleccionar configuración óptima
-```
+### ⏱️ **Tiempos Estimados**
+- **100 preguntas**: ~10-15 minutos
+- **500 preguntas**: ~45-60 minutos
+- **1000 preguntas**: ~90-120 minutos
 
-## Limitaciones
+### 🚀 **Optimizaciones**
+- Uso de GPU en Colab (10x más rápido)
+- Batch processing para embeddings
+- Cache de modelos pre-cargados
+- Procesamiento paralelo cuando es posible
 
-### ⚠️ **Consideraciones**
-- **Tiempo de ejecución**: ~2-5 segundos por pregunta con reranking
-- **Dependencia de GPT-4**: Reranking requiere acceso a OpenAI API
-- **Selección aleatoria**: Resultados pueden variar entre ejecuciones
-- **Sesgo del dataset**: Solo preguntas con links de MS Learn
+## Troubleshooting
 
-### 🔧 **Recomendaciones**
-- **Usar 5-10 preguntas** para pruebas rápidas
-- **Usar 20-50 preguntas** para evaluaciones más robustas
-- **Ejecutar múltiples veces** para obtener intervalos de confianza
-- **Comparar métricas** antes y después del reranking
+### ❌ **Problemas Comunes**
 
-## Integración
+1. **"No se encontraron preguntas con links válidos"**
+   - Verificar que la colección de documentos tenga datos
+   - Revisar que los links estén normalizados correctamente
 
-### 📁 **Archivos Principales**
-- `cumulative_metrics_page.py`: Lógica principal de la página
-- `utils/qa_pipeline_with_metrics.py`: Pipeline con cálculo de métricas
-- `data/val_set.json`: Dataset de preguntas de validación
+2. **"Error de memoria en Colab"**
+   - Reducir batch_size en la configuración
+   - Procesar menos preguntas por vez
 
-### 🔗 **Dependencias**
-- `streamlit`: Interfaz de usuario
-- `pandas`: Manipulación de datos
-- `numpy`: Cálculos numéricos
-- `plotly`: Visualización de datos
-- `json`: Carga de dataset
-- `re`: Extracción de links
+3. **"Métricas faltantes o en cero"**
+   - Verificar que los documentos tengan contenido
+   - Revisar logs de errores en Colab
+
+## Próximas Mejoras Planificadas
+
+1. **Análisis Estadístico**
+   - Intervalos de confianza para métricas
+   - Tests de significancia entre modelos
+   - Análisis de varianza
+
+2. **Optimizaciones**
+   - Cache distribuido de embeddings
+   - Procesamiento incremental
+   - Paralelización mejorada
+
+3. **Nuevas Métricas**
+   - Diversidad de resultados
+   - Latencia de respuesta
+   - Costo computacional
 
 ---
 
-## Próximas Mejoras
-
-1. **Intervalos de confianza**: Calcular IC para métricas promedio
-2. **Análisis estadístico**: Pruebas de significancia entre configuraciones
-3. **Más métricas**: MAP, NDCG@10, Hit Rate
-4. **Cache de resultados**: Evitar re-evaluación de preguntas
-5. **Exportación avanzada**: Informes PDF con visualizaciones
+**Última actualización**: Diciembre 2024
+**Versión**: 2.0 (con agregación de documentos y filtrado inteligente)

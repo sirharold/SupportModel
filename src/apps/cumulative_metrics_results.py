@@ -325,10 +325,14 @@ def display_results_summary(results_data: Dict, processed_results: Dict):
     with col3:
         st.metric("🚀 GPU Usada", "✅" if eval_info.get('gpu_used') else "❌")
         total_time = eval_info.get('total_time_seconds', 0)
-        st.metric("⏱️ Tiempo Total", f"{total_time:.1f}s" if total_time else "N/A")
+        total_minutes = total_time / 60 if total_time else 0
+        st.metric("⏱️ Tiempo Total", f"{total_minutes:.1f}m" if total_time else "N/A")
     
     with col4:
-        st.metric("📊 Tipo", eval_info.get('evaluation_type', 'N/A'))
+        eval_type = eval_info.get('evaluation_type', 'N/A')
+        # Truncate long evaluation type names to fit better
+        eval_type_short = eval_type[:15] + "..." if len(str(eval_type)) > 15 else eval_type
+        st.metric("📊 Tipo", eval_type_short)
         st.metric("✅ Compatible", "✅" if eval_info.get('enhanced_display_compatible') else "⚠️")
     
     # Detalles de configuración
