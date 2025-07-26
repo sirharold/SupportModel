@@ -149,7 +149,7 @@ def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reran
     
     st.subheader("📈 Métricas por Valores de K")
     
-    k_values = [1, 3, 5, 10]
+    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     # All metrics that are calculated in updated Colab notebook (v2.0)
     k_metrics = ['precision', 'recall', 'f1', 'ndcg', 'map']  # Metrics that have @k values
     single_metrics = ['mrr']  # Metrics that are single values (no @k)
@@ -338,7 +338,7 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
     st.subheader("📈 Visualización de Rendimiento")
     
     # Performance across K values
-    k_values = [1, 3, 5, 10]
+    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     main_metrics = ['f1'] # Focus on F1-score as the primary 'score'
     
     # Create a single subplot for the F1-score
@@ -458,7 +458,7 @@ def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], 
     """
     st.subheader("📈 Rendimiento Detallado por Métrica y K")
 
-    k_values = [1, 3, 5, 10]
+    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     metrics_to_plot = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     # Create subplots: 2 rows, 3 columns for 6 metrics
@@ -537,7 +537,7 @@ def create_all_metrics_by_k_table(results: Dict[str, Dict[str, Any]], use_llm_re
     """
     st.subheader("📋 Tabla Detallada de Métricas por K (Todos los Modelos)")
 
-    k_values = [1, 3, 5, 10]
+    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     metrics_to_display = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     table_data = []
@@ -650,7 +650,7 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += f"- GPU utilizada: {'Sí' if evaluation_info.get('gpu_used') else 'No'}\n\n"
 
     formatted_string += "## Resultados Detallados por Modelo\n"
-    k_values = [1, 3, 5, 10]
+    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     metrics_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
     # Use STANDARD metric names from RAGAS and BERTScore libraries  
     standard_ragas_types = ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall', 'answer_correctness', 'answer_similarity', 'semantic_similarity']
