@@ -1,9 +1,0 @@
-🚀 Archivo de prueba para Google Drive
-Timestamp: 2025-07-20T16:57:48.005762
-Sistema: Streamlit ↔ Google Colab ↔ Drive
-Estado: Funcional ✅
-
-Este archivo simula lo que sería subido a:
-/content/drive/MyDrive/TesisMagister/acumulative/
-
-En producción real, se conectaría a la API de Google Drive.
