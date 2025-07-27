@@ -534,8 +534,8 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
     # Prepare data for the download section in the expected format
     cached_results = {
         'results': processed_results,
-        'evaluation_time': results_data['evaluation_info'].get('timestamp'),
-        'execution_time': results_data['evaluation_info'].get('total_time_seconds'),
+        'evaluation_time': results_data.get('evaluation_info', {}).get('timestamp'),
+        'execution_time': results_data.get('evaluation_info', {}).get('total_time_seconds'),
         'evaluate_all_models': len(processed_results) > 1,
         'params': {
             'num_questions': results_data['config']['num_questions'],

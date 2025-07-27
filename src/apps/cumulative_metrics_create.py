@@ -44,7 +44,7 @@ def show_cumulative_metrics_create_page():
         st.subheader("📊 Configuración de Datos")
         
         # Información sobre la fuente de datos
-        st.info("📊 Las preguntas se extraen aleatoriamente desde ChromaDB, filtrando solo aquellas que tienen enlaces de Microsoft Learn en la respuesta aceptada.")
+        st.info("🚀 Las preguntas se extraen desde la colección optimizada 'questions_withlinks' que contiene solo preguntas PRE-VALIDADAS con enlaces de Microsoft Learn que existen en la collection de documentos. Esto garantiza máxima velocidad y precisión.")
         
         # Número de preguntas
         num_questions = st.number_input(
@@ -282,12 +282,27 @@ def create_config_and_send_to_drive(evaluation_config: Dict):
                         generative_model_name=generative_model
                     )
                     
-                    # Obtener preguntas
-                    questions = fetch_random_questions_from_chromadb(
-                        chromadb_wrapper=chromadb_wrapper,
-                        embedding_model_name=first_model,
-                        num_questions=num_questions
-                    )
+                    # Obtener preguntas optimizadas de la colección pre-validada
+                    with st.spinner(f"🚀 Obteniendo {num_questions} preguntas optimizadas..."):
+                        from src.data.optimized_questions import get_optimized_questions_batch
+                        
+                        questions = get_optimized_questions_batch(
+                            chromadb_wrapper=chromadb_wrapper,
+                            num_questions=num_questions,
+                            embedding_model_name=first_model
+                        )
+                        
+                        if questions:
+                            # Mostrar estadísticas de las preguntas obtenidas
+                            total_links = sum(q.get('total_links', 0) for q in questions)
+                            total_valid_links = sum(q.get('valid_links', 0) for q in questions)
+                            avg_success_rate = sum(q.get('validation_success_rate', 0) for q in questions) / len(questions) * 100
+                            
+                            st.write(f"✅ Obtenidas {len(questions)} preguntas optimizadas")
+                            st.write(f"📊 Total de links: {total_links}, Links válidos: {total_valid_links}")
+                            st.write(f"🎯 Tasa promedio de validación: {avg_success_rate:.1f}%")
+                        else:
+                            st.warning("⚠️ No se pudieron obtener preguntas de la colección optimizada")
                     
                     if questions:
                         evaluation_config['questions_data'] = questions

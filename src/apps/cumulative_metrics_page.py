@@ -703,9 +703,6 @@ def display_results_content(results_data):
         display_enhanced_cumulative_metrics(adapted_results, model_name, use_llm_reranker)
         
     else:
-        # Para múltiples modelos, usar display_enhanced_models_comparison
-        st.markdown("### 🏆 Comparación de Modelos")
-        
         # Adaptar formato para múltiples modelos según estructura disponible
         adapted_multi_results = {}
         has_new_format = False

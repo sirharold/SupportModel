@@ -367,6 +367,114 @@ def answer_question_documents_only(
         questions_class=questions_class
     )
 
+
+def answer_question_documents_with_comparison(
+    question: str,
+    chromadb_wrapper: ChromaDBClientWrapper,
+    embedding_client: EmbeddingClient,
+    openai_client: OpenAI,
+    top_k: int = 10,
+    *,
+    diversity_threshold: float = 0.85,
+    use_llm_reranker: bool = True,
+    use_questions_collection: bool = True,
+    documents_class: str = "Documents",
+    questions_class: str = "Questions"
+) -> Tuple[List[dict], List[dict], str]:
+    """
+    Retorna documentos antes y después del reranking para comparación.
+    
+    Returns:
+        Tuple de (pre_reranking_docs, post_reranking_docs, debug_info)
+    """
+    debug_logs = []
+    
+    try:
+        # 1. Búsqueda inicial (igual que answer_question)
+        debug_logs.append(f"🔹 Starting search for: {question}")
+        
+        # 2. Buscar en colección de preguntas
+        if use_questions_collection:
+            question_vector = embedding_client.generate_query_embedding(question)
+            similar_questions = chromadb_wrapper.search_questions_by_vector(
+                vector=question_vector,
+                top_k=3,
+                threshold=0.7
+            )
+            
+            linked_docs = []
+            if similar_questions:
+                all_links = []
+                for q in similar_questions:
+                    ms_links = q.get("ms_links", [])
+                    all_links.extend(ms_links)
+                
+                if all_links:
+                    linked_docs = chromadb_wrapper.search_docs_by_links(all_links)
+        else:
+            similar_questions = []
+            linked_docs = []
+        
+        # 3. Buscar documentos por vector
+        document_vector = embedding_client.generate_document_embedding(question)
+        vector_docs = chromadb_wrapper.search_docs_by_vector(
+            vector=document_vector,
+            top_k=max(top_k * 2, 20),
+            diversity_threshold=diversity_threshold,
+            include_distance=True
+        )
+        
+        # 4. Combinar y deduplicar
+        unique_docs_dict = {}
+        
+        # Primero agregar documentos linked
+        for doc in linked_docs:
+            link = doc.get("link", "").strip()
+            if link:
+                unique_docs_dict[link] = doc
+        
+        # Luego agregar documentos de vector search
+        for doc in vector_docs:
+            link = doc.get("link", "").strip()
+            if link and link not in unique_docs_dict:
+                unique_docs_dict[link] = doc
+        
+        unique_docs = list(unique_docs_dict.values())
+        
+        if not unique_docs:
+            return [], [], "No se encontraron documentos"
+        
+        # 5. Guardar copia de documentos pre-reranking con scores originales
+        pre_reranking_docs = []
+        for doc in unique_docs[:top_k]:  # Solo los top_k para comparación justa
+            pre_reranking_docs.append({
+                **doc,
+                'original_score': doc.get('score', 0)  # Preservar score original
+            })
+        
+        # 6. Aplicar reranking
+        max_docs_to_rerank = min(len(unique_docs), 40 if use_llm_reranker else top_k * 3)
+        docs_to_rerank = unique_docs[:max_docs_to_rerank]
+        
+        if use_llm_reranker:
+            try:
+                debug_logs.append(f"🔹 Using LLM to rerank {len(docs_to_rerank)} documents...")
+                reranked = rerank_with_llm(question, docs_to_rerank, openai_client, top_k=top_k, embedding_model=embedding_client.model_name)
+            except Exception as e:
+                debug_logs.append(f"❌ Error during LLM reranking: {e}. Falling back to standard reranking.")
+                reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
+        else:
+            debug_logs.append(f"🔹 Using standard embedding similarity to rerank {len(docs_to_rerank)} documents...")
+            reranked = rerank_documents(question, docs_to_rerank, embedding_client, top_k=top_k)
+        
+        debug_logs.append(f"🔹 Pre-reranking docs: {len(pre_reranking_docs)}, Post-reranking docs: {len(reranked)}")
+        
+        return pre_reranking_docs, reranked, "\n".join(debug_logs)
+        
+    except Exception as e:
+        debug_logs.append(f"❌ Error: {e}")
+        return [], [], "\n".join(debug_logs)
+
 def answer_question_with_rag(
     question: str,
     chromadb_wrapper: ChromaDBClientWrapper,

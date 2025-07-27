@@ -730,10 +730,12 @@ def get_all_results_files_from_drive():
         # Filtrar solo archivos JSON y validar patrón
         if all_files:
             import re
-            # Patrones válidos: n_questions_results_ o cumulative_results_ seguido de números y .json
+            # Patrones válidos: n_questions_results_ o cumulative_results_ seguido de timestamps y .json
+            # Soporta ambos formatos: 1234567890.json y YYYYMMDD_HHMMSS.json
             patterns = [
                 re.compile(r'^n_questions_results_\d+\.json$'),
-                re.compile(r'^cumulative_results_\d+\.json$')
+                re.compile(r'^cumulative_results_\d+\.json$'),  # Formato antiguo: timestamp Unix
+                re.compile(r'^cumulative_results_\d{8}_\d{6}\.json$')  # Formato nuevo: YYYYMMDD_HHMMSS
             ]
             
             valid_files = []

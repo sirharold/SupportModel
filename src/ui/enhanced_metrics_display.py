@@ -438,9 +438,7 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
     
     # Determine reranking method from config
     reranking_method = config.get('reranking_method', 'standard') if config else 'standard'
-    
-    st.subheader("🏆 Comparación Avanzada Entre Modelos")
-    
+
     # Enhanced multi-model scoring analysis section only
     display_multi_model_scoring_analysis(results, use_llm_reranker, reranking_method)
 

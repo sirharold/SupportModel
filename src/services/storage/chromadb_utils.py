@@ -318,7 +318,7 @@ class ChromaDBClientWrapper:
         links: List[str], 
         batch_size: int = 50
     ) -> List[Dict]:
-        """Optimized batch lookup of documents by links."""
+        """FAST batch lookup of documents by links using limited fetch."""
         if not links:
             return []
         
@@ -326,21 +326,54 @@ class ChromaDBClientWrapper:
         unique_links = list(dict.fromkeys(link.strip() for link in links if link.strip()))
         
         def _batch_lookup(link_batch: List[str]) -> List[Dict]:
-            # ChromaDB doesn't have complex filtering like Weaviate, so we get all docs
-            # and filter by links in memory
-            results = self._docs_collection.get(
-                include=['metadatas', 'documents']
-            )
-            
-            filtered_docs = []
-            for i, metadata in enumerate(results['metadatas']):
-                if metadata.get('link') in link_batch:
-                    doc_data = metadata.copy()
-                    if results['documents'][i]:
-                        doc_data['content'] = results['documents'][i]
-                    filtered_docs.append(doc_data)
-            
-            return filtered_docs
+            # OPTIMIZACIÓN: Solo obtener metadatos de una muestra, no todos los docs
+            # Para validación rápida, limitamos a 5000 docs en lugar de cargar todo
+            try:
+                # Importar función de normalización
+                from src.data.extract_links import normalize_url
+                
+                results = self._docs_collection.get(
+                    limit=5000,  # Límite para velocidad
+                    include=['metadatas']  # Solo metadatos, no documentos completos
+                )
+                
+                filtered_docs = []
+                # Normalizar links de búsqueda para comparación consistente
+                normalized_search_links = set(normalize_url(link) for link in link_batch)
+                normalized_search_links.discard('')  # Eliminar links vacíos si hay error de normalización
+                
+                for metadata in results['metadatas']:
+                    doc_link = metadata.get('link', '')
+                    if doc_link:
+                        # Normalizar link del documento para comparación
+                        normalized_doc_link = normalize_url(doc_link)
+                        
+                        if normalized_doc_link in normalized_search_links:
+                            # Solo incluir campos esenciales para validación
+                            doc_data = {
+                                'link': doc_link,  # Mantener link original
+                                'normalized_link': normalized_doc_link,  # Agregar link normalizado
+                                'title': metadata.get('title', ''),
+                                'validation_only': True  # Marcar como validación rápida
+                            }
+                            filtered_docs.append(doc_data)
+                            
+                            # EARLY EXIT: Si encontramos al menos 1, suficiente para validación
+                            if len(filtered_docs) >= 1:
+                                break
+                
+                return filtered_docs
+                
+            except Exception as e:
+                # Fallback al método original si hay error
+                logger.warning(f"Fast lookup failed, using fallback: {e}")
+                results = self._docs_collection.get(include=['metadatas'])
+                filtered_docs = []
+                for metadata in results['metadatas']:
+                    if metadata.get('link') in link_batch:
+                        doc_data = {'link': metadata.get('link'), 'title': metadata.get('title', '')}
+                        filtered_docs.append(doc_data)
+                return filtered_docs
         
         try:
             all_results = []

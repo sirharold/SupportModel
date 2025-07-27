@@ -28,19 +28,23 @@ DEBUG_MODE = False  # Set to True to enable debug messages, False to disable the
 CHROMADB_COLLECTION_CONFIG = {
     "multi-qa-mpnet-base-dot-v1": {
         "documents": "docs_mpnet",
-        "questions": "questions_mpnet"
+        "questions": "questions_mpnet",
+        "questions_withlinks": "questions_withlinks"  # Colección optimizada
     },
     "all-MiniLM-L6-v2": {
         "documents": "docs_minilm",
-        "questions": "questions_minilm"
+        "questions": "questions_minilm",
+        "questions_withlinks": "questions_withlinks"  # Colección optimizada
     },
     "ada": {
         "documents": "docs_ada",
-        "questions": "questions_ada"
+        "questions": "questions_ada",
+        "questions_withlinks": "questions_withlinks"  # Colección optimizada
     },
     "e5-large-v2": {
         "documents": "docs_e5large",
-        "questions": "questions_e5large"
+        "questions": "questions_e5large",
+        "questions_withlinks": "questions_withlinks"  # Colección optimizada
     }
 }
 

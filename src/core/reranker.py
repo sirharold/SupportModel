@@ -59,6 +59,9 @@ def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI, top_
 
     # Add final scores to the documents
     for doc, score in zip(docs, final_scores):
+        # Preserve original score before reranking
+        if "score" in doc and "pre_rerank_score" not in doc:
+            doc["pre_rerank_score"] = doc["score"]
         doc["score"] = float(score)
         
     # Sort documents by the new score in descending order
@@ -87,6 +90,9 @@ def rerank_documents(query: str, docs: List[dict], embedding_client: EmbeddingCl
     scores = cosine_similarity([query_vec], valid_vecs)[0]
 
     for doc, score in zip(valid_docs, scores):
+        # Preserve original score before reranking
+        if "score" in doc and "pre_rerank_score" not in doc:
+            doc["pre_rerank_score"] = doc["score"]
         doc["score"] = float(score)
 
     return sorted(valid_docs, key=lambda d: d["score"], reverse=True)[:top_k]
