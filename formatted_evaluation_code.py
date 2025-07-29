@@ -794,13 +794,16 @@ def run_real_complete_evaluation(available_models: list, config_data: dict,
 
     start_time = time.time()
 
-    questions_data = config_data['questions']
+    # Buscar questions_data primero, luego questions (compatibilidad)
+    questions_data = config_data.get('questions_data', config_data.get('questions', []))
     if max_questions:
         questions_data = questions_data[:max_questions]
 
     params = config_data.get('params', {})
-    top_k = params.get('top_k', 10)
-    generate_rag = params.get('generate_rag_metrics', True)
+    # Buscar top_k primero en el nivel raíz, luego en params
+    top_k = config_data.get('top_k', params.get('top_k', 10))
+    # Buscar generate_rag_metrics en nivel raíz, luego en params
+    generate_rag = config_data.get('generate_rag_metrics', params.get('generate_rag_metrics', True))
 
     print(f"🚀 Starting evaluation of {len(available_models)} models on {len(questions_data)} questions")
     print(f"📊 Reranking method: {reranking_method}")
