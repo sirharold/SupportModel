@@ -197,7 +197,7 @@ def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reran
     
     st.subheader("📈 Métricas por Valores de K")
     
-    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    k_values = list(range(1, 51))  # Support k values from 1 to 50
     # All metrics that are calculated in updated Colab notebook (v2.0)
     k_metrics = ['precision', 'recall', 'f1', 'ndcg', 'map']  # Metrics that have @k values
     single_metrics = ['mrr']  # Metrics that are single values (no @k)
@@ -386,7 +386,7 @@ def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_rerank
     st.subheader("📈 Visualización de Rendimiento")
     
     # Performance across K values
-    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    k_values = list(range(1, 51))  # Support k values from 1 to 50
     main_metrics = ['f1'] # Focus on F1-score as the primary 'score'
     
     # Create a single subplot for the F1-score
@@ -462,7 +462,7 @@ def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], 
     """
     st.subheader("📈 Rendimiento Detallado por Métrica y K")
 
-    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    k_values = list(range(1, 51))  # Support k values from 1 to 50
     metrics_to_plot = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     # Create subplots: 2 rows, 3 columns for 6 metrics
@@ -541,7 +541,7 @@ def create_all_metrics_by_k_table(results: Dict[str, Dict[str, Any]], use_llm_re
     """
     st.subheader("📋 Tabla Detallada de Métricas por K (Todos los Modelos)")
 
-    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    k_values = list(range(1, 51))  # Support k values from 1 to 50
     metrics_to_display = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     table_data = []
@@ -671,7 +671,7 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += f"- GPU utilizada: {'Sí' if evaluation_info.get('gpu_used') else 'No'}\n\n"
 
     formatted_string += "## Resultados Detallados por Modelo\n"
-    k_values = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    k_values = list(range(1, 51))  # Support k values from 1 to 50
     metrics_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
     # Use STANDARD metric names from RAGAS and BERTScore libraries  
     standard_ragas_types = ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall', 'answer_correctness', 'answer_similarity', 'semantic_similarity']
@@ -2383,10 +2383,10 @@ def display_top_documents_analysis(individual_before: List[Dict], individual_aft
                 all_docs_with_scores.append(doc_info)
     
     if all_docs_with_scores:
-        # Top documents by cosine similarity
-        st.markdown("##### 🔝 Top 10 Documentos por Cosine Similarity")
+        # Top documents by cosine similarity - show all available documents
+        st.markdown(f"##### 🔝 Todos los Documentos por Cosine Similarity ({len(all_docs_with_scores)} documentos)")
         
-        top_cosine_docs = sorted(all_docs_with_scores, key=lambda x: x['cosine_similarity'], reverse=True)[:10]
+        top_cosine_docs = sorted(all_docs_with_scores, key=lambda x: x['cosine_similarity'], reverse=True)
         
         cosine_table_data = []
         for i, doc in enumerate(top_cosine_docs, 1):
@@ -2406,9 +2406,9 @@ def display_top_documents_analysis(individual_before: List[Dict], individual_aft
         if use_llm_reranker:
             crossencoder_docs = [doc for doc in all_docs_with_scores if 'crossencoder_score' in doc]
             if crossencoder_docs:
-                st.markdown("##### 🧠 Top 10 Documentos por CrossEncoder Score")
+                st.markdown(f"##### 🧠 Todos los Documentos por CrossEncoder Score ({len(crossencoder_docs)} documentos)")
                 
-                top_ce_docs = sorted(crossencoder_docs, key=lambda x: x['crossencoder_score'], reverse=True)[:10]
+                top_ce_docs = sorted(crossencoder_docs, key=lambda x: x['crossencoder_score'], reverse=True)
                 
                 ce_table_data = []
                 for i, doc in enumerate(top_ce_docs, 1):
