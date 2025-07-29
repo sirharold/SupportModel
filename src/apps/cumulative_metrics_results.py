@@ -234,7 +234,7 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
 
     Args:
         selected_file: Información del archivo seleccionado en Google Drive.
-        generate_llm_analysis: Si True, se generarán conclusiones con un modelo LLM.
+        generate_llm_analysis: Si True, se generarán conclusiones con un modelo LLM y se mostrarán las secciones de conclusiones.
     """
     
     st.markdown("---")
@@ -296,7 +296,7 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
                 st.session_state.llm_improvements = ""
 
             # Mostrar visualizaciones
-            display_results_visualizations(results_data, processed_results)
+            display_results_visualizations(results_data, processed_results, generate_llm_analysis)
             
         except Exception as e:
             st.error(f"❌ Error procesando resultados: {e}")
@@ -398,8 +398,14 @@ def display_results_summary(results_data: Dict, processed_results: Dict):
             st.write("")  # Empty line for spacing
 
 
-def display_results_visualizations(results_data: Dict, processed_results: Dict):
-    """Muestra las visualizaciones de resultados usando enhanced_metrics_display"""
+def display_results_visualizations(results_data: Dict, processed_results: Dict, generate_llm_analysis: bool):
+    """Muestra las visualizaciones de resultados usando enhanced_metrics_display
+    
+    Args:
+        results_data: Datos completos de los resultados
+        processed_results: Resultados procesados por modelo
+        generate_llm_analysis: Si True, muestra las secciones de conclusiones y próximos pasos
+    """
     
     st.markdown("---")
     
@@ -506,34 +512,39 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
     # Display methodology section before conclusions
     display_methodology_section()
     
-    st.subheader("📝 Conclusiones")
-    
-    # Check if LLM-generated conclusions are in session state
-    if 'llm_conclusions' in st.session_state and st.session_state.llm_conclusions:
-        st.markdown(st.session_state.llm_conclusions)
-    else:
-        st.markdown("""
-        Basado en los resultados de la evaluación:
-        - **Rendimiento General:** [Insertar conclusión sobre el rendimiento general de los modelos, e.g., qué modelos destacan, si el reranking LLM es efectivo, etc.]
-        - **Impacto del Reranking LLM:** [Analizar si el reranking LLM consistentemente mejora las métricas de recuperación y RAG, o si hay casos donde no es beneficioso.]
-        - **Métricas Clave:** [Comentar sobre los valores de métricas importantes como F1-Score, Faithfulness, Answer Relevance. ¿Son aceptables? ¿Hay modelos que sobresalen en ciertas métricas?]
-        - **Comportamiento por K:** [Observaciones sobre cómo el rendimiento cambia a medida que K (número de documentos recuperados) varía.]
-        """)
+    # Solo mostrar conclusiones y próximos pasos si el checkbox está marcado
+    if generate_llm_analysis:
+        st.subheader("📝 Conclusiones")
+        
+        # Check if LLM-generated conclusions are in session state
+        if 'llm_conclusions' in st.session_state and st.session_state.llm_conclusions:
+            st.markdown(st.session_state.llm_conclusions)
+        else:
+            st.markdown("""
+            Basado en los resultados de la evaluación:
+            - **Rendimiento General:** [Insertar conclusión sobre el rendimiento general de los modelos, e.g., qué modelos destacan, si el reranking LLM es efectivo, etc.]
+            - **Impacto del Reranking LLM:** [Analizar si el reranking LLM consistentemente mejora las métricas de recuperación y RAG, o si hay casos donde no es beneficioso.]
+            - **Métricas Clave:** [Comentar sobre los valores de métricas importantes como F1-Score, Faithfulness, Answer Relevance. ¿Son aceptables? ¿Hay modelos que sobresalen en ciertas métricas?]
+            - **Comportamiento por K:** [Observaciones sobre cómo el rendimiento cambia a medida que K (número de documentos recuperados) varía.]
+            """)
 
-    st.subheader("💡 Posibles Mejoras y Próximos Pasos")
-    if 'llm_improvements' in st.session_state and st.session_state.llm_improvements:
-        st.markdown(st.session_state.llm_improvements)
+        st.subheader("💡 Posibles Mejoras y Próximos Pasos")
+        if 'llm_improvements' in st.session_state and st.session_state.llm_improvements:
+            st.markdown(st.session_state.llm_improvements)
+        else:
+            st.markdown("""
+            Para optimizar aún más el sistema RAG y la evaluación:
+            - **Análisis de Errores por Pregunta:** Implementar una sección para revisar preguntas individuales donde los modelos tuvieron bajo rendimiento. Esto podría revelar patrones en tipos de preguntas difíciles o problemas en los documentos fuente.
+            - **Análisis de Latencia:** Si los datos de tiempo de respuesta por pregunta/modelo están disponibles, visualizarlos para identificar cuellos de botella, especialmente con el reranking LLM.
+            - **Diversidad de Contexto:** Evaluar la diversidad de los documentos recuperados para asegurar que no se están obteniendo documentos redundantes o muy similares.
+            - **Evaluación Humana (Human-in-the-Loop):** Integrar un mecanismo para que evaluadores humanos revisen una muestra de respuestas generadas y proporcionen feedback cualitativo, especialmente para métricas subjetivas como `answer_relevance` y `answer_correctness`.
+            - **Optimización de Modelos:** Experimentar con diferentes modelos de embedding o configuraciones de LLM para el reranking y la generación de respuestas.
+            - **Robustez del Reranker:** Analizar el impacto del reranker en casos donde la recuperación inicial es muy pobre. ¿Puede el reranker recuperar una mala recuperación inicial?
+            - **Visualización de Distribución de Scores:** Añadir histogramas o box plots para ver la distribución de las métricas individuales (no solo promedios) para cada modelo, lo que daría una idea de la consistencia del rendimiento.
+            """)
     else:
-        st.markdown("""
-        Para optimizar aún más el sistema RAG y la evaluación:
-        - **Análisis de Errores por Pregunta:** Implementar una sección para revisar preguntas individuales donde los modelos tuvieron bajo rendimiento. Esto podría revelar patrones en tipos de preguntas difíciles o problemas en los documentos fuente.
-        - **Análisis de Latencia:** Si los datos de tiempo de respuesta por pregunta/modelo están disponibles, visualizarlos para identificar cuellos de botella, especialmente con el reranking LLM.
-        - **Diversidad de Contexto:** Evaluar la diversidad de los documentos recuperados para asegurar que no se están obteniendo documentos redundantes o muy similares.
-        - **Evaluación Humana (Human-in-the-Loop):** Integrar un mecanismo para que evaluadores humanos revisen una muestra de respuestas generadas y proporcionen feedback cualitativo, especialmente para métricas subjetivas como `answer_relevance` y `answer_correctness`.
-        - **Optimización de Modelos:** Experimentar con diferentes modelos de embedding o configuraciones de LLM para el reranking y la generación de respuestas.
-        - **Robustez del Reranker:** Analizar el impacto del reranker en casos donde la recuperación inicial es muy pobre. ¿Puede el reranker recuperar una mala recuperación inicial?
-        - **Visualización de Distribución de Scores:** Añadir histogramas o box plots para ver la distribución de las métricas individuales (no solo promedios) para cada modelo, lo que daría una idea de la consistencia del rendimiento.
-        """)
+        # Mostrar mensaje informativo cuando las conclusiones están ocultas
+        st.info("💡 **Sugerencia:** Marca el checkbox '🤖 Generar conclusiones con ChatGPT' para ver las secciones de conclusiones y próximos pasos.")
 
     # Sección de descarga (moved to the end)
     st.markdown("---")
