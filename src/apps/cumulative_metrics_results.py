@@ -36,7 +36,7 @@ def get_local_results_files():
     
     # Timezone de Chile
     chile_tz = pytz.timezone('America/Santiago')
-    print("antes de archivo·")
+    
     for folder in local_results_folders:
         folder_path = os.path.join(os.getcwd(), folder)
         if os.path.exists(folder_path):
@@ -320,11 +320,15 @@ def display_results_summary(results_data: Dict, processed_results: Dict):
     
     with col2:
         st.metric("🔝 Top-K", config.get('top_k', 'N/A'))
-        st.metric("🤖 LLM Reranking", "✅" if config.get('use_llm_reranker') else "❌")
+        # Mostrar método de reranking desde config
+        reranking_method = config.get('reranking_method', 'N/A')
+        reranking_display = "✅ " + reranking_method if reranking_method != 'N/A' else "❌"
+        st.metric("🔄 Reranking", reranking_display)
     
     with col3:
         st.metric("🚀 GPU Usada", "✅" if eval_info.get('gpu_used') else "❌")
-        total_time = eval_info.get('total_time_seconds', 0)
+        # Buscar tiempo total en diferentes campos posibles
+        total_time = eval_info.get('total_duration_seconds', eval_info.get('total_time_seconds', 0))
         total_minutes = total_time / 60 if total_time else 0
         st.metric("⏱️ Tiempo Total", f"{total_minutes:.1f}m" if total_time else "N/A")
     
@@ -400,7 +404,9 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
     st.markdown("---")
     
     # Determinar si usar reranker desde config
-    use_llm_reranker = results_data['config'].get('use_llm_reranker', True)
+    # Priorizar reranking_method sobre use_llm_reranker para compatibilidad
+    reranking_method = results_data['config'].get('reranking_method', 'crossencoder')
+    use_llm_reranker = reranking_method in ['crossencoder', 'llm'] or results_data['config'].get('use_llm_reranker', True)
     
     if len(processed_results) == 1:
         # Para un solo modelo, usar display_enhanced_cumulative_metrics
@@ -408,17 +414,17 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
         model_results = processed_results[model_name]
         
         # Adaptar formato según la estructura de datos disponible
-        # Nuevo formato del notebook actualizado tiene avg_before_metrics y avg_after_metrics
+        # El formato actual tiene avg_before_metrics, avg_after_metrics, all_before_metrics, all_after_metrics
         if 'avg_before_metrics' in model_results and 'avg_after_metrics' in model_results:
-            # Formato actualizado con before/after metrics
+            # Formato actual con before/after metrics
             adapted_results = {
                 'num_questions_evaluated': model_results.get('num_questions_evaluated', results_data['config']['num_questions']),
                 'avg_before_metrics': model_results['avg_before_metrics'],
                 'avg_after_metrics': model_results['avg_after_metrics'],
-                'individual_before_metrics': model_results.get('individual_before_metrics', []),
-                'individual_after_metrics': model_results.get('individual_after_metrics', []),
-                'rag_metrics': model_results.get('rag_metrics', {}),  # ✅ Add RAG metrics
-                'individual_rag_metrics': model_results.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
+                'individual_before_metrics': model_results.get('all_before_metrics', []),  # Usar all_before_metrics
+                'individual_after_metrics': model_results.get('all_after_metrics', []),    # Usar all_after_metrics
+                'rag_metrics': model_results.get('rag_metrics', {}),
+                'individual_rag_metrics': model_results.get('individual_rag_metrics', [])
             }
             
             # Verificar si realmente hay métricas after
@@ -456,17 +462,17 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
         has_new_format = False
         
         for model_name, model_data in processed_results.items():
-            # Verificar si usa el nuevo formato con before/after metrics
+            # Verificar si usa el formato actual con before/after metrics
             if 'avg_before_metrics' in model_data and 'avg_after_metrics' in model_data:
-                # Formato actualizado
+                # Formato actual
                 adapted_multi_results[model_name] = {
                     'num_questions_evaluated': model_data.get('num_questions_evaluated', results_data['config']['num_questions']),
                     'avg_before_metrics': model_data['avg_before_metrics'],
                     'avg_after_metrics': model_data['avg_after_metrics'],
-                    'individual_before_metrics': model_data.get('individual_before_metrics', []),
-                    'individual_after_metrics': model_data.get('individual_after_metrics', []),
-                    'rag_metrics': model_data.get('rag_metrics', {}),  # ✅ Add RAG metrics
-                    'individual_rag_metrics': model_data.get('individual_rag_metrics', [])  # ✅ Add individual RAG metrics
+                    'individual_before_metrics': model_data.get('all_before_metrics', []),  # Usar all_before_metrics
+                    'individual_after_metrics': model_data.get('all_after_metrics', []),    # Usar all_after_metrics
+                    'rag_metrics': model_data.get('rag_metrics', {}),
+                    'individual_rag_metrics': model_data.get('individual_rag_metrics', [])
                 }
                 has_new_format = True
             else:
@@ -532,19 +538,21 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict):
     # Sección de descarga (moved to the end)
     st.markdown("---")
     # Prepare data for the download section in the expected format
+    config = results_data.get('config', {})
     cached_results = {
         'results': processed_results,
         'evaluation_time': results_data.get('evaluation_info', {}).get('timestamp'),
-        'execution_time': results_data.get('evaluation_info', {}).get('total_time_seconds'),
+        'execution_time': results_data.get('evaluation_info', {}).get('total_duration_seconds', 
+                                             results_data.get('evaluation_info', {}).get('total_time_seconds')),
         'evaluate_all_models': len(processed_results) > 1,
         'params': {
-            'num_questions': results_data['config']['num_questions'],
+            'num_questions': config.get('num_questions', 0),
             'selected_models': list(processed_results.keys()),
             'embedding_model_name': list(processed_results.keys())[0] if len(processed_results) == 1 else 'Multi-Model',
-            'generative_model_name': results_data['config']['generative_model_name'],
-            'top_k': results_data['config']['top_k'],
-            'use_llm_reranker': results_data['config']['use_llm_reranker'],
-            'batch_size': results_data['config']['batch_size']
+            'generative_model_name': config.get('generative_model_name', 'gpt-4'),  # Default if not present
+            'top_k': config.get('top_k', 10),
+            'use_llm_reranker': config.get('use_llm_reranker', config.get('reranking_method') == 'crossencoder'),
+            'batch_size': config.get('batch_size', 32)  # Default if not present
         }
     }
     display_download_section(

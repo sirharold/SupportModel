@@ -1866,22 +1866,28 @@ def display_methodology_section():
         st.markdown("""
         ## 📋 Metodología Completa del Sistema de Evaluación RAG
         
+        > **Nota Importante**: Este sistema evalúa un motor de búsqueda semántica sobre la documentación oficial de Microsoft Learn.
+        > No utilizamos Stack Overflow ni otras fuentes externas. El objetivo es encontrar la documentación técnica más relevante
+        > directamente desde las fuentes oficiales de Microsoft Azure.
+        
         ### 🎯 1. Obtención de Scores de Recuperación (Pre y Post Reranking)
         
-        **Proceso de Evaluación:**
-        - **Ground Truth**: Utilizamos los enlaces de Microsoft Learn contenidos en las respuestas aceptadas de Stack Overflow como referencias de documentos relevantes
-        - **Similitud de Enlaces**: Normalizamos los URLs eliminando fragmentos (#) y parámetros de consulta (?) para hacer comparaciones exactas
-        - **Métricas de Recuperación**: Calculamos Precision@k, Recall@k, F1@k, NDCG@k, MAP@k y MRR comparando los documentos recuperados vs. los enlaces de referencia
-        - **Evaluación por Pregunta**: Cada pregunta se evalúa individualmente y luego se promedian los resultados across todas las preguntas
+        **Sistema de Recuperación de Información:**
+        - **Fuente de Datos**: Documentación oficial de Microsoft Learn sobre Azure (NO Stack Overflow)
+        - **Corpus de Documentos**: Base de datos de 187,031 documentos técnicos procesados y embebidos con diferentes modelos
+        - **Búsqueda por Similitud**: Utilizamos embeddings de preguntas técnicas para encontrar documentos relevantes mediante similitud coseno
+        - **Sin Ground Truth Binario**: No dependemos de enlaces "correctos" predefinidos, evaluamos basándonos en scores de similitud continua
+        - **Evaluación por Pregunta**: Cada pregunta se evalúa individualmente con sus top-k documentos y luego se promedian los resultados
         
-        ### 🤖 2. Estrategia de Reranking con LLM
+        ### 🤖 2. Estrategia de Reranking con CrossEncoder
         
         **Método de Reordenamiento:**
-        - **Modelo**: OpenAI GPT-3.5-turbo para reordenar los documentos recuperados
-        - **Prompt Engineering**: Se envía la pregunta original junto con hasta 4000 caracteres de cada documento recuperado (con truncación inteligente)
-        - **Proceso**: El LLM ordena los documentos del 1 al 10 basándose en relevancia a la pregunta
-        - **Manejo de Errores**: Si el LLM no puede generar un ranking válido, se mantiene el orden original de similitud coseno
-        - **Temperatura**: 0.1 para generar rankings consistentes y determinísticos
+        - **Modelo**: CrossEncoder 'cross-encoder/ms-marco-MiniLM-L-6-v2' especializado en ranking de documentos
+        - **Entrada**: Pares [pregunta, contenido_documento] con hasta 500 caracteres por documento
+        - **Scoring**: El modelo genera logits de relevancia que se normalizan usando Min-Max [0,1]
+        - **Normalización**: `(score - min_score) / (max_score - min_score)` para convertir logits a rango interpretable
+        - **Ranking**: Documentos se reordenan por score normalizado de mayor a menor
+        - **Ventaja**: Modelo específicamente entrenado para relevancia query-documento vs. LLM general
         
         ### 📄 3. Agregación de Chunks a Documentos
         
@@ -1922,13 +1928,13 @@ def display_methodology_section():
         
         ### 📊 4. Cálculo de Métricas Específicas
         
-        **Métricas de Recuperación:**
-        - **Precision@k**: `Documentos relevantes en top-k / k`
-        - **Recall@k**: `Documentos relevantes en top-k / Total documentos relevantes`
-        - **F1@k**: `2 × (Precision@k × Recall@k) / (Precision@k + Recall@k)`
-        - **NDCG@k**: `DCG@k / IDCG@k` (considera orden de resultados)
-        - **MAP@k**: `Σ(Precision@i × relevancia_i) / Documentos relevantes`
-        - **MRR**: `1 / rank del primer documento relevante`
+        **Métricas de Recuperación (Basadas en Scores):**
+        - **Avg Score@k**: Promedio de scores de similitud en top-k documentos
+        - **Max Score@k**: Score máximo entre los top-k documentos  
+        - **Score Variance@k**: Varianza de scores (indica diversidad)
+        - **NDCG@k**: `DCG@k / IDCG@k` usando scores como relevancia gradual
+        - **Precision@k**: Proporción de documentos con score > umbral en top-k
+        - **MRR**: Basado en primer documento con score alto (>0.8)
         
         **Métricas RAGAS:**
         - **Faithfulness**: Evalúa fidelidad al contexto usando verificación de claims
@@ -1944,7 +1950,7 @@ def display_methodology_section():
         ### 🔄 6. Diagrama de Proceso (1 Modelo, 1 Pregunta)
         
         ```
-        📝 PREGUNTA + MS LINKS (Ground Truth)
+        📝 PREGUNTA TÉCNICA SOBRE AZURE
                         ↓
         🔤 GENERACIÓN DE EMBEDDING (Sentence Transformers / OpenAI)
                         ↓
@@ -1960,12 +1966,12 @@ def display_methodology_section():
                     📊 EVALUACIÓN PRE-RERANKING
                     (Precision, Recall, F1, NDCG, MAP, MRR)
                         ↓
-        🤖 RERANKING LLM (GPT-3.5-turbo + 4000 chars/doc) [OPCIONAL]
+        🤖 RERANKING CROSSENCODER (ms-marco-MiniLM + MinMax norm) [OPCIONAL]
                         ↓
                     📈 EVALUACIÓN POST-RERANKING
                     (Mismas métricas de recuperación)
                         ↓
-        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + 2000 chars/doc)
+        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + 800 chars/doc)
                         ↓
                     🔬 EVALUACIÓN RAG
                     ├── RAGAS (Faithfulness, Answer Relevancy, etc.) [3000 chars/doc]
@@ -1979,8 +1985,9 @@ def display_methodology_section():
         ### 🎯 7. Garantías de Calidad Científica
         
         **Reproducibilidad:**
-        - Evaluación completamente determinística (temperatura 0.1 en LLM)
-        - Sin operaciones aleatorias en el cálculo de métricas
+        - Evaluación completamente determinística (CrossEncoder sin temperatura)
+        - Sin operaciones aleatorias en el cálculo de métricas o normalización
+        - Normalización Min-Max consistente: (score - min) / (max - min)
         - Selección de preguntas con seed fijo (42) solo durante configuración
         - Mismos datasets y embeddings pre-calculados
         
@@ -2096,9 +2103,10 @@ def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_r
         'model_all_documents_max_crossencoder_score', 'model_all_documents_min_crossencoder_score'
     ]
     
-    # Check if we have model-level statistics
-    has_before_scores = any(key in avg_before for key in model_score_keys)
-    has_after_scores = any(key in avg_after for key in crossencoder_keys) if avg_after else False
+    # Check if we have model-level statistics - using both old and new key names
+    basic_score_keys = ['model_avg_score', 'model_max_score', 'model_min_score']
+    has_before_scores = any(key in avg_before for key in model_score_keys + basic_score_keys)
+    has_after_scores = any(key in avg_after for key in crossencoder_keys + basic_score_keys) if avg_after else False
     
     if has_before_scores or has_after_scores:
         col1, col2 = st.columns(2)
@@ -2106,36 +2114,36 @@ def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_r
         with col1:
             st.markdown("##### 🔍 Cosine Similarity Scores")
             if has_before_scores:
-                # Display cosine similarity statistics
+                # Display cosine similarity statistics using correct key names
                 total_docs = avg_before.get('model_total_documents_evaluated', 0)
-                avg_score = avg_before.get('model_all_documents_avg_score', 0)
-                max_score = avg_before.get('model_all_documents_max_score', 0)
-                min_score = avg_before.get('model_all_documents_min_score', 0)
-                std_score = avg_before.get('model_all_documents_std_score', 0)
+                avg_score = avg_before.get('model_avg_score', avg_before.get('model_all_documents_avg_score', 0))
+                max_score = avg_before.get('model_max_score', avg_before.get('model_all_documents_max_score', 0))
+                min_score = avg_before.get('model_min_score', avg_before.get('model_all_documents_min_score', 0))
+                std_score = avg_before.get('model_std_score', avg_before.get('model_all_documents_std_score', 0))
                 
                 st.metric("📊 Documentos Evaluados", f"{total_docs:,}" if total_docs else "N/A")
-                st.metric("📈 Score Promedio", f"{avg_score:.3f}" if avg_score else "N/A")
-                st.metric("🔝 Score Máximo", f"{max_score:.3f}" if max_score else "N/A")
-                st.metric("🔻 Score Mínimo", f"{min_score:.3f}" if min_score else "N/A")
-                st.metric("📏 Desviación Estándar", f"{std_score:.3f}" if std_score else "N/A")
+                st.metric("📈 Score Promedio", f"{avg_score:.3f}" if avg_score is not None and avg_score >= 0 else "N/A")
+                st.metric("🔝 Score Máximo", f"{max_score:.3f}" if max_score is not None and max_score >= 0 else "N/A")
+                st.metric("🔻 Score Mínimo", f"{min_score:.3f}" if min_score is not None and min_score >= 0 else "N/A")
+                st.metric("📏 Desviación Estándar", f"{std_score:.3f}" if std_score is not None and std_score >= 0 else "N/A")
             else:
                 st.info("ℹ️ Estadísticas de cosine similarity no disponibles en este resultado")
         
         with col2:
             st.markdown("##### 🧠 CrossEncoder Scores")
             if has_after_scores and use_llm_reranker:
-                # Display CrossEncoder statistics
+                # Display CrossEncoder statistics using correct key names
                 total_reranked = avg_after.get('model_total_documents_reranked', 0)
-                avg_ce_score = avg_after.get('model_all_documents_avg_crossencoder_score', 0)
-                max_ce_score = avg_after.get('model_all_documents_max_crossencoder_score', 0)
-                min_ce_score = avg_after.get('model_all_documents_min_crossencoder_score', 0)
+                avg_ce_score = avg_after.get('model_avg_crossencoder_score', avg_after.get('model_avg_score', 0))
+                max_ce_score = avg_after.get('model_max_crossencoder_score', avg_after.get('model_max_score', 0))
+                min_ce_score = avg_after.get('model_min_crossencoder_score', avg_after.get('model_min_score', 0))
                 avg_per_question = avg_after.get('model_avg_documents_reranked_per_question', 0)
                 
                 st.metric("🔄 Documentos Rerankeados", f"{total_reranked:,}" if total_reranked else "N/A")
-                st.metric("📈 CE Score Promedio", f"{avg_ce_score:.3f}" if avg_ce_score else "N/A")
-                st.metric("🔝 CE Score Máximo", f"{max_ce_score:.3f}" if max_ce_score else "N/A")
-                st.metric("🔻 CE Score Mínimo", f"{min_ce_score:.3f}" if min_ce_score else "N/A")
-                st.metric("📊 Promedio por Pregunta", f"{avg_per_question:.1f}" if avg_per_question else "N/A")
+                st.metric("📈 CE Score Promedio", f"{avg_ce_score:.3f}" if avg_ce_score is not None and avg_ce_score >= 0 else "N/A")
+                st.metric("🔝 CE Score Máximo", f"{max_ce_score:.3f}" if max_ce_score is not None and max_ce_score >= 0 else "N/A")
+                st.metric("🔻 CE Score Mínimo", f"{min_ce_score:.3f}" if min_ce_score is not None and min_ce_score >= 0 else "N/A")
+                st.metric("📊 Promedio por Pregunta", f"{avg_per_question:.1f}" if avg_per_question is not None and avg_per_question >= 0 else "N/A")
             else:
                 if use_llm_reranker:
                     st.info("ℹ️ Estadísticas de CrossEncoder no disponibles en este resultado")
@@ -2471,42 +2479,72 @@ def display_multi_model_scoring_analysis(results: Dict[str, Dict[str, Any]], use
         
         stats = {'Modelo': model_name}
         
-        # Cosine similarity statistics
-        stats['Docs Evaluados'] = before_metrics.get('model_total_documents_evaluated', 0)
-        stats['Avg Cosine Score'] = before_metrics.get('model_all_documents_avg_score', 0)
-        stats['Max Cosine Score'] = before_metrics.get('model_all_documents_max_score', 0)
-        stats['Std Cosine Score'] = before_metrics.get('model_all_documents_std_score', 0)
+        # Cosine similarity statistics - only include available data
+        stats['Avg Cosine Score'] = before_metrics.get('model_avg_score', before_metrics.get('model_all_documents_avg_score', 0))
         
-        # CrossEncoder statistics if available
+        # Only add optional statistics if they exist
+        if before_metrics.get('model_total_documents_evaluated') is not None:
+            stats['Docs Evaluados'] = before_metrics.get('model_total_documents_evaluated')
+        if before_metrics.get('model_max_score') is not None:
+            stats['Max Cosine Score'] = before_metrics.get('model_max_score', before_metrics.get('model_all_documents_max_score'))
+        if before_metrics.get('model_std_score') is not None:
+            stats['Std Cosine Score'] = before_metrics.get('model_std_score', before_metrics.get('model_all_documents_std_score'))
+        
+        # CrossEncoder statistics if available - only include available data
         if use_llm_reranker and after_metrics:
-            stats['Docs Rerankeados'] = after_metrics.get('model_total_documents_reranked', 0)
-            stats['Avg CE Score'] = after_metrics.get('model_all_documents_avg_crossencoder_score', 0)
-            stats['Max CE Score'] = after_metrics.get('model_all_documents_max_crossencoder_score', 0)
+            stats['Avg CE Score'] = after_metrics.get('model_avg_crossencoder_score', after_metrics.get('model_avg_score', 0))
+            
+            # Only add optional statistics if they exist
+            if after_metrics.get('model_total_documents_reranked') is not None:
+                stats['Docs Rerankeados'] = after_metrics.get('model_total_documents_reranked')
+            if after_metrics.get('model_max_crossencoder_score') is not None:
+                stats['Max CE Score'] = after_metrics.get('model_max_crossencoder_score', after_metrics.get('model_max_score'))
         
         model_stats.append(stats)
     
-    # Check if we have scoring statistics
-    has_scoring_stats = any(stat['Docs Evaluados'] > 0 for stat in model_stats)
+    # Check if we have scoring statistics (check for basic scoring data)
+    has_scoring_stats = any(
+        stat.get('Avg Cosine Score', 0) > 0 or 
+        stat.get('Avg CE Score', 0) != 0 
+        for stat in model_stats
+    )
     
     if has_scoring_stats:
-        st.success("✅ Estadísticas de scoring encontradas para comparación multi-modelo")
+        st.success("✅ Estadísticas de scoring disponibles para comparación multi-modelo")
+        
+        # Check what specific stats are available
+        has_detailed_stats = any(stat.get('Docs Evaluados') != "N/A" for stat in model_stats)
+        if not has_detailed_stats:
+            st.info("ℹ️ Mostrando scores básicos disponibles. Para estadísticas detalladas (min, max, std), usa la versión enhanced del notebook.")
         
         # Model comparison table
         st.markdown("#### 📊 Comparación de Estadísticas de Scoring")
         
         df_stats = pd.DataFrame(model_stats)
         
-        # Format numeric columns
-        numeric_cols = ['Docs Evaluados', 'Avg Cosine Score', 'Max Cosine Score', 'Std Cosine Score']
+        # Format numeric columns - only include columns that have real data
+        available_cols = df_stats.columns.tolist()
+        numeric_cols = []
+        
+        # Add available cosine similarity columns
+        cosine_cols = ['Avg Cosine Score']
+        for col in cosine_cols:
+            if col in available_cols:
+                numeric_cols.append(col)
+        
+        # Add available CrossEncoder columns if reranking is used
         if use_llm_reranker:
-            numeric_cols.extend(['Docs Rerankeados', 'Avg CE Score', 'Max CE Score'])
+            ce_cols = ['Avg CE Score']
+            for col in ce_cols:
+                if col in available_cols:
+                    numeric_cols.append(col)
         
         for col in numeric_cols:
             if col in df_stats.columns:
                 if 'Score' in col:
-                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:.3f}" if x > 0 else "N/A")
+                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:.3f}" if isinstance(x, (int, float)) and x >= 0 else "N/A")
                 elif 'Docs' in col:
-                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:,}" if x > 0 else "N/A")
+                    df_stats[col] = df_stats[col].apply(lambda x: f"{x:,}" if isinstance(x, (int, float)) and x > 0 else "N/A")
         
         st.dataframe(df_stats, use_container_width=True)
         
@@ -2516,7 +2554,7 @@ def display_multi_model_scoring_analysis(results: Dict[str, Dict[str, Any]], use
             
             # Prepare data for unified comparison
             models = [stat['Modelo'] for stat in model_stats]
-            cosine_scores = [float(stat['Avg Cosine Score']) if stat['Avg Cosine Score'] != "N/A" else 0 for stat in model_stats]
+            cosine_scores = [float(stat['Avg Cosine Score']) if isinstance(stat['Avg Cosine Score'], (int, float)) and stat['Avg Cosine Score'] > 0 else 0 for stat in model_stats]
             
             chart_data = []
             for i, model in enumerate(models):
@@ -2529,10 +2567,11 @@ def display_multi_model_scoring_analysis(results: Dict[str, Dict[str, Any]], use
             # Add CrossEncoder scores if available
             if use_llm_reranker:
                 for stat in model_stats:
-                    if stat.get('Avg CE Score', "N/A") != "N/A":
+                    ce_score = stat.get('Avg CE Score', 0)
+                    if isinstance(ce_score, (int, float)) and ce_score != 0:
                         chart_data.append({
                             'Modelo': stat['Modelo'],
-                            'Score': float(stat['Avg CE Score']),
+                            'Score': float(ce_score),
                             'Tipo': 'Post-Reranking (CrossEncoder)'
                         })
             

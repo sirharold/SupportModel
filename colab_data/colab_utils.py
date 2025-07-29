@@ -161,7 +161,7 @@ class RealRAGCalculator:
         # Initialize BERTScore model
         try:
             from sentence_transformers import SentenceTransformer
-            self.bert_model = SentenceTransformer('distilbert-base-multilingual-cased')
+            self.bert_model = SentenceTransformer('sentence-transformers/distiluse-base-multilingual-cased-v2')
             self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
         except:
             pass
