@@ -53,10 +53,10 @@ def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str
         display_before_after_comparison(avg_before, avg_after, reranking_method)
     
     # Metrics by K values section
-    display_metrics_by_k_values(avg_before, avg_after, use_llm_reranker, reranking_method)
+    display_metrics_by_k_values(avg_before, avg_after, use_llm_reranker, reranking_method, config)
     
     # Performance visualization
-    display_performance_charts(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+    display_performance_charts(avg_before, avg_after, use_llm_reranker, model_name, reranking_method, config)
 
     # NEW: Document-level score analysis
     display_document_score_analysis(results, use_llm_reranker, model_name, reranking_method)
@@ -192,12 +192,14 @@ def display_before_after_comparison(avg_before: Dict, avg_after: Dict, reranking
             st.warning(f"⚠️ LLM Reranking solo mejoró {positive_improvements}/{len(improvements)} métricas")
 
 
-def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, reranking_method: str = 'standard'):
+def display_metrics_by_k_values(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, reranking_method: str = 'standard', config: Dict = None):
     """Display metrics organized by K values in 2x3 matrix format with charts and table"""
     
     st.subheader("📈 Métricas por Valores de K")
     
-    k_values = list(range(1, 51))  # Support k values from 1 to 50
+    # Get top_k from config, default to 50 if not provided
+    top_k = config.get('top_k', 50) if config else 50
+    k_values = list(range(1, top_k + 1))  # Support k values from 1 to top_k
     # All metrics that are calculated in updated Colab notebook (v2.0)
     k_metrics = ['precision', 'recall', 'f1', 'ndcg', 'map']  # Metrics that have @k values
     single_metrics = ['mrr']  # Metrics that are single values (no @k)
@@ -380,13 +382,15 @@ def display_k_metrics_table(avg_before: Dict, avg_after: Dict, k: int, metric_ty
         st.dataframe(df_table, use_container_width=True)
 
 
-def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard'):
+def display_performance_charts(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard', config: Dict = None):
     """Display comprehensive performance visualization"""
     
     st.subheader("📈 Visualización de Rendimiento")
     
     # Performance across K values
-    k_values = list(range(1, 51))  # Support k values from 1 to 50
+    # Get top_k from config, default to 50 if not provided
+    top_k = config.get('top_k', 50) if config else 50
+    k_values = list(range(1, top_k + 1))  # Support k values from 1 to top_k
     main_metrics = ['f1'] # Focus on F1-score as the primary 'score'
     
     # Create a single subplot for the F1-score
@@ -443,10 +447,10 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
     display_multi_model_scoring_analysis(results, use_llm_reranker, reranking_method)
 
     # New section: All metrics by K for all models
-    display_all_metrics_by_k_for_all_models(results, use_llm_reranker)
+    display_all_metrics_by_k_for_all_models(results, use_llm_reranker, config)
 
     # Table with data for metrics by K
-    create_all_metrics_by_k_table(results, use_llm_reranker)
+    create_all_metrics_by_k_table(results, use_llm_reranker, config)
 
     # Add metric definitions table before RAG metrics
     display_metric_definitions_table()
@@ -455,14 +459,16 @@ def display_enhanced_models_comparison(results: Dict[str, Dict[str, Any]], use_l
     display_rag_metrics_summary(results, use_llm_reranker, config)
 
 
-def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
+def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
     Displays a 2x3 grid of plots, each showing a specific metric across K values
     for all models, with before/after LLM lines.
     """
     st.subheader("📈 Rendimiento Detallado por Métrica y K")
 
-    k_values = list(range(1, 51))  # Support k values from 1 to 50
+    # Get top_k from config, default to 50 if not provided
+    top_k = config.get('top_k', 50) if config else 50
+    k_values = list(range(1, top_k + 1))  # Support k values from 1 to top_k
     metrics_to_plot = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     # Create subplots: 2 rows, 3 columns for 6 metrics
@@ -534,14 +540,16 @@ def display_all_metrics_by_k_for_all_models(results: Dict[str, Dict[str, Any]], 
     st.plotly_chart(fig, use_container_width=True)
 
 
-def create_all_metrics_by_k_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool):
+def create_all_metrics_by_k_table(results: Dict[str, Dict[str, Any]], use_llm_reranker: bool, config: Dict = None):
     """
     Displays a comprehensive table showing all models' metrics across K values,
     with before/after LLM scores.
     """
     st.subheader("📋 Tabla Detallada de Métricas por K (Todos los Modelos)")
 
-    k_values = list(range(1, 51))  # Support k values from 1 to 50
+    # Get top_k from config, default to 50 if not provided
+    top_k = config.get('top_k', 50) if config else 50
+    k_values = list(range(1, top_k + 1))  # Support k values from 1 to top_k
     metrics_to_display = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
 
     table_data = []
@@ -764,10 +772,18 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += f"- GPU utilizada: {'Sí' if evaluation_info.get('gpu_used') else 'No'}\n\n"
 
     formatted_string += "## Resultados Detallados por Modelo\n"
-    formatted_string += "*Nota: Para el análisis LLM, se muestran solo valores k selectos (1, 3, 5, 10, 20, 30, 40, 50) para optimizar el uso del contexto.*\n\n"
-    # Limit k values for LLM analysis to prevent context overflow
-    # Include key values: 1, 3, 5, 10, 20, 30, 40, 50
-    k_values = [1, 3, 5, 10, 20, 30, 40, 50]  # Reduced from all 1-50 to key values only
+    
+    # Get top_k from config and create a subset for LLM analysis to prevent context overflow
+    top_k = config.get('top_k', 50)
+    # Include key values up to the actual top_k value
+    predefined_k_values = [1, 3, 5, 10, 20, 30, 40, 50]
+    k_values = [k for k in predefined_k_values if k <= top_k]
+    # Ensure we always include the actual top_k value if it's not in our predefined list
+    if top_k not in k_values:
+        k_values.append(top_k)
+        k_values.sort()
+    
+    formatted_string += f"*Nota: Para el análisis LLM, se muestran valores k selectos hasta {top_k} para optimizar el uso del contexto.*\n\n"
     metrics_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
     # Use STANDARD metric names from RAGAS and BERTScore libraries  
     standard_ragas_types = ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall', 'answer_correctness', 'answer_similarity', 'semantic_similarity']
