@@ -635,14 +635,107 @@ import json
 from typing import Dict, Any, List
 from src.services.auth.clients import initialize_clients
 
+def _format_metrics_for_llm_simplified(results_data: Dict[str, Any]) -> str:
+    """Create a simplified metrics summary for LLM analysis when context is too large"""
+    
+    metrics_str = "=== RESUMEN SIMPLIFICADO DE MÉTRICAS ===\n\n"
+    
+    # Basic config info only
+    config = results_data.get('config', {})
+    metrics_str += f"📊 Configuración:\n"
+    metrics_str += f"- Modelos evaluados: {config.get('models_evaluated', 'N/A')}\n"
+    metrics_str += f"- Preguntas: {config.get('num_questions', 'N/A')}\n"
+    metrics_str += f"- Top-K: {config.get('top_k', 'N/A')}\n"
+    metrics_str += f"- Método reranking: {config.get('reranking_method', 'N/A')}\n\n"
+    
+    # Only key metrics for each model
+    results = results_data.get('results', {})
+    metrics_str += "📈 Resultados por Modelo (métricas clave):\n\n"
+    
+    for model_name, model_data in results.items():
+        metrics_str += f"🤖 {model_name.upper()}:\n"
+        
+        # Only the most important metrics
+        after_metrics = model_data.get('avg_after_metrics', {})
+        rag_metrics = model_data.get('rag_metrics', {})
+        
+        # Key retrieval metrics
+        f1_5 = after_metrics.get('f1@5', 0)
+        mrr = after_metrics.get('mrr', 0)
+        avg_score = after_metrics.get('model_avg_score', 0)
+        
+        metrics_str += f"  - F1@5: {f1_5:.3f}\n"
+        metrics_str += f"  - MRR: {mrr:.3f}\n"
+        metrics_str += f"  - Score Promedio: {avg_score:.3f}\n"
+        
+        # Key RAG metrics if available
+        if rag_metrics.get('rag_available'):
+            faith = rag_metrics.get('avg_faithfulness', 0)
+            bert_f1 = rag_metrics.get('avg_bert_f1', 0)
+            metrics_str += f"  - Faithfulness: {faith:.3f}\n"
+            metrics_str += f"  - BERT F1: {bert_f1:.3f}\n"
+        
+        metrics_str += "\n"
+    
+    return metrics_str
+
+def _generate_fallback_analysis(results_data: Dict[str, Any]) -> Dict[str, str]:
+    """Generate basic analysis without LLM when all else fails"""
+    
+    results = results_data.get('results', {})
+    config = results_data.get('config', {})
+    
+    # Find best performing model
+    best_model = ""
+    best_f1 = 0
+    total_models = len(results)
+    
+    for model_name, model_data in results.items():
+        f1_5 = model_data.get('avg_after_metrics', {}).get('f1@5', 0)
+        if f1_5 > best_f1:
+            best_f1 = f1_5
+            best_model = model_name
+    
+    conclusions = f"""
+    📊 **Análisis Automático de Resultados**
+    
+    Se evaluaron {total_models} modelos con {config.get('num_questions', 'N/A')} preguntas usando top-k={config.get('top_k', 'N/A')}.
+    
+    🏆 **Mejor Modelo:** {best_model} (F1@5: {best_f1:.3f})
+    
+    📈 **Observaciones:**
+    - Método de reranking: {config.get('reranking_method', 'N/A')}
+    - Se aplicaron métricas RAG completas incluyendo RAGAS y BERTScore
+    - Los resultados están disponibles para análisis detallado en las visualizaciones
+    """
+    
+    improvements = """
+    💡 **Posibles Mejoras:**
+    
+    1. **Análisis Detallado:** Revisa las métricas individuales por modelo en las tablas de rendimiento
+    2. **Comparación Visual:** Utiliza los gráficos de rendimiento para identificar patrones
+    3. **Optimización:** Considera ajustar el valor de top-k basado en los resultados
+    4. **RAG Metrics:** Analiza las métricas de faithfulness y BERT F1 para evaluar calidad de respuestas
+    5. **Reranking:** Evalúa si el método de reranking está mejorando los resultados
+    """
+    
+    return {
+        'conclusions': conclusions,
+        'improvements': improvements
+    }
+
 def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     """
     Formats the evaluation metrics data into a human-readable string for an LLM prompt.
+    Includes size limits to prevent context length errors.
     """
     formatted_string = ""
     config = results_data.get('config', {})
     results = results_data.get('results', {})
     evaluation_info = results_data.get('evaluation_info', {})
+    
+    # Set a soft limit for the formatted string size
+    SOFT_LIMIT = 8000  # Leave buffer for truncation handling
 
     formatted_string += "## Configuración de la Evaluación\n"
     formatted_string += f"- Número de preguntas: {config.get('num_questions', 'N/A')}\n"
@@ -671,18 +764,30 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
     formatted_string += f"- GPU utilizada: {'Sí' if evaluation_info.get('gpu_used') else 'No'}\n\n"
 
     formatted_string += "## Resultados Detallados por Modelo\n"
-    k_values = list(range(1, 51))  # Support k values from 1 to 50
+    formatted_string += "*Nota: Para el análisis LLM, se muestran solo valores k selectos (1, 3, 5, 10, 20, 30, 40, 50) para optimizar el uso del contexto.*\n\n"
+    # Limit k values for LLM analysis to prevent context overflow
+    # Include key values: 1, 3, 5, 10, 20, 30, 40, 50
+    k_values = [1, 3, 5, 10, 20, 30, 40, 50]  # Reduced from all 1-50 to key values only
     metrics_types = ['precision', 'recall', 'f1', 'map', 'mrr', 'ndcg']
     # Use STANDARD metric names from RAGAS and BERTScore libraries  
     standard_ragas_types = ['faithfulness', 'answer_relevancy', 'context_precision', 'context_recall', 'answer_correctness', 'answer_similarity', 'semantic_similarity']
     standard_bertscore_types = ['bert_precision', 'bert_recall', 'bert_f1']
 
+    models_processed = 0
+    total_models = len(results)
+    
     for model_name, model_data in results.items():
+        # Check size before adding each model
+        if len(formatted_string) > SOFT_LIMIT and models_processed > 0:
+            formatted_string += f"\n### ... y {total_models - models_processed} modelos más (omitidos para evitar exceder límites) ...\n"
+            break
+            
         formatted_string += f"### Modelo: {model_name}\n"
         before_metrics = model_data.get('avg_before_metrics', {})
         after_metrics = model_data.get('avg_after_metrics', {})
         individual_before_metrics = model_data.get('individual_before_metrics', [])
         individual_after_metrics = model_data.get('individual_after_metrics', [])
+        models_processed += 1
 
         # Average Retrieval Metrics
         formatted_string += "#### Métricas de Recuperación Promedio\n"
@@ -937,6 +1042,28 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
 
         # Format metrics data for the prompt
         formatted_metrics = _format_metrics_for_llm(results_data)
+        
+        # Add length checking to prevent context length errors
+        MAX_METRICS_LENGTH = 10000  # Character limit for metrics to prevent token overflow
+        original_length = len(formatted_metrics)
+        
+        if original_length > MAX_METRICS_LENGTH:
+            st.warning(f"⚠️ Las métricas formateadas exceden el límite de {MAX_METRICS_LENGTH} caracteres ({original_length} chars). Truncando para evitar errores de contexto...")
+            # Log the truncation for debugging
+            print(f"[DEBUG] Metrics truncation: Original length: {original_length}, Max allowed: {MAX_METRICS_LENGTH}")
+            
+            # Truncate intelligently by keeping the header and summary sections
+            truncation_marker = "\n\n... [Métricas truncadas para evitar exceder el límite de contexto] ...\n\n"
+            # Keep first 40% and last 10% to preserve configuration and some results
+            keep_start = int(MAX_METRICS_LENGTH * 0.4)
+            keep_end = int(MAX_METRICS_LENGTH * 0.1)
+            formatted_metrics = (
+                formatted_metrics[:keep_start] + 
+                truncation_marker + 
+                formatted_metrics[-(keep_end):]
+            )
+            
+            st.info(f"📊 Métricas reducidas de {original_length} a {len(formatted_metrics)} caracteres")
 
         system_prompt = (
             "Eres un experto en sistemas RAG (Retrieval Augmented Generation) y evaluación de modelos. "
@@ -974,8 +1101,19 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                     )
                     full_response_content = response.choices[0].message.content
                 elif model_to_use == "gemini-1.5-flash":
-                    response = llm_client.generate_content(messages)
+                    # Gemini expects a single prompt, not messages array
+                    combined_prompt = f"{system_prompt}\n\n{user_prompt}"
+                    response = llm_client.generate_content(combined_prompt)
                     full_response_content = response.text
+                elif model_to_use == "deepseek-chat":
+                    # DeepSeek via OpenAI-compatible API
+                    response = llm_client.chat.completions.create(
+                        model="deepseek-chat",
+                        messages=messages,
+                        temperature=0.2,
+                        max_tokens=2000  # DeepSeek has larger context
+                    )
+                    full_response_content = response.choices[0].message.content
                 elif model_to_use == "llama-4-scout":
                     # OpenRouter client might have a different method signature
                     # Assuming it has a similar generate_answer or chat.completions.create
@@ -999,12 +1137,37 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                 raise ValueError(f"Modelo LLM no reconocido o no soportado: {model_to_use}")
 
         except Exception as e:
-            st.error(f"❌ Error durante la llamada al LLM ({model_to_use}): {e}")
-            st.exception(e) # Display full traceback
-            return {
-                'conclusions': "❌ Error al generar conclusiones con LLM.",
-                'improvements': f"❌ Error al generar mejoras con LLM: {e}"
-            }
+            error_msg = str(e)
+            if "context_length_exceeded" in error_msg or "maximum context length" in error_msg:
+                st.error(f"⚠️ El contenido es demasiado largo para el modelo {model_to_use}. Probando con datos reducidos...")
+                # Try with a smaller subset of data
+                simplified_metrics = _format_metrics_for_llm_simplified(results_data)
+                simplified_user_prompt = user_prompt_template.format(metrics=simplified_metrics)
+                try:
+                    if model_to_use in ["gpt-4", "gpt-3.5-turbo", "deepseek-chat"]:
+                        messages_simplified = [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": simplified_user_prompt}
+                        ]
+                        response = llm_client.chat.completions.create(
+                            model=model_to_use,
+                            messages=messages_simplified,
+                            temperature=0.2,
+                            max_tokens=800  # Smaller response
+                        )
+                        full_response_content = response.choices[0].message.content
+                    else:
+                        raise Exception("Context too large for this model")
+                except:
+                    st.warning("🔄 Usando análisis basado en métricas clave solamente...")
+                    return _generate_fallback_analysis(results_data)
+            else:
+                st.error(f"❌ Error durante la llamada al LLM ({model_to_use}): {e}")
+                st.exception(e) # Display full traceback
+                return {
+                    'conclusions': "❌ Error al generar conclusiones con LLM.",
+                    'improvements': f"❌ Error al generar mejoras con LLM: {e}"
+                }
 
         # Validate response content
         if not full_response_content or full_response_content.strip() == "":
