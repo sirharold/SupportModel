@@ -687,6 +687,99 @@ def _format_metrics_for_llm_simplified(results_data: Dict[str, Any]) -> str:
     
     return metrics_str
 
+def extract_scientific_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Extract only essential metrics for scientific analysis.
+    NO truncation, only selection of relevant data points with 2 decimal precision.
+    """
+    scientific_data = {
+        "experimental_context": {
+            "project": "RAG System Evaluation - Microsoft Learn Technical Documentation",
+            "dataset_size": "~2,000 questions with ground-truth links",
+            "corpus_size": "187,000 document chunks",
+            "retrieval_method": "Document-level retrieval (not chunk-based)",
+            "reranking_method": "CrossEncoder semantic reranking",
+            "evaluation_scope": "Information retrieval quality + semantic similarity"
+        },
+        "models_evaluated": []
+    }
+    
+    results = results_data.get('results', {})
+    config = results_data.get('config', {})
+    
+    # Add configuration context
+    scientific_data["configuration"] = {
+        "top_k": config.get('top_k', 10),
+        "reranking_enabled": config.get('reranking_method', 'none') != 'none',
+        "aggregation_enabled": config.get('aggregate_method', 'none') != 'none',
+        "questions_evaluated": config.get('num_questions', 0)
+    }
+    
+    # Extract metrics for each model
+    for model_name, model_data in results.items():
+        before_metrics = model_data.get('avg_before_metrics', {})
+        after_metrics = model_data.get('avg_after_metrics', {})
+        rag_metrics = model_data.get('rag_metrics', {})
+        
+        model_metrics = {
+            "model_name": model_name,
+            "average_scores": {
+                "before_reranking": round(before_metrics.get('model_avg_score', 0), 2),
+                "after_reranking": round(after_metrics.get('model_avg_score', 0), 2)
+            },
+            "retrieval_metrics": {
+                "precision@5": {
+                    "before": round(before_metrics.get('precision@5', 0), 2),
+                    "after": round(after_metrics.get('precision@5', 0), 2)
+                },
+                "recall@5": {
+                    "before": round(before_metrics.get('recall@5', 0), 2),
+                    "after": round(after_metrics.get('recall@5', 0), 2)
+                },
+                "f1@5": {
+                    "before": round(before_metrics.get('f1@5', 0), 2),
+                    "after": round(after_metrics.get('f1@5', 0), 2)
+                },
+                "map": {
+                    "before": round(before_metrics.get('map', 0), 2),
+                    "after": round(after_metrics.get('map', 0), 2)
+                },
+                "mrr": {
+                    "before": round(before_metrics.get('mrr', 0), 2),
+                    "after": round(after_metrics.get('mrr', 0), 2)
+                },
+                "ndcg@10": {
+                    "before": round(before_metrics.get('ndcg@10', 0), 2),
+                    "after": round(after_metrics.get('ndcg@10', 0), 2)
+                }
+            }
+        }
+        
+        # Add semantic quality metrics if available
+        if rag_metrics.get('rag_available', False):
+            model_metrics["semantic_quality"] = {
+                "ragas_faithfulness": {
+                    "before": round(rag_metrics.get('avg_faithfulness', 0), 2),
+                    "after": round(rag_metrics.get('avg_faithfulness_after', rag_metrics.get('avg_faithfulness', 0)), 2)
+                },
+                "ragas_answer_relevance": {
+                    "before": round(rag_metrics.get('avg_answer_relevance', 0), 2),
+                    "after": round(rag_metrics.get('avg_answer_relevance_after', rag_metrics.get('avg_answer_relevance', 0)), 2)
+                },
+                "bert_f1": {
+                    "before": round(rag_metrics.get('avg_bert_f1', 0), 2),
+                    "after": round(rag_metrics.get('avg_bert_f1_after', rag_metrics.get('avg_bert_f1', 0)), 2)
+                }
+            }
+        else:
+            model_metrics["semantic_quality"] = {
+                "note": "RAGAS and BERTScore metrics not available (retrieval-only mode)"
+            }
+        
+        scientific_data["models_evaluated"].append(model_metrics)
+    
+    return scientific_data
+
 def _generate_fallback_analysis(results_data: Dict[str, Any]) -> Dict[str, str]:
     """Generate basic analysis without LLM when all else fails"""
     
@@ -995,296 +1088,293 @@ def _format_metrics_for_llm(results_data: Dict[str, Any]) -> str:
 
     return formatted_string
 
+def _parse_llm_response(full_response_content: str) -> Dict[str, str]:
+    """
+    Parse the LLM response and extract conclusions and improvements.
+    
+    Args:
+        full_response_content: The full response text from the LLM
+        
+    Returns:
+        Dictionary with 'conclusions' and 'improvements' keys
+    """
+    # Validate response content
+    if not full_response_content or full_response_content.strip() == "":
+        return {
+            'conclusions': "❌ No se pudo generar análisis automático. Revisa las métricas de rendimiento manualmente.",
+            'improvements': "1. Verifica la configuración del modelo LLM\n2. Revisa los datos de entrada\n3. Considera usar un modelo diferente"
+        }
+
+    # Parse the response content
+    conclusions = "No se pudieron extraer conclusiones del análisis generado." 
+    improvements = "No se pudieron extraer mejoras del análisis generado."
+
+    # Try multiple parsing strategies
+    response_lower = full_response_content.lower()
+    
+    # Strategy 1: Look for exact headings
+    conclusions_start = full_response_content.find("Conclusiones")
+    improvements_start = full_response_content.find("Posibles Mejoras y Próximos Pasos")
+    
+    # Strategy 2: Look for alternative headings
+    if conclusions_start == -1:
+        conclusions_start = max(
+            response_lower.find("conclusiones:"),
+            response_lower.find("## conclusiones"),
+            response_lower.find("### conclusiones")
+        )
+    
+    if improvements_start == -1:
+        improvements_start = max(
+            response_lower.find("mejoras:"),
+            response_lower.find("## mejoras"),
+            response_lower.find("### mejoras"),
+            response_lower.find("posibles mejoras"),
+            response_lower.find("próximos pasos")
+        )
+
+    if conclusions_start != -1 and improvements_start != -1 and improvements_start > conclusions_start:
+        conclusions_raw = full_response_content[conclusions_start:improvements_start]
+        improvements_raw = full_response_content[improvements_start:]
+        
+        # Clean up the extracted content
+        conclusions_raw = conclusions_raw.replace("Conclusiones", "").replace("conclusiones:", "").replace("## conclusiones", "").replace("### conclusiones", "").strip()
+        improvements_raw = improvements_raw.replace("Posibles Mejoras y Próximos Pasos", "").replace("mejoras:", "").replace("## mejoras", "").replace("### mejoras", "").replace("posibles mejoras", "").replace("próximos pasos", "").strip()
+        
+        if conclusions_raw:
+            conclusions = conclusions_raw
+        if improvements_raw:
+            improvements = improvements_raw
+            
+    elif conclusions_start != -1:
+        conclusions_raw = full_response_content[conclusions_start:].replace("Conclusiones", "").replace("conclusiones:", "").replace("## conclusiones", "").replace("### conclusiones", "").strip()
+        if conclusions_raw:
+            conclusions = conclusions_raw
+            
+    elif improvements_start != -1:
+        improvements_raw = full_response_content[improvements_start:].replace("Posibles Mejoras y Próximos Pasos", "").replace("mejoras:", "").replace("## mejoras", "").replace("### mejoras", "").replace("posibles mejoras", "").replace("próximos pasos", "").strip()
+        if improvements_raw:
+            improvements = improvements_raw
+    else:
+        # If no structured sections found, use the entire response as conclusions
+        conclusions = full_response_content.strip()
+        improvements = "Revisa el análisis anterior y considera implementar mejoras basadas en las observaciones."
+
+    # Final validation - ensure we don't return empty strings
+    if not conclusions or conclusions.strip() == "":
+        conclusions = "✅ Análisis completado. Revisa las métricas mostradas para obtener insights sobre el rendimiento del sistema RAG."
+    
+    if not improvements or improvements.strip() == "":
+        improvements = "1. Analiza las métricas individuales para identificar áreas de mejora\n2. Considera ajustar los parámetros del sistema\n3. Evalúa diferentes modelos de embedding o generativos"
+
+    return {'conclusions': conclusions, 'improvements': improvements}
+
+def _generate_with_deepseek(deepseek_client, formatted_metrics: str) -> Dict[str, str]:
+    """Generate analysis using DeepSeek model"""
+    system_prompt = (
+        "You are a senior researcher specializing in information retrieval and RAG systems evaluation. "
+        "Provide a rigorous academic analysis of the experimental results. "
+        
+        "EXPERIMENTAL CONTEXT: "
+        "- Domain: Microsoft Learn technical documentation retrieval system "
+        "- Dataset: ~2,000 technical queries with ground-truth document links "
+        "- Corpus: 187,000 document chunks indexed at document level "
+        "- Evaluation: Standard IR metrics + semantic similarity assessment "
+        "- Reranking: CrossEncoder-based neural reranking applied "
+        
+        "EXPECTED BASELINES FOR TECHNICAL DOCUMENTATION: "
+        "- Precision@5 > 0.60 indicates good relevance "
+        "- NDCG@10 > 0.70 suggests effective ranking "
+        "- MRR > 0.50 shows users find answers quickly "
+        "- CrossEncoder should improve NDCG/MRR by >10% relative "
+        "- RAGAS/BERTScore > 0.80 indicates high semantic quality "
+        
+        "ANALYSIS REQUIREMENTS: "
+        "1. STATISTICAL SIGNIFICANCE: Focus on improvements >5% relative change "
+        "2. MODEL RANKING: Identify best/worst embeddings with quantitative justification "
+        "3. RERANKING ANALYSIS: Quantify CrossEncoder impact on ranking metrics "
+        "4. SEMANTIC ASSESSMENT: Interpret RAGAS/BERTScore values if available "
+        "5. ACADEMIC RIGOR: All claims must be supported by specific metrics "
+        
+        "MANDATORY OUTPUT FORMAT IN SPANISH: "
+        "## Conclusiones "
+        "• [Finding 1: Model X achieves Y performance, indicating Z] "
+        "• [Finding 2: CrossEncoder improves metric M by N%, suggesting...] "
+        "• [Finding 3: Embedding comparison with statistical evidence] "
+        "• [Finding 4: Semantic quality assessment based on RAGAS/BERT] "
+        
+        "## 💡 Mejoras Prioritarias "
+        "1. [High-impact improvement based on bottleneck analysis] "
+        "2. [Medium-term optimization with expected benefit] "
+        "3. [Long-term research direction for system enhancement] "
+        
+        "Write in Spanish with academic precision. Focus on actionable insights supported by data."
+    )
+    
+    user_prompt = (
+        f"Aquí están los resultados experimentales del sistema RAG en formato JSON:\n\n{formatted_metrics}\n\n"
+        "Por favor, genera las conclusiones y mejoras siguiendo el formato especificado."
+    )
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    response = deepseek_client.chat.completions.create(
+        model="deepseek/deepseek-v3:free",
+        messages=messages,
+        temperature=0.2,  # Low temperature for factual analysis
+        max_tokens=2000
+    )
+    
+    return _parse_llm_response(response.choices[0].message.content)
+
+def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, str]:
+    """Generate analysis using Gemini model"""
+    system_prompt = (
+        "You are a senior researcher specializing in information retrieval and RAG systems evaluation. "
+        "Provide a rigorous academic analysis of the experimental results. "
+        
+        "EXPERIMENTAL CONTEXT: "
+        "- Domain: Microsoft Learn technical documentation retrieval system "
+        "- Dataset: ~2,000 technical queries with ground-truth document links "
+        "- Corpus: 187,000 document chunks indexed at document level "
+        "- Evaluation: Standard IR metrics + semantic similarity assessment "
+        "- Reranking: CrossEncoder-based neural reranking applied "
+        
+        "EXPECTED BASELINES FOR TECHNICAL DOCUMENTATION: "
+        "- Precision@5 > 0.60 indicates good relevance "
+        "- NDCG@10 > 0.70 suggests effective ranking "
+        "- MRR > 0.50 shows users find answers quickly "
+        "- CrossEncoder should improve NDCG/MRR by >10% relative "
+        "- RAGAS/BERTScore > 0.80 indicates high semantic quality "
+        
+        "ANALYSIS REQUIREMENTS: "
+        "1. STATISTICAL SIGNIFICANCE: Focus on improvements >5% relative change "
+        "2. MODEL RANKING: Identify best/worst embeddings with quantitative justification "
+        "3. RERANKING ANALYSIS: Quantify CrossEncoder impact on ranking metrics "
+        "4. SEMANTIC ASSESSMENT: Interpret RAGAS/BERTScore values if available "
+        "5. ACADEMIC RIGOR: All claims must be supported by specific metrics "
+        
+        "MANDATORY OUTPUT FORMAT IN SPANISH: "
+        "## Conclusiones "
+        "• [Finding 1: Model X achieves Y performance, indicating Z] "
+        "• [Finding 2: CrossEncoder improves metric M by N%, suggesting...] "
+        "• [Finding 3: Embedding comparison with statistical evidence] "
+        "• [Finding 4: Semantic quality assessment based on RAGAS/BERT] "
+        
+        "## 💡 Mejoras Prioritarias "
+        "1. [High-impact improvement based on bottleneck analysis] "
+        "2. [Medium-term optimization with expected benefit] "
+        "3. [Long-term research direction for system enhancement] "
+        
+        "Write in Spanish with academic precision. Focus on actionable insights supported by data."
+    )
+    
+    combined_prompt = (
+        f"{system_prompt}\n\n"
+        f"Aquí están los resultados experimentales del sistema RAG en formato JSON:\n\n{formatted_metrics}\n\n"
+        "Por favor, genera las conclusiones y mejoras siguiendo el formato especificado."
+    )
+    
+    response = gemini_client.generate_content(
+        combined_prompt,
+        generation_config={
+            "temperature": 0.2,
+            "max_output_tokens": 2000,
+        }
+    )
+    
+    return _parse_llm_response(response.text)
+
 def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_name: str) -> Dict[str, str]:
     """
     Generates conclusions and improvements using an LLM based on evaluation results.
+    Only uses DeepSeek and Gemini models for scientific analysis.
     Returns a dictionary with 'conclusions' and 'improvements'.
     """
-    st.info(f"🤖 Generando análisis con {generative_model_name}... Esto puede tomar unos minutos.")
+    st.info(f"🤖 Generando análisis científico con {generative_model_name}...")
 
+    # Extract scientific metrics for analysis
+    scientific_data = extract_scientific_metrics(results_data)
+    
+    # Convert scientific data to formatted string for LLM
+    formatted_metrics = json.dumps(scientific_data, indent=2, ensure_ascii=False)
+    
     try:
-        # Initialize only the generative clients we need (not ChromaDB or embedding)
+        # Initialize only DeepSeek and Gemini clients
         from src.services.storage.chromadb_utils import ChromaDBConfig
-        from openai import OpenAI
         import google.generativeai as genai
-        from src.services.local_models import get_tinyllama_client, get_mistral_client
-        from src.services.auth.openrouter_client import get_cached_llama4_scout_client
+        from src.services.auth.openrouter_client import get_cached_deepseek_openrouter_client
         
         config = ChromaDBConfig.from_env()
         
-        # Initialize clients based on the generative model
-        openai_client = None
-        gemini_client = None
-        local_tinyllama_client = None
-        local_mistral_client = None
-        openrouter_client = None
+        # Try with the selected model first
+        first_error = None
         
-        if generative_model_name == "gpt-4" and config.openai_api_key:
-            openai_client = OpenAI(api_key=config.openai_api_key)
-        elif generative_model_name == "gemini-1.5-flash" and config.gemini_api_key:
-            genai.configure(api_key=config.gemini_api_key)
-            gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-        elif generative_model_name == "llama-4-scout":
-            openrouter_client = get_cached_llama4_scout_client()
-        elif generative_model_name == "tinyllama-1.1b":
-            local_tinyllama_client = get_tinyllama_client()
-        elif generative_model_name == "mistral-7b":
-            local_mistral_client = get_mistral_client()
-
-        llm_client = None
-        if generative_model_name == "gpt-4" and openai_client:
-            llm_client = openai_client
-            model_to_use = "gpt-4"
-        elif generative_model_name == "gemini-1.5-flash" and gemini_client:
-            llm_client = gemini_client
-            model_to_use = "gemini-1.5-flash"
-        elif generative_model_name == "llama-4-scout" and openrouter_client:
-            llm_client = openrouter_client
-            model_to_use = "llama-4-scout"
-        elif generative_model_name == "tinyllama-1.1b" and local_tinyllama_client:
-            llm_client = local_tinyllama_client
-            model_to_use = "tinyllama-1.1b"
-        elif generative_model_name == "mistral-7b" and local_mistral_client:
-            llm_client = local_mistral_client
-            model_to_use = "mistral-7b"
-        
-        if not llm_client:
-            st.error(f"❌ Error: Cliente LLM no disponible para el modelo seleccionado: {generative_model_name}")
-            st.info("Asegúrate de que las API keys estén configuradas correctamente o que los modelos locales estén cargados.")
-            return {
-                'conclusions': "❌ Error: Cliente LLM no disponible para el modelo seleccionado.",
-                'improvements': "Verifica la configuración de tu API key o la disponibilidad del modelo local."
-            }
-
-        # Format metrics data for the prompt
-        formatted_metrics = _format_metrics_for_llm(results_data)
-        
-        # Add length checking to prevent context length errors
-        MAX_METRICS_LENGTH = 10000  # Character limit for metrics to prevent token overflow
-        original_length = len(formatted_metrics)
-        
-        if original_length > MAX_METRICS_LENGTH:
-            st.warning(f"⚠️ Las métricas formateadas exceden el límite de {MAX_METRICS_LENGTH} caracteres ({original_length} chars). Truncando para evitar errores de contexto...")
-            # Log the truncation for debugging
-            print(f"[DEBUG] Metrics truncation: Original length: {original_length}, Max allowed: {MAX_METRICS_LENGTH}")
-            
-            # Truncate intelligently by keeping the header and summary sections
-            truncation_marker = "\n\n... [Métricas truncadas para evitar exceder el límite de contexto] ...\n\n"
-            # Keep first 40% and last 10% to preserve configuration and some results
-            keep_start = int(MAX_METRICS_LENGTH * 0.4)
-            keep_end = int(MAX_METRICS_LENGTH * 0.1)
-            formatted_metrics = (
-                formatted_metrics[:keep_start] + 
-                truncation_marker + 
-                formatted_metrics[-(keep_end):]
-            )
-            
-            st.info(f"📊 Métricas reducidas de {original_length} a {len(formatted_metrics)} caracteres")
-
-        system_prompt = (
-            "Eres un experto en sistemas RAG (Retrieval Augmented Generation) y evaluación de modelos. "
-            "Analiza los resultados de evaluación proporcionados y genera conclusiones concisas y "
-            "recomendaciones de mejora para el sistema RAG. "
-            "Tu respuesta debe estar estructurada en dos secciones: 'Conclusiones' y 'Posibles Mejoras y Próximos Pasos'. "
-            "Utiliza un lenguaje claro y técnico, y basa tus afirmaciones estrictamente en los datos proporcionados. "
-            "Si el reranking LLM fue utilizado, comenta específicamente sobre su impacto. "
-            "Si la agregación de documentos está habilitada, considera su efecto en la recuperación y contexto. "
-            "IMPORTANTE: Para cada métrica principal (Precision@k, Recall@k, F1@k, NDCG@k, MRR, MAP), "
-            "identifica el MEJOR VALOR obtenido y explica qué significa en el contexto específico. "
-            "Por ejemplo: 'El mejor valor de Precision@5 es 0.85 para el modelo ada en k=7, lo que significa "
-            "que de los primeros 5 documentos recuperados, el 85% fueron relevantes según el ground truth.' "
-            "ANÁLISIS ADICIONAL REQUERIDO: "
-            "1. EMBEDDINGS: Identifica cuál es el MEJOR embedding para utilizar y cuál es el PEOR, explicando las razones basadas en las métricas. "
-            "2. CROSSENCODER: Comenta sobre los valores de score ANTES y DESPUÉS del CrossEncoder, explicando el impacto del reranking. "
-            "3. MÉTRICAS RAGAS y BERTSCORE: Analiza las similitudes o diferencias entre estas métricas, ya que los valores suelen ser similares entre embeddings. "
-            "Proporciona ejemplos interpretativos: si el valor de similaridad es 0.5, explica qué significa esto en términos prácticos. "
-            "Si es 0.8 o 0.2, qué implica cada rango de valores para la calidad del sistema RAG. "
-            "Las conclusiones deben ser en formato de lista de puntos y las mejoras en formato de lista numerada. "
-            "No incluyas preámbulos ni postámbulos, solo las dos secciones solicitadas."
-        )
-
-        user_prompt = (
-            f"Aquí están los resultados detallados de la evaluación de un sistema RAG:\n\n{formatted_metrics}\n\n"
-            "Por favor, genera las conclusiones y las posibles mejoras y próximos pasos en español, "
-            "siguiendo el formato especificado (Conclusiones: lista de puntos; Mejoras: lista numerada)."
-        )
-
-        full_response_content = ""
-
-        try:
-            if model_to_use in ["gpt-4", "gemini-1.5-flash", "llama-4-scout"]:
-                # For API-based models
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ]
-                if model_to_use == "gpt-4":
-                    response = llm_client.chat.completions.create(
-                        model=model_to_use,
-                        messages=messages,
-                        temperature=0.2, # Keep it low for factual analysis
-                        max_tokens=1500
-                    )
-                    full_response_content = response.choices[0].message.content
-                elif model_to_use == "gemini-1.5-flash":
-                    # Gemini expects a single prompt, not messages array
-                    combined_prompt = f"{system_prompt}\n\n{user_prompt}"
-                    response = llm_client.generate_content(combined_prompt)
-                    full_response_content = response.text
-                elif model_to_use == "deepseek-chat":
-                    # DeepSeek via OpenAI-compatible API
-                    response = llm_client.chat.completions.create(
-                        model="deepseek-chat",
-                        messages=messages,
-                        temperature=0.2,
-                        max_tokens=2000  # DeepSeek has larger context
-                    )
-                    full_response_content = response.choices[0].message.content
-                elif model_to_use == "llama-4-scout":
-                    # OpenRouter client might have a different method signature
-                    # Assuming it has a similar generate_answer or chat.completions.create
-                    full_response_content = llm_client.generate_answer(
-                        question=user_prompt, # Pass the full user prompt
-                        context="", # No additional context needed, it's in the prompt
-                        max_length=1500
-                    )
-            elif model_to_use in ["tinyllama-1.1b", "mistral-7b"]:
-                # For local models, assuming a generate_answer or similar method
-                # The local models might not handle complex system/user roles as well as API models
-                # So, combine into a single prompt
-                combined_prompt = f"{system_prompt}\n\n{user_prompt}"
-                generated_text, _ = llm_client.generate_answer(
-                    question=combined_prompt,
-                    retrieved_docs=[], # No docs needed, data is in prompt
-                    max_length=1500
-                )
-                full_response_content = generated_text
-            else:
-                raise ValueError(f"Modelo LLM no reconocido o no soportado: {model_to_use}")
-
-        except Exception as e:
-            error_msg = str(e)
-            if "context_length_exceeded" in error_msg or "maximum context length" in error_msg:
-                st.error(f"⚠️ El contenido es demasiado largo para el modelo {model_to_use}. Probando con datos reducidos...")
-                # Try with a smaller subset of data
-                simplified_metrics = _format_metrics_for_llm_simplified(results_data)
-                simplified_user_prompt = user_prompt_template.format(metrics=simplified_metrics)
-                try:
-                    if model_to_use in ["gpt-4", "gpt-3.5-turbo", "deepseek-chat"]:
-                        messages_simplified = [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": simplified_user_prompt}
-                        ]
-                        response = llm_client.chat.completions.create(
-                            model=model_to_use,
-                            messages=messages_simplified,
-                            temperature=0.2,
-                            max_tokens=800  # Smaller response
-                        )
-                        full_response_content = response.choices[0].message.content
-                    else:
-                        raise Exception("Context too large for this model")
-                except:
-                    st.warning("🔄 Usando análisis basado en métricas clave solamente...")
-                    return _generate_fallback_analysis(results_data)
-            else:
-                st.error(f"❌ Error durante la llamada al LLM ({model_to_use}): {e}")
-                st.exception(e) # Display full traceback
-                return {
-                    'conclusions': "❌ Error al generar conclusiones con LLM.",
-                    'improvements': f"❌ Error al generar mejoras con LLM: {e}"
-                }
-
-        # Validate response content
-        if not full_response_content or full_response_content.strip() == "":
-            st.warning("⚠️ El LLM devolvió una respuesta vacía. Usando análisis predeterminado.")
-            return {
-                'conclusions': "❌ No se pudo generar análisis automático. Revisa las métricas de rendimiento manualmente.",
-                'improvements': "1. Verifica la configuración del modelo LLM\n2. Revisa los datos de entrada\n3. Considera usar un modelo diferente"
-            }
-
-        # Parse the response content
-        conclusions = "No se pudieron extraer conclusiones del análisis generado." 
-        improvements = "No se pudieron extraer mejoras del análisis generado."
-
-        # Try multiple parsing strategies
-        response_lower = full_response_content.lower()
-        
-        # Strategy 1: Look for exact headings
-        conclusions_start = full_response_content.find("Conclusiones")
-        improvements_start = full_response_content.find("Posibles Mejoras y Próximos Pasos")
-        
-        # Strategy 2: Look for alternative headings
-        if conclusions_start == -1:
-            conclusions_start = max(
-                response_lower.find("conclusiones:"),
-                response_lower.find("## conclusiones"),
-                response_lower.find("### conclusiones")
-            )
-        
-        if improvements_start == -1:
-            improvements_start = max(
-                response_lower.find("mejoras:"),
-                response_lower.find("## mejoras"),
-                response_lower.find("### mejoras"),
-                response_lower.find("posibles mejoras"),
-                response_lower.find("próximos pasos")
-            )
-
-        if conclusions_start != -1 and improvements_start != -1 and improvements_start > conclusions_start:
-            conclusions_raw = full_response_content[conclusions_start:improvements_start]
-            improvements_raw = full_response_content[improvements_start:]
-            
-            # Clean up the extracted content
-            conclusions_raw = conclusions_raw.replace("Conclusiones", "").replace("conclusiones:", "").replace("## conclusiones", "").replace("### conclusiones", "").strip()
-            improvements_raw = improvements_raw.replace("Posibles Mejoras y Próximos Pasos", "").replace("mejoras:", "").replace("## mejoras", "").replace("### mejoras", "").replace("posibles mejoras", "").replace("próximos pasos", "").strip()
-            
-            if conclusions_raw:
-                conclusions = conclusions_raw
-            if improvements_raw:
-                improvements = improvements_raw
+        if generative_model_name == "deepseek-v3-chat":
+            try:
+                # Use DeepSeek via OpenRouter
+                deepseek_client = get_cached_deepseek_openrouter_client()
+                if deepseek_client:
+                    st.info("📊 Usando DeepSeek V3 para análisis académico...")
+                    return _generate_with_deepseek(deepseek_client, formatted_metrics)
+                else:
+                    raise Exception("Cliente DeepSeek no disponible")
+            except Exception as e:
+                first_error = f"DeepSeek: {str(e)}"
+                st.warning(f"⚠️ DeepSeek falló: {str(e)}. Intentando con Gemini...")
                 
-        elif conclusions_start != -1:
-            conclusions_raw = full_response_content[conclusions_start:].replace("Conclusiones", "").replace("conclusiones:", "").replace("## conclusiones", "").replace("### conclusiones", "").strip()
-            if conclusions_raw:
-                conclusions = conclusions_raw
-                
-        elif improvements_start != -1:
-            improvements_raw = full_response_content[improvements_start:].replace("Posibles Mejoras y Próximos Pasos", "").replace("mejoras:", "").replace("## mejoras", "").replace("### mejoras", "").replace("posibles mejoras", "").replace("próximos pasos", "").strip()
-            if improvements_raw:
-                improvements = improvements_raw
-        else:
-            # If no structured sections found, use the entire response as conclusions
-            st.warning("⚠️ No se encontraron secciones estructuradas en la respuesta del LLM. Usando respuesta completa.")
-            conclusions = full_response_content.strip()
-            improvements = "Revisa el análisis anterior y considera implementar mejoras basadas en las observaciones."
-
-        # Final validation - ensure we don't return empty strings
-        if not conclusions or conclusions.strip() == "":
-            conclusions = "✅ Análisis completado. Revisa las métricas mostradas para obtener insights sobre el rendimiento del sistema RAG."
+        elif generative_model_name == "gemini-1.5-flash":
+            try:
+                if config.gemini_api_key:
+                    genai.configure(api_key=config.gemini_api_key)
+                    gemini_client = genai.GenerativeModel('gemini-1.5-flash')
+                    st.info("📊 Usando Gemini 1.5 Flash para análisis académico...")
+                    return _generate_with_gemini(gemini_client, formatted_metrics)
+                else:
+                    raise Exception("API key de Gemini no configurada")
+            except Exception as e:
+                first_error = f"Gemini: {str(e)}"
+                st.warning(f"⚠️ Gemini falló: {str(e)}. Intentando con DeepSeek...")
         
-        if not improvements or improvements.strip() == "":
-            improvements = "1. Analiza las métricas individuales para identificar áreas de mejora\n2. Considera ajustar los parámetros del sistema\n3. Evalúa diferentes modelos de embedding o generativos"
-
-        return {'conclusions': conclusions, 'improvements': improvements}
-
+        # If the primary model failed, try the other one
+        if generative_model_name == "deepseek-v3-chat" and config.gemini_api_key:
+            # DeepSeek failed, try Gemini
+            try:
+                genai.configure(api_key=config.gemini_api_key)
+                gemini_client = genai.GenerativeModel('gemini-1.5-flash')
+                st.info("🔄 Usando Gemini como alternativa...")
+                return _generate_with_gemini(gemini_client, formatted_metrics)
+            except Exception as e:
+                st.error(f"❌ Ambos modelos fallaron.")
+                st.error(f"- {first_error}")
+                st.error(f"- Gemini: {str(e)}")
+                return None
+                
+        elif generative_model_name == "gemini-1.5-flash":
+            # Gemini failed, try DeepSeek
+            try:
+                deepseek_client = get_cached_deepseek_openrouter_client()
+                if deepseek_client:
+                    st.info("🔄 Usando DeepSeek como alternativa...")
+                    return _generate_with_deepseek(deepseek_client, formatted_metrics)
+                else:
+                    raise Exception("Cliente DeepSeek no disponible")
+            except Exception as e:
+                st.error(f"❌ Ambos modelos fallaron.")
+                st.error(f"- {first_error}")
+                st.error(f"- DeepSeek: {str(e)}")
+                return None
+        
+        # If we get here, both models failed
+        st.error("❌ No se pudo generar el análisis con ningún modelo disponible.")
+        return None
+        
     except Exception as e:
-        error_msg = str(e) if e else "Error desconocido"
-        st.error(f"❌ Error general al generar análisis con LLM: {error_msg}")
-        st.exception(e)
-        return {
-            'conclusions': f"❌ Error general al generar conclusiones con LLM: {error_msg}. Revisa las métricas manualmente.",
-            'improvements': f"❌ Error al generar mejoras con LLM: {error_msg}. Considera:\n1. Verificar la configuración del modelo\n2. Revisar la conectividad\n3. Usar análisis manual de las métricas"
-        }
-
-def get_improvement_status_icon(improvement: float) -> str:
-    """Return a simple icon for improvement status."""
-    if improvement > 0.01: # Small positive change
-        return "⬆️"
-    elif improvement < -0.01: # Small negative change
-        return "⬇️"
-    else:
-        return "➡️"
+        st.error(f"❌ Error inesperado al generar análisis: {str(e)}")
+        return None
 
 
 
