@@ -193,20 +193,28 @@ def show_available_results_section():
                 if not is_local and 'webViewLink' in selected_file:
                     st.markdown(f"[🔗 Ver en Drive]({selected_file['webViewLink']})")
         
-        # Opción para generar conclusiones con ChatGPT
+        # Opción para generar conclusiones con LLM
         generate_llm = st.checkbox(
-            "🤖 Generar conclusiones con ChatGPT",
+            "🤖 Generar conclusiones con LLM (DeepSeek/Gemini)",
             value=False,
+            key="generate_llm_analysis",
             help="Si se marca, se generarán automáticamente las conclusiones y"
-                 " posibles mejoras usando un modelo LLM"
+                 " posibles mejoras usando DeepSeek R1 o Gemini 1.5 Flash"
         )
 
         # Botón para mostrar resultados
         if st.button("📊 Mostrar Resultados", type="primary"):
             if selected_file:
-                show_selected_results(selected_file, generate_llm)
+                # Store selected file and show results
+                st.session_state.current_results_file = selected_file
+                st.session_state.show_results = True
             else:
                 st.error("❌ Por favor selecciona un archivo de resultados")
+        
+        # Show results if we have a file loaded (persists across checkbox changes)
+        if hasattr(st.session_state, 'show_results') and st.session_state.show_results:
+            if hasattr(st.session_state, 'current_results_file'):
+                show_selected_results(st.session_state.current_results_file, generate_llm)
     else:
         # No se encontraron archivos en ningún lado
         st.error("❌ No se encontraron archivos de resultados")
@@ -283,17 +291,33 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
             # Generar conclusiones con LLM si se solicitó
             if generate_llm_analysis:
                 generative_model_name = results_data.get('config', {}).get(
-                    'generative_model_name', 'gpt-4'
+                    'generative_model_name', 'deepseek-v3-chat'  # Changed default to DeepSeek
                 )
+                
+                # Ensure only supported models are used
+                if generative_model_name not in ['deepseek-v3-chat', 'gemini-1.5-flash']:
+                    st.warning(f"⚠️ Modelo {generative_model_name} no soportado. Usando DeepSeek por defecto.")
+                    generative_model_name = 'deepseek-v3-chat'
                 llm_analysis = generate_analysis_with_llm(
                     results_data, generative_model_name
                 )
-                st.session_state.llm_conclusions = llm_analysis['conclusions']
-                st.session_state.llm_improvements = llm_analysis['improvements']
-                st.success("✅ Análisis generado por LLM.")
+                
+                if llm_analysis is not None:
+                    model_used = llm_analysis.get('model_used', 'LLM')
+                    st.session_state.llm_conclusions = llm_analysis['conclusions']
+                    st.session_state.llm_improvements = llm_analysis['improvements']
+                    st.session_state.llm_model_used = model_used
+                    st.session_state.llm_analysis_prompt = llm_analysis.get('full_prompt', '')
+                    st.success(f"✅ Análisis generado por {model_used}.")
+                else:
+                    st.error("❌ No se pudo generar análisis con ningún modelo LLM disponible.")
+                    st.session_state.llm_conclusions = "Error: No se pudo generar análisis automático."
+                    st.session_state.llm_improvements = "Verifica la configuración de API keys (DeepSeek vía OpenRouter o Gemini)."
+                    st.session_state.llm_model_used = None
             else:
                 st.session_state.llm_conclusions = ""
                 st.session_state.llm_improvements = ""
+                st.session_state.llm_model_used = None
 
             # Mostrar visualizaciones
             display_results_visualizations(results_data, processed_results, generate_llm_analysis)
@@ -516,6 +540,10 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict, 
     if generate_llm_analysis:
         st.subheader("📝 Conclusiones")
         
+        # Add small text showing which model was used
+        if 'llm_model_used' in st.session_state and st.session_state.llm_model_used:
+            st.markdown(f"<small>(análisis usando {st.session_state.llm_model_used})</small>", unsafe_allow_html=True)
+        
         # Check if LLM-generated conclusions are in session state
         if 'llm_conclusions' in st.session_state and st.session_state.llm_conclusions:
             st.markdown(st.session_state.llm_conclusions)
@@ -528,23 +556,76 @@ def display_results_visualizations(results_data: Dict, processed_results: Dict, 
             - **Comportamiento por K:** [Observaciones sobre cómo el rendimiento cambia a medida que K (número de documentos recuperados) varía.]
             """)
 
-        st.subheader("💡 Posibles Mejoras y Próximos Pasos")
+        # Show improvements if generated by LLM
         if 'llm_improvements' in st.session_state and st.session_state.llm_improvements:
+            st.subheader("💡 Posibles Mejoras y Próximos Pasos")
             st.markdown(st.session_state.llm_improvements)
-        else:
-            st.markdown("""
-            Para optimizar aún más el sistema RAG y la evaluación:
-            - **Análisis de Errores por Pregunta:** Implementar una sección para revisar preguntas individuales donde los modelos tuvieron bajo rendimiento. Esto podría revelar patrones en tipos de preguntas difíciles o problemas en los documentos fuente.
-            - **Análisis de Latencia:** Si los datos de tiempo de respuesta por pregunta/modelo están disponibles, visualizarlos para identificar cuellos de botella, especialmente con el reranking LLM.
-            - **Diversidad de Contexto:** Evaluar la diversidad de los documentos recuperados para asegurar que no se están obteniendo documentos redundantes o muy similares.
-            - **Evaluación Humana (Human-in-the-Loop):** Integrar un mecanismo para que evaluadores humanos revisen una muestra de respuestas generadas y proporcionen feedback cualitativo, especialmente para métricas subjetivas como `answer_relevance` y `answer_correctness`.
-            - **Optimización de Modelos:** Experimentar con diferentes modelos de embedding o configuraciones de LLM para el reranking y la generación de respuestas.
-            - **Robustez del Reranker:** Analizar el impacto del reranker en casos donde la recuperación inicial es muy pobre. ¿Puede el reranker recuperar una mala recuperación inicial?
-            - **Visualización de Distribución de Scores:** Añadir histogramas o box plots para ver la distribución de las métricas individuales (no solo promedios) para cada modelo, lo que daría una idea de la consistencia del rendimiento.
-            """)
+        
+        # Show prompt details in an expandable section
+        with st.expander("🔍 Ver Detalles del Prompt de Análisis"):
+            st.markdown("**Prompt utilizado para generar el análisis académico:**")
+            
+            # Get the full prompt from the scientific data
+            if 'llm_analysis_prompt' in st.session_state:
+                full_prompt = st.session_state.llm_analysis_prompt
+            else:
+                # Create a sample prompt for display
+                full_prompt = """You are a senior researcher specializing in information retrieval and RAG systems evaluation. 
+Provide a rigorous academic analysis of the experimental results.
+
+EXPERIMENTAL CONTEXT:
+- Domain: Microsoft Learn technical documentation retrieval system
+- Dataset: ~2,000 technical queries with ground-truth document links
+- Corpus: 187,000 document chunks indexed at document level
+- Evaluation: Standard IR metrics + semantic similarity assessment
+- Reranking: CrossEncoder-based neural reranking applied
+
+EXPECTED BASELINES FOR TECHNICAL DOCUMENTATION:
+- Precision@5 > 0.60 indicates good relevance
+- NDCG@10 > 0.70 suggests effective ranking
+- MRR > 0.50 shows users find answers quickly
+- CrossEncoder should improve NDCG/MRR by >10% relative
+- RAGAS/BERTScore > 0.80 indicates high semantic quality
+
+ANALYSIS REQUIREMENTS:
+1. STATISTICAL SIGNIFICANCE: Focus on improvements >5% relative change
+2. MODEL RANKING: Identify best/worst embeddings with quantitative justification
+3. RERANKING ANALYSIS: Quantify CrossEncoder impact on ranking metrics
+4. SEMANTIC ASSESSMENT: Interpret RAGAS/BERTScore values if available
+5. ACADEMIC RIGOR: All claims must be supported by specific metrics
+
+MANDATORY OUTPUT FORMAT IN SPANISH:
+## Conclusiones
+• [Modelo X logra Y rendimiento, significando Z de forma clara y práctica]
+• [CrossEncoder mejora/empeora métrica M en N%, explicando por qué ocurre esto]
+• [Comparación de embeddings con números específicos y interpretación simple]
+• [Calidad semántica usando RAGAS/BERT explicado en términos entendibles]
+
+## 💡 Mejoras Prioritarias
+1. [Acción específica y práctica - explicar QUÉ hacer exactamente y POR QUÉ]
+2. [Segunda mejora con pasos concretos - evitar jerga técnica compleja]
+3. [Mejora a largo plazo explicada de forma simple y clara]
+
+IMPORTANTE:
+- Usa un lenguaje CLARO y DIRECTO, evita jerga técnica innecesaria
+- Explica QUÉ significa cada número en términos prácticos
+- Las mejoras deben ser ESPECÍFICAS y ACCIONABLES
+- Si mencionas conceptos técnicos, explica brevemente qué significan
+
+Write in Spanish with academic precision but clear explanations. Focus on actionable insights supported by data."""
+            
+            st.code(full_prompt, language="text")
+            
+            # Add copy to clipboard instructions
+            st.markdown("**📋 Para copiar el prompt:**")
+            st.info("💡 Selecciona todo el texto del cuadro de arriba con **Ctrl+A** y copia con **Ctrl+C**")
+            
+            # Additional help
+            st.markdown("---")
+            st.markdown("**💡 Tip:** También puedes usar este prompt en ChatGPT, Claude, o cualquier otro LLM para generar análisis similares con tus propios datos.")
     else:
         # Mostrar mensaje informativo cuando las conclusiones están ocultas
-        st.info("💡 **Sugerencia:** Marca el checkbox '🤖 Generar conclusiones con ChatGPT' para ver las secciones de conclusiones y próximos pasos.")
+        st.info("💡 **Sugerencia:** Marca el checkbox '🤖 Generar conclusiones con LLM (DeepSeek/Gemini)' para ver las secciones de conclusiones y próximos pasos.")
 
     # Sección de descarga (moved to the end)
     st.markdown("---")

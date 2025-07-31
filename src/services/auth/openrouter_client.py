@@ -249,7 +249,7 @@ class OpenRouterDeepSeekClient:
     def __init__(self, api_key: str = None):
         """Inicializa cliente para DeepSeek V3 Chat"""
         self.client = OpenRouterClient(api_key)
-        self.model_name = "deepseek/deepseek-v3:free"
+        self.model_name = "deepseek/deepseek-r1:free"
         
     def generate_answer(self, question: str, context: str, max_length: int = 512) -> str:
         """Genera respuesta usando DeepSeek V3 Chat"""

@@ -16,7 +16,7 @@ GENERATIVE_MODELS = {
     "gpt-4": "gpt-4",
     "gemini-1.5-flash": "gemini-1.5-flash",
     "tinyllama-1.1b": "tinyllama-1.1b",
-    "deepseek-v3-chat": "deepseek/deepseek-v3:free"
+    "deepseek-v3-chat": "deepseek/deepseek-r1:free"
 }
 
 DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Free OpenRouter model - most reliable

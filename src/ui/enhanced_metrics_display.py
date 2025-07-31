@@ -1198,17 +1198,23 @@ def _generate_with_deepseek(deepseek_client, formatted_metrics: str) -> Dict[str
         
         "MANDATORY OUTPUT FORMAT IN SPANISH: "
         "## Conclusiones "
-        "• [Finding 1: Model X achieves Y performance, indicating Z] "
-        "• [Finding 2: CrossEncoder improves metric M by N%, suggesting...] "
-        "• [Finding 3: Embedding comparison with statistical evidence] "
-        "• [Finding 4: Semantic quality assessment based on RAGAS/BERT] "
+        "• [Modelo X logra Y rendimiento, significando Z de forma clara y práctica] "
+        "• [CrossEncoder mejora/empeora métrica M en N%, explicando por qué ocurre esto] "
+        "• [Comparación de embeddings con números específicos y interpretación simple] "
+        "• [Calidad semántica usando RAGAS/BERT explicado en términos entendibles] "
         
         "## 💡 Mejoras Prioritarias "
-        "1. [High-impact improvement based on bottleneck analysis] "
-        "2. [Medium-term optimization with expected benefit] "
-        "3. [Long-term research direction for system enhancement] "
+        "1. [Acción específica y práctica - explicar QUÉ hacer exactamente y POR QUÉ] "
+        "2. [Segunda mejora con pasos concretos - evitar jerga técnica compleja] "
+        "3. [Mejora a largo plazo explicada de forma simple y clara] "
         
-        "Write in Spanish with academic precision. Focus on actionable insights supported by data."
+        "IMPORTANTE: "
+        "- Usa un lenguaje CLARO y DIRECTO, evita jerga técnica innecesaria "
+        "- Explica QUÉ significa cada número en términos prácticos "
+        "- Las mejoras deben ser ESPECÍFICAS y ACCIONABLES "
+        "- Si mencionas conceptos técnicos, explica brevemente qué significan "
+        
+        "Write in Spanish with academic precision but clear explanations. Focus on actionable insights supported by data."
     )
     
     user_prompt = (
@@ -1221,14 +1227,17 @@ def _generate_with_deepseek(deepseek_client, formatted_metrics: str) -> Dict[str
         {"role": "user", "content": user_prompt}
     ]
     
-    response = deepseek_client.chat.completions.create(
-        model="deepseek/deepseek-v3:free",
+    response = deepseek_client.client.client.chat.completions.create(
+        model="deepseek/deepseek-r1:free",
         messages=messages,
         temperature=0.2,  # Low temperature for factual analysis
         max_tokens=2000
     )
     
-    return _parse_llm_response(response.choices[0].message.content)
+    result = _parse_llm_response(response.choices[0].message.content)
+    result['model_used'] = 'DeepSeek R1'
+    result['full_prompt'] = f"{system_prompt}\n\nDatos experimentales:\n{formatted_metrics}\n\n{user_prompt}"
+    return result
 
 def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, str]:
     """Generate analysis using Gemini model"""
@@ -1259,17 +1268,23 @@ def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, st
         
         "MANDATORY OUTPUT FORMAT IN SPANISH: "
         "## Conclusiones "
-        "• [Finding 1: Model X achieves Y performance, indicating Z] "
-        "• [Finding 2: CrossEncoder improves metric M by N%, suggesting...] "
-        "• [Finding 3: Embedding comparison with statistical evidence] "
-        "• [Finding 4: Semantic quality assessment based on RAGAS/BERT] "
+        "• [Modelo X logra Y rendimiento, significando Z de forma clara y práctica] "
+        "• [CrossEncoder mejora/empeora métrica M en N%, explicando por qué ocurre esto] "
+        "• [Comparación de embeddings con números específicos y interpretación simple] "
+        "• [Calidad semántica usando RAGAS/BERT explicado en términos entendibles] "
         
         "## 💡 Mejoras Prioritarias "
-        "1. [High-impact improvement based on bottleneck analysis] "
-        "2. [Medium-term optimization with expected benefit] "
-        "3. [Long-term research direction for system enhancement] "
+        "1. [Acción específica y práctica - explicar QUÉ hacer exactamente y POR QUÉ] "
+        "2. [Segunda mejora con pasos concretos - evitar jerga técnica compleja] "
+        "3. [Mejora a largo plazo explicada de forma simple y clara] "
         
-        "Write in Spanish with academic precision. Focus on actionable insights supported by data."
+        "IMPORTANTE: "
+        "- Usa un lenguaje CLARO y DIRECTO, evita jerga técnica innecesaria "
+        "- Explica QUÉ significa cada número en términos prácticos "
+        "- Las mejoras deben ser ESPECÍFICAS y ACCIONABLES "
+        "- Si mencionas conceptos técnicos, explica brevemente qué significan "
+        
+        "Write in Spanish with academic precision but clear explanations. Focus on actionable insights supported by data."
     )
     
     combined_prompt = (
@@ -1286,7 +1301,10 @@ def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, st
         }
     )
     
-    return _parse_llm_response(response.text)
+    result = _parse_llm_response(response.text)
+    result['model_used'] = 'Gemini 1.5 Flash'
+    result['full_prompt'] = combined_prompt
+    return result
 
 def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_name: str) -> Dict[str, str]:
     """
@@ -1294,13 +1312,18 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
     Only uses DeepSeek and Gemini models for scientific analysis.
     Returns a dictionary with 'conclusions' and 'improvements'.
     """
-    st.info(f"🤖 Generando análisis científico con {generative_model_name}...")
+    
+    # Validate supported models
+    if generative_model_name not in ['deepseek-v3-chat', 'gemini-1.5-flash']:
+        st.error(f"❌ Modelo {generative_model_name} no soportado. Solo se admiten: deepseek-v3-chat, gemini-1.5-flash")
+        return None
 
     # Extract scientific metrics for analysis
     scientific_data = extract_scientific_metrics(results_data)
     
     # Convert scientific data to formatted string for LLM
     formatted_metrics = json.dumps(scientific_data, indent=2, ensure_ascii=False)
+    
     
     try:
         # Initialize only DeepSeek and Gemini clients
@@ -1318,10 +1341,9 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                 # Use DeepSeek via OpenRouter
                 deepseek_client = get_cached_deepseek_openrouter_client()
                 if deepseek_client:
-                    st.info("📊 Usando DeepSeek V3 para análisis académico...")
                     return _generate_with_deepseek(deepseek_client, formatted_metrics)
                 else:
-                    raise Exception("Cliente DeepSeek no disponible")
+                    raise Exception("Cliente DeepSeek no disponible - verificar API key de OpenRouter")
             except Exception as e:
                 first_error = f"DeepSeek: {str(e)}"
                 st.warning(f"⚠️ DeepSeek falló: {str(e)}. Intentando con Gemini...")
@@ -1331,10 +1353,9 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                 if config.gemini_api_key:
                     genai.configure(api_key=config.gemini_api_key)
                     gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-                    st.info("📊 Usando Gemini 1.5 Flash para análisis académico...")
                     return _generate_with_gemini(gemini_client, formatted_metrics)
                 else:
-                    raise Exception("API key de Gemini no configurada")
+                    raise Exception("API key de Gemini no configurada en variables de entorno")
             except Exception as e:
                 first_error = f"Gemini: {str(e)}"
                 st.warning(f"⚠️ Gemini falló: {str(e)}. Intentando con DeepSeek...")
@@ -1345,7 +1366,6 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
             try:
                 genai.configure(api_key=config.gemini_api_key)
                 gemini_client = genai.GenerativeModel('gemini-1.5-flash')
-                st.info("🔄 Usando Gemini como alternativa...")
                 return _generate_with_gemini(gemini_client, formatted_metrics)
             except Exception as e:
                 st.error(f"❌ Ambos modelos fallaron.")
@@ -1358,8 +1378,7 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
             try:
                 deepseek_client = get_cached_deepseek_openrouter_client()
                 if deepseek_client:
-                    st.info("🔄 Usando DeepSeek como alternativa...")
-                    return _generate_with_deepseek(deepseek_client, formatted_metrics)
+                        return _generate_with_deepseek(deepseek_client, formatted_metrics)
                 else:
                     raise Exception("Cliente DeepSeek no disponible")
             except Exception as e:
