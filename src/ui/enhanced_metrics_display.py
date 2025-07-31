@@ -1089,6 +1089,16 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
             "Utiliza un lenguaje claro y técnico, y basa tus afirmaciones estrictamente en los datos proporcionados. "
             "Si el reranking LLM fue utilizado, comenta específicamente sobre su impacto. "
             "Si la agregación de documentos está habilitada, considera su efecto en la recuperación y contexto. "
+            "IMPORTANTE: Para cada métrica principal (Precision@k, Recall@k, F1@k, NDCG@k, MRR, MAP), "
+            "identifica el MEJOR VALOR obtenido y explica qué significa en el contexto específico. "
+            "Por ejemplo: 'El mejor valor de Precision@5 es 0.85 para el modelo ada en k=7, lo que significa "
+            "que de los primeros 5 documentos recuperados, el 85% fueron relevantes según el ground truth.' "
+            "ANÁLISIS ADICIONAL REQUERIDO: "
+            "1. EMBEDDINGS: Identifica cuál es el MEJOR embedding para utilizar y cuál es el PEOR, explicando las razones basadas en las métricas. "
+            "2. CROSSENCODER: Comenta sobre los valores de score ANTES y DESPUÉS del CrossEncoder, explicando el impacto del reranking. "
+            "3. MÉTRICAS RAGAS y BERTSCORE: Analiza las similitudes o diferencias entre estas métricas, ya que los valores suelen ser similares entre embeddings. "
+            "Proporciona ejemplos interpretativos: si el valor de similaridad es 0.5, explica qué significa esto en términos prácticos. "
+            "Si es 0.8 o 0.2, qué implica cada rango de valores para la calidad del sistema RAG. "
             "Las conclusiones deben ser en formato de lista de puntos y las mejoras en formato de lista numerada. "
             "No incluyas preámbulos ni postámbulos, solo las dos secciones solicitadas."
         )
@@ -2051,22 +2061,30 @@ def display_methodology_section():
         
         ### 🎯 1. Obtención de Scores de Recuperación (Pre y Post Reranking)
         
-        **Sistema de Recuperación de Información:**
-        - **Fuente de Datos**: Documentación oficial de Microsoft Learn sobre Azure (NO Stack Overflow)
-        - **Corpus de Documentos**: Base de datos de 187,031 documentos técnicos procesados y embebidos con diferentes modelos
-        - **Búsqueda por Similitud**: Utilizamos embeddings de preguntas técnicas para encontrar documentos relevantes mediante similitud coseno
-        - **Sin Ground Truth Binario**: No dependemos de enlaces "correctos" predefinidos, evaluamos basándonos en scores de similitud continua
-        - **Evaluación por Pregunta**: Cada pregunta se evalúa individualmente con sus top-k documentos y luego se promedian los resultados
+        **Sistema de Recuperación de Información (Implementación Real del Colab):**
+        - **Fuente de Datos**: Documentación oficial de Microsoft Learn sobre Azure (187,031 documentos)
+        - **Embeddings Reales**: Se generan embeddings verdaderos usando cada modelo específico:
+          - **Ada**: OpenAI API `text-embedding-ada-002` (1536D)
+          - **E5-Large**: `intfloat/e5-large-v2` (1024D) 
+          - **MPNet**: `sentence-transformers/all-mpnet-base-v2` (768D) con prefijo "query:"
+          - **MiniLM**: `sentence-transformers/all-MiniLM-L6-v2` (384D)
+        - **Búsqueda por Similitud**: Similitud coseno entre embedding de pregunta y embeddings de documentos pre-calculados
+        - **Ground Truth con Enlaces**: Utiliza enlaces validados del ground truth para cálculo de métricas de recuperación tradicionales
+        - **Normalización URL**: Implementa `normalize_url()` que elimina parámetros de consulta (?query) y fragmentos (#anchor)
+        - **Evaluación Acumulativa**: Cada pregunta se evalúa individualmente y se promedian resultados finales
         
         ### 🤖 2. Estrategia de Reranking con CrossEncoder
         
-        **Método de Reordenamiento:**
-        - **Modelo**: CrossEncoder 'cross-encoder/ms-marco-MiniLM-L-6-v2' especializado en ranking de documentos
+        **Método de Reordenamiento (Implementación Real del Colab):**
+        - **Modelo**: CrossEncoder `cross-encoder/ms-marco-MiniLM-L-6-v2` especializado en ranking MS-MARCO
         - **Entrada**: Pares [pregunta, contenido_documento] con hasta 500 caracteres por documento
-        - **Scoring**: El modelo genera logits de relevancia que se normalizan usando Min-Max [0,1]
-        - **Normalización**: `(score - min_score) / (max_score - min_score)` para convertir logits a rango interpretable
-        - **Ranking**: Documentos se reordenan por score normalizado de mayor a menor
-        - **Ventaja**: Modelo específicamente entrenado para relevancia query-documento vs. LLM general
+        - **Proceso de Scoring**: 
+          1. El modelo genera logits de relevancia para cada par pregunta-documento
+          2. Se aplica normalización Min-Max: `(scores - scores.min()) / (scores.max() - scores.min())`
+          3. Scores normalizados quedan en rango [0, 1] interpretable
+          4. Documentos se reordenan por score descendente
+        - **Configuración**: Funciona sin temperatura (determinístico)
+        - **Impacto**: Reordena documentos basándose en relevancia semántica contextual vs. solo similitud coseno
         
         ### 📄 3. Agregación de Chunks a Documentos
         
@@ -2095,92 +2113,110 @@ def display_methodology_section():
         - **scikit-learn**: Para cálculo de similitud coseno en la recuperación inicial
         - **Sentence Transformers**: Para generación de embeddings de consultas
         
-        **Proceso de Evaluación:**
-        1. **Carga de Datos**: Parquet files con embeddings pre-calculados (~187K chunks de documentos)
-        2. **Generación de Query**: Embedding de la pregunta usando el modelo correspondiente
-        3. **Recuperación Inicial**: Top-K chunks usando similitud coseno (donde K = target_documents × chunk_multiplier)
-        4. **Agregación de Documentos**: Conversión de chunks a documentos completos mediante agrupación por enlace normalizado
-        5. **Reranking** (opcional): Reordenamiento con LLM de los documentos agregados
-        6. **Generación RAG**: Respuesta usando contexto de documentos completos + OpenAI
-        7. **Evaluación RAGAS**: Métricas automáticas usando framework RAGAS
-        8. **BERTScore**: Evaluación semántica adicional
+        **Proceso de Evaluación Real del Colab:**
+        1. **Carga de Datos**: Archivos Parquet con embeddings pre-calculados (187,031 documentos por modelo)
+        2. **Generación de Query Embedding**: Embedding real de la pregunta usando el modelo específico (Ada/E5/MPNet/MiniLM)
+        3. **Recuperación por Similitud Coseno**: `cosine_similarity(query_embedding, document_embeddings)` para encontrar top-k documentos
+        4. **Cálculo de Métricas Pre-Reranking**: Métricas tradicionales IR usando ground truth links validados
+        5. **Reranking CrossEncoder**: Reordenamiento opcional usando scores normalizados Min-Max
+        6. **Cálculo de Métricas Post-Reranking**: Métricas IR recalculadas después del reordenamiento
+        7. **Generación RAG**: Respuesta con GPT-3.5-turbo usando contexto de top-3 documentos (800 chars/doc)
+        8. **Evaluación RAGAS Completa**: 6 métricas usando OpenAI API para evaluación (3000 chars/doc)
+        9. **Evaluación BERTScore**: 3 métricas usando `distiluse-base-multilingual-cased-v2` sin límite de contenido
+        10. **Agregación de Resultados**: Promedios y resultados individuales guardados en JSON compatible con Streamlit
         
-        ### 📊 4. Cálculo de Métricas Específicas
+        ### 📊 4. Cálculo de Métricas Específicas (Implementación Real del Colab)
         
-        **Métricas de Recuperación (Basadas en Scores):**
-        - **Avg Score@k**: Promedio de scores de similitud en top-k documentos
-        - **Max Score@k**: Score máximo entre los top-k documentos  
-        - **Score Variance@k**: Varianza de scores (indica diversidad)
-        - **NDCG@k**: `DCG@k / IDCG@k` usando scores como relevancia gradual
-        - **Precision@k**: Proporción de documentos con score > umbral en top-k
-        - **MRR**: Basado en primer documento con score alto (>0.8)
+        **Métricas de Recuperación Tradicionales (IR):**
+        - **Precision@k**: `sum(relevantes_en_top_k) / k` donde relevancia se determina por matching de URLs normalizadas
+        - **Recall@k**: `sum(relevantes_en_top_k) / total_relevantes_ground_truth`
+        - **F1@k**: Media armónica de Precision@k y Recall@k
+        - **NDCG@k**: `DCG@k / IDCG@k` usando relevancia binaria (1 si URL match, 0 si no)
+        - **MAP@k**: Mean Average Precision calculada como promedio de precisions en posiciones relevantes
+        - **MRR@k**: `1 / rank_primer_relevante` o 0 si no hay relevantes en top-k
+        - **MRR global**: MRR sin límite de k
         
-        **Métricas RAGAS:**
-        - **Faithfulness**: Evalúa fidelidad al contexto usando verificación de claims
-        - **Answer Relevancy**: Mide relevancia usando similitud de embeddings pregunta-respuesta
-        - **Answer Correctness**: Combina exactitud factual y completitud semántica
-        - **Semantic Similarity**: Similitud semántica entre respuesta generada y esperada
+        **Métricas RAGAS (Usando OpenAI GPT-3.5-turbo):**
+        - **Faithfulness**: Escala 1-5 normalizada a [0,1] - evalúa si respuesta contradice contexto
+        - **Answer Relevancy**: Escala 1-5 normalizada a [0,1] - evalúa relevancia respuesta-pregunta
+        - **Answer Correctness**: Escala 1-5 normalizada a [0,1] - compara exactitud vs ground truth
+        - **Context Precision**: Escala 1-5 normalizada a [0,1] - evalúa relevancia del contexto recuperado
+        - **Context Recall**: Escala 1-5 normalizada a [0,1] - evalúa cobertura de información necesaria
+        - **Semantic Similarity**: Similitud coseno entre embeddings de respuesta generada y ground truth
         
-        **Métricas BERTScore:**
-        - **BERT Precision**: Proporción de tokens de respuesta presentes en referencia (usando BERT embeddings)
-        - **BERT Recall**: Proporción de tokens de referencia presentes en respuesta (usando BERT embeddings)
-        - **BERT F1**: Media armónica entre BERT Precision y BERT Recall
+        **Métricas BERTScore (Usando DistilUSE Multilingual):**
+        - **BERT Precision**: Similitud semántica usada como aproximación de precisión
+        - **BERT Recall**: Similitud semántica usada como aproximación de recall  
+        - **BERT F1**: Similitud semántica usada como aproximación de F1 (versión simplificada)
         
-        ### 🔄 6. Diagrama de Proceso (1 Modelo, 1 Pregunta)
+        ### 🔄 5. Diagrama de Proceso Real del Colab (1 Modelo, 1 Pregunta)
         
         ```
-        📝 PREGUNTA TÉCNICA SOBRE AZURE
+        📝 PREGUNTA TÉCNICA SOBRE AZURE (ejemplo: 15 preguntas de evaluación)
                         ↓
-        🔤 GENERACIÓN DE EMBEDDING (Sentence Transformers / OpenAI)
+        🔤 GENERACIÓN DE EMBEDDING REAL
+               ├── Ada: OpenAI API text-embedding-ada-002 → 1536D
+               ├── E5-Large: intfloat/e5-large-v2 → 1024D  
+               ├── MPNet: all-mpnet-base-v2 + "query:" prefix → 768D
+               └── MiniLM: all-MiniLM-L6-v2 → 384D
                         ↓
-        🔍 RECUPERACIÓN DE CHUNKS (Similitud Coseno Top-K)
-               K = target_documents × chunk_multiplier
-                        ↓
-        📄 AGREGACIÓN DE DOCUMENTOS (DocumentAggregator)
-               ├── Normalización de enlaces
-               ├── Agrupación por documento
-               ├── Concatenación de contenido
-               └── Deduplicación → Top-10 documentos
+        🔍 RECUPERACIÓN POR SIMILITUD COSENO
+               cosine_similarity(query_embedding, parquet_embeddings)
+               → Top-K documentos ordenados por score descendente
                         ↓
                     📊 EVALUACIÓN PRE-RERANKING
-                    (Precision, Recall, F1, NDCG, MAP, MRR)
+                    calculate_real_retrieval_metrics() usando URLs normalizadas
+                    (Precision@k, Recall@k, F1@k, NDCG@k, MAP@k, MRR@k, MRR global)
                         ↓
-        🤖 RERANKING CROSSENCODER (ms-marco-MiniLM + MinMax norm) [OPCIONAL]
+        🤖 RERANKING CROSSENCODER [SI HABILITADO]
+               rerank_with_cross_encoder() usando ms-marco-MiniLM-L-6-v2
+               ├── Genera logits para pares [pregunta, doc_content[:500]]
+               ├── Normalización Min-Max: (scores-min)/(max-min)
+               └── Reordena documentos por score CrossEncoder descendente
                         ↓
-                    📈 EVALUACIÓN POST-RERANKING
-                    (Mismas métricas de recuperación)
+                    📈 EVALUACIÓN POST-RERANKING  
+                    calculate_real_retrieval_metrics() en documentos reordenados
+                    (Mismas métricas IR pero con nuevo orden)
                         ↓
-        🎭 GENERACIÓN DE RESPUESTA (GPT-3.5-turbo + 800 chars/doc)
+        🎭 GENERACIÓN DE RESPUESTA RAG
+               generate_rag_answer() usando GPT-3.5-turbo
+               Contexto: Top-3 documentos, 800 chars/documento
                         ↓
-                    🔬 EVALUACIÓN RAG
-                    ├── RAGAS (Faithfulness, Answer Relevancy, etc.) [3000 chars/doc]
-                    └── BERTScore (Precision, Recall, F1) [Sin límite]
+                    🔬 EVALUACIÓN RAG COMPLETA
+                    calculate_rag_metrics_real() usando OpenAI API
+                    ├── 6 RAGAS metrics (GPT-3.5 evalúa con prompts, 3000 chars/doc)
+                    └── 3 BERTScore metrics (DistilUSE, sin límite contenido)
                         ↓
-        📊 RESULTADOS FINALES (Promedios + Individuales)
+        📊 RESULTADOS INDIVIDUALES (por pregunta y modelo)
         
-        🔁 REPETIR PARA N PREGUNTAS → PROMEDIAR RESULTADOS
+        🔁 REPETIR PARA 15 PREGUNTAS → PROMEDIAR RESULTADOS → GUARDAR JSON
         ```
         
-        ### 🎯 7. Garantías de Calidad Científica
+        ### 🎯 6. Garantías de Calidad Científica (Implementación Real del Colab)
         
-        **Reproducibilidad:**
-        - Evaluación completamente determinística (CrossEncoder sin temperatura)
-        - Sin operaciones aleatorias en el cálculo de métricas o normalización
-        - Normalización Min-Max consistente: (score - min) / (max - min)
-        - Selección de preguntas con seed fijo (42) solo durante configuración
-        - Mismos datasets y embeddings pre-calculados
+        **Datos Reales y Verificables:**
+        - **Embeddings Reales**: Sin simulación - usa APIs y modelos reales para generar embeddings
+        - **Ground Truth Validado**: URLs del ground truth verificadas contra colección de documentos
+        - **Métricas No Aleatorias**: Todos los valores calculados usando algoritmos determinísticos
+        - **Verificación de Datos**: `data_verification.is_real_data = True` en resultados JSON
         
-        **Validación:**
-        - Sin valores simulados o aleatorios
-        - Verificación de integridad de datos en cada paso
-        - Logging detallado de errores y excepciones
-        - Validación de estructura de resultados JSON
+        **Reproducibilidad Completa:**
+        - **CrossEncoder Determinístico**: Sin temperatura, mismos scores para mismas entradas
+        - **Normalización Consistente**: Min-Max aplicada uniformemente: `(scores - min) / (max - min)`
+        - **Datasets Fijos**: Mismos archivos Parquet de embeddings para todas las evaluaciones
+        - **URLs Normalizadas**: Función `normalize_url()` consistente elimina parámetros y fragmentos
         
-        **Escalabilidad:**
-        - Procesamiento batch eficiente
-        - Manejo de memoria con garbage collection
-        - Paralelización cuando es posible
-        - Arquitectura modular para extensibilidad
+        **Validación Técnica:**
+        - **Framework RAGAS Oficial**: Uso de biblioteca científicamente validada
+        - **BERTScore Estándar**: Implementación usando modelo multilingual reconocido
+        - **Logging Completo**: Errores y excepciones registrados para debugging
+        - **Estructura JSON Validada**: Formato compatible con visualización Streamlit
+        
+        **Metodología Científica:**  
+        - **Evaluación Individual**: Cada pregunta evaluada independientemente, luego promediada
+        - **Métricas Before/After**: Comparación pre y post reranking para medir impacto
+        - **Contexto Controlado**: Límites de caracteres definidos y consistentes por tipo de evaluación
+        - **Múltiples Métricas**: IR tradicionales + RAGAS + BERTScore para evaluación comprehensiva
         """)
 
 def display_rag_metrics_explanation():
