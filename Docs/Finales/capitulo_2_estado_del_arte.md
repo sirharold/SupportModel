@@ -46,7 +46,11 @@ La familia de modelos MPNet (Masked and Permuted Pre-training) combina las venta
 
 El uso de retrievers vectoriales se ha vuelto esencial en arquitecturas RAG modernas. Bases de datos vectoriales especializadas como ChromaDB, FAISS, Milvus y Weaviate han surgido como soluciones optimizadas para almacenamiento y recuperación eficiente de vectores de alta dimensión (Johnson et al., 2019; Douze et al., 2024).
 
-ChromaDB, utilizada en este proyecto, se distingue por su simplicidad de implementación y capacidades nativas de filtrado por metadatos, lo que permite implementar estrategias de recuperación híbrida que combinan similitud semántica con criterios estructurados. Esta capacidad es fundamental en sistemas de soporte técnico donde la recuperación debe considerar tanto la relevancia semántica como atributos específicos como fecha de publicación, categoría de producto o nivel de complejidad.
+En este proyecto, inicialmente se utilizó Weaviate como base de datos vectorial. Weaviate fue seleccionada por su robustez empresarial, arquitectura distribuida, integración nativa con múltiples modelos de lenguaje (OpenAI, Cohere, Hugging Face), y capacidades avanzadas de consulta mediante GraphQL (Weaviate, 2023). Su arquitectura modular y capacidad de escalamiento horizontal la posicionan como una solución de grado empresarial para aplicaciones de producción.
+
+Sin embargo, durante el desarrollo del proyecto se migró a ChromaDB por consideraciones prácticas específicas del entorno de investigación académica. ChromaDB ofrece ventajas significativas para prototipado e investigación: eliminación de costos de infraestructura cloud, reducción sustancial de latencia al operar localmente, compatibilidad nativa con Google Colab sin configuración adicional, y simplicidad de despliegue sin requerimientos de servicios externos. Estas características resultan fundamentales para investigación académica donde la reproducibilidad, control de costos y facilidad de experimentación son prioritarias.
+
+ChromaDB mantiene las capacidades esenciales requeridas: filtrado nativo por metadatos, búsqueda híbrida combinando similitud semántica con criterios estructurados, y rendimiento adecuado para conjuntos de datos de escala media (hasta millones de vectores). Esta migración demostró que para aplicaciones de investigación y desarrollo, la simplicidad y control local pueden superar las ventajas de arquitecturas distribuidas más complejas.
 
 ## 4. Comparación de Enfoques Vectoriales y Clásicos
 
@@ -56,13 +60,38 @@ Los sistemas clásicos de recuperación de información, implementados en plataf
 
 Estas limitaciones son particularmente pronunciadas en dominios técnicos donde existe alta variabilidad terminológica, uso de sinónimos especializados, y donde la relevancia depende fuertemente del contexto semántico más que de la coincidencia léxica exacta.
 
-### 4.2 Ventajas de Sistemas Vectoriales
+### 4.2 Intentos de Búsqueda Semántica con Bases Relacionales
+
+Existen esfuerzos para implementar capacidades de búsqueda semántica utilizando bases de datos relacionales tradicionales, principalmente mediante extensiones especializadas. PostgreSQL con la extensión pgvector permite almacenar y consultar vectores de embeddings utilizando SQL estándar (PostgreSQL, 2023). De manera similar, sistemas como Azure SQL Database han incorporado capacidades de búsqueda vectorial mediante extensiones propietarias.
+
+Sin embargo, estas soluciones presentan limitaciones significativas comparadas con bases de datos vectoriales especializadas:
+
+**Limitaciones de Rendimiento:**
+- Índices menos optimizados para espacios de alta dimensionalidad
+- Mayor consumo de memoria para operaciones vectoriales
+- Latencias superiores en consultas de similitud a gran escala
+- Escalabilidad limitada para billones de vectores
+
+**Limitaciones Funcionales:**
+- Soporte limitado para métricas de distancia especializadas
+- Carencia de optimizaciones específicas para ANN (Approximate Nearest Neighbor)
+- Integración compleja con pipelines de ML/NLP
+- Falta de funcionalidades nativas para filtrado híbrido semántico-estructurado
+
+**Complejidad Operacional:**
+- Requiere expertise tanto en SQL como en operaciones vectoriales
+- Configuración y tuning más complejos para cargas de trabajo vectoriales
+- Backup y recuperación más complejos para datos de alta dimensionalidad
+
+Estas limitaciones hacen que, aunque técnicamente posible, el uso de bases relacionales para búsqueda semántica sea subóptimo comparado con soluciones especializadas como ChromaDB, Pinecone o Weaviate, particularmente en aplicaciones que requieren alto rendimiento y escalabilidad (Li et al., 2023).
+
+### 4.3 Ventajas de Sistemas Vectoriales
 
 En contraste, los sistemas vectoriales modernos utilizan embeddings generados por modelos de aprendizaje profundo, permitiendo recuperar documentos basados en similitud semántica en lugar de coincidencia léxica superficial (Malkov & Yashunin, 2020). Estos sistemas pueden identificar relaciones semánticas complejas, manejar sinónimos y variaciones terminológicas, y capturar dependencias contextuales que los sistemas clásicos no pueden procesar.
 
 La implementación de algoritmos de búsqueda aproximada de vecinos más cercanos (Approximate Nearest Neighbor, ANN) como HNSW (Hierarchical Navigable Small World) permite realizar búsquedas vectoriales eficientes incluso en espacios de alta dimensionalidad, manteniendo latencias acceptables para aplicaciones de producción (Malkov & Yashunin, 2018).
 
-### 4.3 Enfoques Híbridos y Reranking
+### 4.4 Enfoques Híbridos y Reranking
 
 Los sistemas más efectivos combinan las fortalezas de ambos enfoques mediante arquitecturas híbridas que utilizan recuperación vectorial para la selección inicial de candidatos, seguida de reranking mediante modelos más sofisticados. Los CrossEncoders, que procesan conjuntamente la consulta y cada documento candidato, pueden proporcionar scores de relevancia más precisos que los bi-encoders utilizados en la fase de recuperación inicial (Reimers & Gurevych, 2019).
 
@@ -165,6 +194,8 @@ Johnson, J., Douze, M., & Jégou, H. (2019). Billion-scale similarity search wit
 
 Johnson, J., Douze, M., & Jégou, H. (2021). Billion-scale similarity search with GPUs. *IEEE Transactions on Big Data*, 7(3), 535-547.
 
+Li, Z., Zhang, X., Zhang, Y., Long, D., Xie, P., & Zhang, M. (2023). Towards general text embeddings with multi-stage contrastive learning. *arXiv preprint arXiv:2308.03281*.
+
 Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. *Advances in Neural Information Processing Systems*, 33, 9459-9474.
 
 Liu, Y., Ott, M., Goyal, N., Du, J., Joshi, M., Chen, D., ... & Stoyanov, V. (2019). RoBERTa: A robustly optimized BERT pretraining approach. *arXiv preprint arXiv:1907.11692*.
@@ -176,6 +207,8 @@ Malkov, Y. A., & Yashunin, D. A. (2020). Efficient and robust approximate neares
 Manning, C. D., Raghavan, P., & Schütze, H. (2008). *Introduction to information retrieval*. Cambridge University Press.
 
 Microsoft Learn. (2023). *Azure AI services documentation*. https://learn.microsoft.com/en-us/azure/ai-services/
+
+PostgreSQL. (2023). *pgvector: Open-source vector similarity search for Postgres*. https://github.com/pgvector/pgvector
 
 Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence embeddings using siamese BERT-networks. *arXiv preprint arXiv:1908.10084*.
 
@@ -190,6 +223,8 @@ Song, K., Tan, X., Qin, T., Lu, J., & Liu, T. Y. (2020). MPNet: Masked and permu
 Wang, L., Yang, N., Huang, J., Chang, M. W., & Wang, W. (2022). Text embeddings by weakly-supervised contrastive pre-training. *arXiv preprint arXiv:2212.03533*.
 
 Wang, W., Wei, F., Dong, L., Bao, H., Yang, N., & Zhou, M. (2020). MiniLM: Deep self-attention distillation for task-agnostic compression of pre-trained transformers. *Advances in Neural Information Processing Systems*, 33, 5776-5788.
+
+Weaviate. (2023). *Weaviate: The AI-native open-source vector database*. https://weaviate.io/
 
 Zendesk. (2023). *Answer Bot*. https://www.zendesk.com/service/answer-bot/
 
