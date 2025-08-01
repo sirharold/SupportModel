@@ -21,6 +21,7 @@ from src.apps.batch_queries_page import show_batch_queries_page
 from src.apps.data_analysis_page import show_data_analysis_page
 from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
+from src.apps.cumulative_metrics_results_matplotlib import show_cumulative_metrics_results_page as show_cumulative_metrics_results_matplotlib_page
 from src.apps.question_answer_comparison import show_question_answer_comparison_page
 from src.apps.cumulative_comparison import show_cumulative_comparison_page
 from src.apps.cumulative_n_questions_config import show_cumulative_n_questions_config_page
@@ -124,6 +125,7 @@ page = st.sidebar.radio(
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",
+        "📊 Resultados Matplotlib",
         #"🔧 Configuración Análisis N Preguntas (Colab)",
         #"📊 Resultados Análisis N Preguntas (Colab)",
     ],
@@ -1149,6 +1151,8 @@ elif page == "⚙️ Configuración Métricas Acumulativas":
     show_cumulative_metrics_create_page()
 elif page == "📈 Resultados Métricas Acumulativas":
     show_cumulative_metrics_results_page()
+elif page == "📊 Resultados Matplotlib":
+    show_cumulative_metrics_results_matplotlib_page()
 
 elif page == "🔧 Configuración Análisis N Preguntas (Colab)":
     show_cumulative_n_questions_config_page()
