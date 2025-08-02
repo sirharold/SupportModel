@@ -1,38 +1,113 @@
+# ===============================
+# DATOS Y BASES DE DATOS
+# ===============================
 # Ignore all files in data folder
 data/
 
-# Ignore any model files
+# ChromaDB databases
+chroma_db/
+chroma_db2/
+*.sqlite3
+
+# Model files
 *.pt
 
-# Ignore any JSON files (e.g., datasets, embeddings)
+# Large data files
 *.json
-
-# Ignore parquet files
 *.parquet
+*.csv
 
-# Common Python ignores
+# Embeddings and large datasets
+colab_data/*.parquet
+colab_data/*.json
+
+# ===============================
+# CREDENCIALES Y AUTENTICACIÓN
+# ===============================
+# Environment files
+.env
+*.env
+
+# Authentication tokens and credentials
+token.pickle
+src/config/credentials.json
+src/config/gdrive_config.json
+*.key
+*.pem
+
+# ===============================
+# ARCHIVOS DE DESARROLLO
+# ===============================
+# Claude AI development files
+CLAUDE.md
+
+# Logs
+*.log
+streamlit.log
+logs/
+
+# Temporary development files
+temp/
+tmp/
+
+# ===============================
+# AMBIENTES VIRTUALES
+# ===============================
+# Python virtual environments
+gemini_env/
+gemini_env_stable/
+gemini_env_stable_2/
+stable_env/
+venv/
+env/
+.venv/
+
+# ===============================
+# PYTHON STANDARD
+# ===============================
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
 *.so
+*.egg-info/
+dist/
+build/
 
-# Environment files
-.env
-*.env
+# ===============================
+# JUPYTER NOTEBOOKS
+# ===============================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
 
-# VSCode and other editor settings
+# ===============================
+# EDITORES E IDEs
+# ===============================
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
 
-# Jupyter Notebooks Checkpoints
-.ipynb_checkpoints/
-
-# OS metadata files
+# ===============================
+# SISTEMA OPERATIVO
+# ===============================
 .DS_Store
 Thumbs.db
+*.tmp
 
-gemini_env/
-gemini_env_stable/
-gemini_env_stable_2/
-stable_env/
+# ===============================
+# DOCUMENTACIÓN OBSOLETA
+# ===============================
+Docs_Previous/
+
+# ===============================
+# ARCHIVOS ESPECÍFICOS DEL PROYECTO
+# ===============================
+# Cache de análisis
+*.analysis_cache
+analysis_temp/
+
+# Archivos de backup
+*.bak
+*.backup
