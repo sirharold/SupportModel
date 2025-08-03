@@ -27,6 +27,7 @@ from src.apps.cumulative_comparison import show_cumulative_comparison_page
 # from src.apps.cumulative_n_questions_config import show_cumulative_n_questions_config_page  # Module doesn't exist
 # from src.apps.cumulative_n_questions_results import show_cumulative_n_questions_results_page  # Module doesn't exist
 from src.apps.chapter_4_visualizations import main as show_chapter_4_visualizations
+from src.apps.chapter_7_figures import main as show_chapter_7_figures
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -120,6 +121,7 @@ page = st.sidebar.radio(
     [
         "🔍 Búsqueda Individual",
         "📊 Visualizaciones Capítulo 4",
+        "📊 Figuras Capítulo 7",
         "📈 Análisis de Datos",
         "🔬 Comparación de Modelos",
         "🔄 Comparador Pregunta vs Respuesta",
@@ -1145,6 +1147,9 @@ elif page == "📊 Análisis Acumulativo N Preguntas":
 
 elif page == "📊 Visualizaciones Capítulo 4":
     show_chapter_4_visualizations()
+
+elif page == "📊 Figuras Capítulo 7":
+    show_chapter_7_figures()
 
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()

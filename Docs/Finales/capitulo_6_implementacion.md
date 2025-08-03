@@ -743,10 +743,10 @@ def render_metrics_dashboard():
 
 ### 6.8.1 Optimizaciones de Rendimiento
 
-**Caching Inteligente:**
-- Implementación de LRU cache para modelos de embeddings cargados
-- Cache persistente de resultados de consultas frecuentes
-- Lazy loading de componentes pesados (CrossEncoder, modelos locales)
+**Sistema de Cache Inteligente:**
+- Implementación de cache LRU (Least Recently Used) para optimizar el almacenamiento temporal de modelos de embeddings previamente cargados, eliminando automáticamente los modelos menos utilizados cuando se alcanza el límite de memoria
+- Cache persistente que almacena en disco los resultados de consultas realizadas frecuentemente, evitando recálculos innecesarios
+- Carga diferida (lazy loading) de componentes computacionalmente pesados como CrossEncoder y modelos locales, cargándolos únicamente cuando son requeridos por primera vez
 
 **Batch Processing:**
 - Procesamiento en lotes para búsquedas por enlaces (batch_size=50)
