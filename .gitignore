@@ -110,3 +110,6 @@ analysis_temp/
 # Archivos de backup
 *.bak
 *.backup
+
+# Aplicaciones auxiliares de Streamlit (no incluir en repo público)
+src/apps_auxiliary/

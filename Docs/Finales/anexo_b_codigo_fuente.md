@@ -6,7 +6,9 @@ El código fuente completo del sistema RAG para recuperación semántica de docu
 
 ### B.1.1 Ubicación del Repositorio
 
-**Repositorio GitHub:** [Pendiente de publicación]
+**Repositorio GitHub:** https://github.com/sirharold/SupportModel
+
+El repositorio es público y contiene todo el código fuente, documentación, datasets y resultados experimentales utilizados en esta investigación.
 
 ### B.1.2 Estructura del Repositorio
 
@@ -135,7 +137,7 @@ Para acceder al código fuente completo:
 
 1. **Clonar el repositorio:**
    ```bash
-   git clone [URL_del_repositorio]
+   git clone https://github.com/sirharold/SupportModel.git
    cd SupportModel
    ```
 
@@ -166,6 +168,22 @@ Para consultas sobre el código fuente, implementación o extensiones:
 - **Institución**: [Institución académica]
 - **Email**: [Email de contacto]
 
-### B.1.9 Nota sobre Versiones
+### B.1.9 Acceso Público y Transparencia
+
+El repositorio es completamente **público y accesible** en GitHub:
+
+**🔗 URL Directa:** https://github.com/sirharold/SupportModel
+
+**Contenido disponible públicamente:**
+- ✅ Todo el código fuente sin restricciones
+- ✅ Datasets de entrenamiento y validación completos
+- ✅ Resultados experimentales de la evaluación con 4,000 consultas
+- ✅ Documentación completa de la investigación
+- ✅ Notebooks ejecutables de Google Colab
+- ✅ Scripts de análisis estadístico y verificación
+
+Esta disponibilidad pública permite la **replicación completa** de todos los experimentos y resultados reportados en esta investigación, cumpliendo con los estándares de reproducibilidad científica.
+
+### B.1.10 Nota sobre Versiones
 
 El código corresponde a la versión utilizada para la evaluación experimental reportada en este trabajo (agosto 2025). Los resultados experimentales definitivos se obtuvieron el 2 de agosto de 2025 con 1,000 consultas por modelo. Versiones posteriores pueden incluir mejoras y optimizaciones adicionales basadas en los hallazgos de esta investigación.

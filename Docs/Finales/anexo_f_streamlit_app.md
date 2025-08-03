@@ -1,644 +1,384 @@
-# F. STREAMLIT APP
+# ANEXO F: Manual de Usuario - Aplicación Streamlit
 
 ## F.1 Introducción
 
-Este anexo documenta la aplicación web interactiva desarrollada con Streamlit para la exploración y visualización de los resultados experimentales del sistema RAG. La aplicación proporciona una interfaz intuitiva para analizar el rendimiento de los diferentes modelos de embedding, visualizar métricas comparativas, y explorar casos específicos de recuperación de documentos.
+Este anexo proporciona las instrucciones detalladas para utilizar la aplicación web desarrollada con Streamlit que permite interactuar con el sistema RAG de recuperación semántica de documentación técnica de Microsoft Azure. La aplicación ofrece cuatro funcionalidades principales organizadas en páginas independientes.
 
-## F.2 Arquitectura de la Aplicación
+## F.2 Requisitos del Sistema
 
-### F.2.1 Estructura del Proyecto Streamlit
+### F.2.1 Requisitos de Hardware
+- **Memoria RAM**: Mínimo 8 GB (16 GB recomendado)
+- **Almacenamiento**: 20 GB libres para modelos y base de datos
+- **Procesador**: CPU multinúcleo (GPU opcional para aceleración)
 
-```
-src/apps/                         # Aplicaciones Streamlit del proyecto
-├── main_qa_app.py                # Aplicación principal de Q&A
-├── cumulative_metrics_results_matplotlib.py  # Visualización de resultados
-├── comparison_page.py            # Comparación de modelos
-├── cumulative_comparison.py      # Comparación acumulativa
-├── batch_queries_page.py         # Procesamiento de consultas en lote
-├── data_analysis_page.py         # Análisis de datos experimentales
-└── question_answer_comparison.py # Comparación de respuestas
+### F.2.2 Requisitos de Software
+- **Python**: 3.8 o superior
+- **Sistema Operativo**: Windows 10/11, macOS, o Linux
+- **Navegador Web**: Chrome, Firefox, Safari o Edge (versiones recientes)
 
-src/ui/                           # Interfaces de usuario compartidas
-├── display.py                    # Funciones de visualización
-├── enhanced_metrics_display.py   # Visualización de métricas avanzadas
-├── metrics_display.py           # Visualización básica de métricas
-└── pdf_generator.py             # Generación de reportes PDF
+### F.2.3 Dependencias Principales
+- Streamlit 1.46.1
+- ChromaDB 0.5.23
+- Sentence-Transformers 2.3.0
+- OpenAI API (para modelo Ada)
+- Matplotlib/Plotly para visualizaciones
 
-.streamlit/                       # Configuración de Streamlit (directorio raíz)
-└── config.toml                   # Configuración global de Streamlit
-```
+## F.3 Instalación y Configuración
 
-## F.3 Funcionalidades Principales
-
-### F.3.1 Página Principal (Dashboard)
-
-#### F.3.1.1 Resumen Ejecutivo
-
-La página principal presenta un dashboard con las métricas clave del sistema:
-
-```python
-# Métricas principales mostradas
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(
-        label="📊 Modelos Evaluados", 
-        value="4",
-        help="Ada, MPNet, MiniLM, E5-Large"
-    )
-
-with col2:
-    st.metric(
-        label="📋 Preguntas Evaluadas", 
-        value="11",
-        help="Por modelo, total 44 evaluaciones"
-    )
-
-with col3:
-    st.metric(
-        label="📚 Documentos Indexados", 
-        value="187,031",
-        help="Chunks de documentación Azure"
-    )
-
-with col4:
-    st.metric(
-        label="⏱️ Tiempo Total", 
-        value="12.9 min",
-        help="774.78 segundos de evaluación"
-    )
-```
-
-#### F.3.1.2 Selector de Archivos de Resultados
-
-La aplicación permite cargar diferentes archivos de resultados experimentales:
-
-```python
-# Selector de archivos de resultados
-results_files = [
-    "cumulative_results_1753578255.json",
-    "cumulative_results_20250731_140825.json"
-]
-
-selected_file = st.selectbox(
-    "📁 Seleccionar archivo de resultados:",
-    results_files,
-    help="Selecciona el archivo de resultados experimentales a analizar"
-)
-```
-
-### F.3.2 Comparación de Modelos
-
-#### F.3.2.1 Tabla Comparativa Interactiva
-
-```python
-def create_comparison_table():
-    """Crea tabla comparativa de modelos con métricas clave"""
-    
-    comparison_data = {
-        'Modelo': ['Ada', 'MPNet', 'MiniLM', 'E5-Large'],
-        'Dimensiones': [1536, 768, 384, 1024],
-        'Precision@5': [0.055, 0.055, 0.036, 0.000],
-        'Recall@5': [0.273, 0.273, 0.182, 0.000],
-        'NDCG@5': [0.162, 0.189, 0.103, 0.000],
-        'BERTScore F1': [0.732, 0.739, 0.729, 0.739],
-        'Faithfulness': [0.482, 0.518, 0.509, 0.591]
-    }
-    
-    df = pd.DataFrame(comparison_data)
-    
-    # Aplicar formato condicional
-    st.dataframe(
-        df.style.background_gradient(subset=['Precision@5', 'Recall@5']),
-        use_container_width=True
-    )
-```
-
-#### F.3.2.2 Gráfico Radar Comparativo
-
-```python
-def create_radar_chart():
-    """Crea gráfico radar para comparación multi-dimensional"""
-    
-    fig = go.Figure()
-    
-    metrics = ['Precision@5', 'Recall@5', 'NDCG@5', 'BERTScore F1', 'Faithfulness']
-    
-    for model_name, values in model_data.items():
-        fig.add_trace(go.Scatterpolar(
-            r=values,
-            theta=metrics,
-            fill='toself',
-            name=model_name,
-            line=dict(width=2)
-        ))
-    
-    fig.update_layout(
-        polar=dict(
-            radialaxis=dict(
-                visible=True,
-                range=[0, 1]
-            )
-        ),
-        showlegend=True,
-        title="📊 Comparación Multi-Dimensional de Modelos"
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-```
-
-### F.3.3 Análisis de Métricas
-
-#### F.3.3.1 Visualización de Impacto del Reranking
-
-```python
-def plot_reranking_impact():
-    """Visualiza el impacto del reranking por modelo"""
-    
-    models = ['Ada', 'MPNet', 'MiniLM', 'E5-Large']
-    pre_reranking = [0.126, 0.108, 0.091, 0.000]
-    post_reranking = [0.162, 0.189, 0.103, 0.000]
-    
-    x = np.arange(len(models))
-    width = 0.35
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    bars1 = ax.bar(x - width/2, pre_reranking, width, 
-                   label='Pre-Reranking', alpha=0.8)
-    bars2 = ax.bar(x + width/2, post_reranking, width,
-                   label='Post-Reranking', alpha=0.8)
-    
-    # Añadir etiquetas de mejora porcentual
-    for i, (pre, post) in enumerate(zip(pre_reranking, post_reranking)):
-        if pre > 0:
-            improvement = ((post - pre) / pre) * 100
-            ax.text(i, post + 0.01, f'+{improvement:.1f}%', 
-                   ha='center', va='bottom', fontweight='bold')
-    
-    ax.set_xlabel('Modelos')
-    ax.set_ylabel('NDCG@5')
-    ax.set_title('🎯 Impacto del CrossEncoder Reranking')
-    ax.set_xticks(x)
-    ax.set_xticklabels(models)
-    ax.legend()
-    
-    st.pyplot(fig)
-```
-
-#### F.3.3.2 Análisis Estadístico (Wilcoxon)
-
-```python
-def display_statistical_analysis():
-    """Muestra resultados de tests estadísticos"""
-    
-    st.subheader("📊 Análisis de Significancia Estadística")
-    
-    # Cargar resultados de Wilcoxon
-    wilcoxon_data = pd.read_csv('wilcoxon_test_results.csv')
-    
-    # Filtrar por métrica seleccionada
-    metric = st.selectbox(
-        "Seleccionar métrica:",
-        ['precision@5', 'recall@5', 'f1@5', 'ndcg@5']
-    )
-    
-    filtered_data = wilcoxon_data[wilcoxon_data['metric'] == metric]
-    
-    # Crear heatmap de p-valores
-    pivot_table = filtered_data.pivot_table(
-        values='p_value', 
-        index='model1', 
-        columns='model2'
-    )
-    
-    fig, ax = plt.subplots(figsize=(8, 6))
-    sns.heatmap(pivot_table, annot=True, cmap='RdYlBu_r', 
-                center=0.05, ax=ax)
-    ax.set_title(f'P-valores Test de Wilcoxon - {metric.upper()}')
-    
-    st.pyplot(fig)
-    
-    # Interpretación
-    significant_pairs = filtered_data[filtered_data['significant'] == True]
-    
-    if len(significant_pairs) == 0:
-        st.warning("⚠️ No se encontraron diferencias estadísticamente significativas (p > 0.05)")
-    else:
-        st.success(f"✅ {len(significant_pairs)} comparaciones estadísticamente significativas")
-```
-
-### F.3.4 Explorador de Consultas
-
-#### F.3.4.1 Búsqueda Interactiva
-
-```python
-def create_query_explorer():
-    """Interfaz para explorar consultas específicas"""
-    
-    st.subheader("🔍 Explorador de Consultas")
-    
-    # Selector de consulta
-    query_options = load_query_list()
-    selected_query = st.selectbox(
-        "Seleccionar consulta:",
-        query_options,
-        help="Elige una consulta para ver resultados detallados"
-    )
-    
-    # Selector de modelo
-    model_options = ['Ada', 'MPNet', 'MiniLM', 'E5-Large']
-    selected_model = st.selectbox(
-        "Seleccionar modelo:",
-        model_options
-    )
-    
-    # Mostrar resultados
-    if st.button("🔍 Buscar"):
-        results = get_query_results(selected_query, selected_model)
-        display_query_results(results)
-
-def display_query_results(results):
-    """Muestra resultados detallados de una consulta"""
-    
-    st.write(f"**Consulta:** {results['query']}")
-    st.write(f"**Modelo:** {results['model']}")
-    
-    # Métricas de la consulta
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Precision@5", f"{results['precision_5']:.3f}")
-    with col2:
-        st.metric("NDCG@5", f"{results['ndcg_5']:.3f}")
-    with col3:
-        st.metric("MRR", f"{results['mrr']:.3f}")
-    
-    # Top 10 documentos recuperados
-    st.subheader("📋 Top 10 Documentos Recuperados")
-    
-    for i, doc in enumerate(results['top_documents'][:10], 1):
-        with st.expander(f"#{i} - Score: {doc['score']:.3f}"):
-            st.write(f"**Título:** {doc['title']}")
-            st.write(f"**URL:** {doc['url']}")
-            st.write(f"**Snippet:** {doc['content'][:200]}...")
-            
-            # Indicador de relevancia
-            if doc['is_relevant']:
-                st.success("✅ Documento relevante según ground truth")
-            else:
-                st.info("ℹ️ Documento no marcado como relevante")
-```
-
-### F.3.5 Visualizaciones Avanzadas
-
-#### F.3.5.1 Distribución de Scores de Similitud
-
-```python
-def plot_similarity_distribution():
-    """Visualiza distribución de scores de similitud por modelo"""
-    
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    fig.suptitle('📊 Distribución de Scores de Similitud Coseno')
-    
-    models = ['Ada', 'MPNet', 'MiniLM', 'E5-Large']
-    
-    for i, model in enumerate(models):
-        ax = axes[i//2, i%2]
-        
-        # Obtener scores del modelo
-        scores = get_similarity_scores(model)
-        
-        if len(scores) > 0:
-            ax.hist(scores, bins=20, alpha=0.7, edgecolor='black')
-            ax.set_title(f'{model}')
-            ax.set_xlabel('Cosine Similarity Score')
-            ax.set_ylabel('Frequency')
-            
-            # Añadir línea vertical para el promedio
-            mean_score = np.mean(scores)
-            ax.axvline(mean_score, color='red', linestyle='--', 
-                      label=f'Media: {mean_score:.3f}')
-            ax.legend()
-        else:
-            ax.text(0.5, 0.5, 'No hay datos\ndisponibles', 
-                   ha='center', va='center', transform=ax.transAxes)
-            ax.set_title(f'{model} - Sin datos')
-    
-    plt.tight_layout()
-    st.pyplot(fig)
-```
-
-#### F.3.5.2 Análisis de Correlación entre Métricas
-
-```python
-def plot_metrics_correlation():
-    """Visualiza correlaciones entre diferentes métricas"""
-    
-    # Crear matriz de correlación
-    metrics_data = prepare_correlation_data()
-    correlation_matrix = metrics_data.corr()
-    
-    # Crear heatmap
-    fig, ax = plt.subplots(figsize=(10, 8))
-    
-    mask = np.triu(np.ones_like(correlation_matrix, dtype=bool))
-    
-    sns.heatmap(correlation_matrix, 
-                mask=mask,
-                annot=True, 
-                cmap='coolwarm', 
-                center=0,
-                square=True,
-                fmt='.3f',
-                ax=ax)
-    
-    ax.set_title('🔗 Matriz de Correlación entre Métricas')
-    
-    st.pyplot(fig)
-    
-    # Interpretación de correlaciones importantes
-    st.subheader("🔍 Interpretación de Correlaciones")
-    
-    high_correlations = find_high_correlations(correlation_matrix)
-    
-    for correlation in high_correlations:
-        if correlation['value'] > 0.7:
-            st.success(f"✅ **{correlation['metric1']}** y **{correlation['metric2']}**: "
-                      f"Correlación alta ({correlation['value']:.3f})")
-        elif correlation['value'] < -0.7:
-            st.warning(f"⚠️ **{correlation['metric1']}** y **{correlation['metric2']}**: "
-                      f"Correlación negativa fuerte ({correlation['value']:.3f})")
-```
-
-### F.3.6 Exportación de Reportes
-
-#### F.3.6.1 Generación de Reportes PDF
-
-```python
-def generate_pdf_report():
-    """Genera reporte PDF con todos los resultados"""
-    
-    st.subheader("📄 Generar Reporte PDF")
-    
-    # Opciones de reporte
-    include_sections = st.multiselect(
-        "Seleccionar secciones a incluir:",
-        [
-            "Resumen Ejecutivo",
-            "Comparación de Modelos", 
-            "Análisis de Métricas",
-            "Casos de Ejemplo",
-            "Análisis Estadístico",
-            "Recomendaciones"
-        ],
-        default=["Resumen Ejecutivo", "Comparación de Modelos"]
-    )
-    
-    if st.button("📄 Generar Reporte"):
-        with st.spinner("Generando reporte PDF..."):
-            pdf_buffer = create_pdf_report(include_sections)
-            
-            st.download_button(
-                label="📥 Descargar Reporte PDF",
-                data=pdf_buffer,
-                file_name=f"reporte_sistema_rag_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-                mime="application/pdf"
-            )
-```
-
-#### F.3.6.2 Exportación de Datos
-
-```python
-def export_data_section():
-    """Sección para exportar datos experimentales"""
-    
-    st.subheader("💾 Exportar Datos")
-    
-    export_format = st.radio(
-        "Formato de exportación:",
-        ["CSV", "JSON", "Excel"]
-    )
-    
-    data_type = st.selectbox(
-        "Tipo de datos:",
-        [
-            "Métricas por modelo",
-            "Resultados por consulta",
-            "Análisis estadístico",
-            "Datos completos"
-        ]
-    )
-    
-    if st.button("💾 Exportar"):
-        data = prepare_export_data(data_type)
-        
-        if export_format == "CSV":
-            csv_buffer = data.to_csv(index=False)
-            st.download_button(
-                "📥 Descargar CSV",
-                csv_buffer,
-                f"datos_{data_type.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.csv"
-            )
-        elif export_format == "JSON":
-            json_buffer = data.to_json(orient='records', indent=2)
-            st.download_button(
-                "📥 Descargar JSON", 
-                json_buffer,
-                f"datos_{data_type.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.json"
-            )
-```
-
-## F.4 Configuración y Despliegue
-
-### F.4.1 Configuración de Streamlit
-
-**Archivo `.streamlit/config.toml`:**
-
-```toml
-[global]
-dataFrameSerialization = "legacy"
-
-[server]
-port = 8501
-address = "localhost"
-maxUploadSize = 200
-enableCORS = true
-enableXsrfProtection = true
-
-[browser]
-gatherUsageStats = false
-serverAddress = "localhost"
-serverPort = 8501
-
-[theme]
-primaryColor = "#0078d4"              # Azure blue
-backgroundColor = "#ffffff"           # White background
-secondaryBackgroundColor = "#f5f5f5"  # Light gray
-textColor = "#000000"                 # Black text
-font = "sans serif"
-
-[logger]
-level = "info"
-```
-
-### F.4.2 Variables de Ambiente
-
+### F.3.1 Clonar el Repositorio
 ```bash
-# .env para Streamlit
-STREAMLIT_SERVER_PORT=8501
-STREAMLIT_SERVER_ADDRESS=localhost
-STREAMLIT_THEME_PRIMARY_COLOR=#0078d4
-
-# Paths de datos
-RESULTS_DATA_PATH=./data/
-CHROMADB_PATH=/Users/haroldgomez/chromadb2
-
-# APIs (si se requieren)
-OPENAI_API_KEY=your_api_key_here
+git clone https://github.com/sirharold/SupportModel.git
+cd SupportModel
 ```
 
-### F.4.3 Comandos de Ejecución
-
+### F.3.2 Instalar Dependencias
 ```bash
-# Desarrollo local - Aplicación principal Q&A
+pip install -r requirements.txt
+```
+
+### F.3.3 Configurar Variables de Entorno
+Crear archivo `.env` en la raíz del proyecto:
+```
+OPENAI_API_KEY=your_openai_api_key
+GOOGLE_API_KEY=your_google_api_key  # Si se usa Gemini
+```
+
+### F.3.4 Iniciar la Aplicación
+```bash
 streamlit run src/apps/main_qa_app.py
-
-# Aplicación de resultados experimentales
-streamlit run src/apps/cumulative_metrics_results_matplotlib.py
-
-# Aplicación de comparación de modelos
-streamlit run src/apps/comparison_page.py
-
-# Con configuración específica
-streamlit run src/apps/main_qa_app.py --server.port 8502
-
-# Modo debug
-streamlit run src/apps/main_qa_app.py --logger.level debug
 ```
 
-## F.5 Funcionalidades de Usuario
+La aplicación se abrirá automáticamente en el navegador predeterminado en `http://localhost:8501`
 
-### F.5.1 Navegación Intuitiva
+## F.4 Navegación Principal
 
-- **Sidebar navigation:** Navegación entre páginas mediante sidebar
-- **Breadcrumbs:** Indicadores de ubicación actual
-- **Search functionality:** Búsqueda rápida de consultas y documentos
+### F.4.1 Sidebar de Navegación
 
-### F.5.2 Interactividad
+La aplicación presenta un menú lateral (sidebar) con dos secciones principales:
 
-- **Filtros dinámicos:** Filtrar resultados por modelo, métrica, rango de fechas
-- **Zoom en gráficos:** Gráficos interactivos con Plotly
-- **Tooltips informativos:** Ayuda contextual en métricas y visualizaciones
+#### **🧭 Navegación**
+Contiene las cuatro páginas disponibles:
+1. 🔍 Búsqueda Individual
+2. 📈 Análisis de Datos
+3. ⚙️ Configuración Métricas Acumulativas
+4. 📊 Resultados Métricas Acumulativas
 
-### F.5.3 Personalización
+#### **⚙️ Configuración**
+Permite seleccionar:
+- **Modelo de Embedding**: Ada, MPNet, MiniLM, E5-Large
+- **Modelo Generativo**: TinyLlama, GPT-4, Gemini, Mistral
 
-- **Temas:** Soporte para modo claro/oscuro
-- **Exportación:** Múltiples formatos de exportación
-- **Configuración:** Preferencias de usuario persistentes
+## F.5 Página: 🔍 Búsqueda Individual
 
-## F.6 Casos de Uso de la Aplicación
+### F.5.1 Propósito
+Permite realizar consultas individuales sobre documentación de Azure y obtener respuestas generadas por el sistema RAG.
 
-### F.6.1 Investigación Académica
+### F.5.2 Elementos de la Interfaz
 
-- **Análisis exploratorio:** Identificar patrones en los datos
-- **Validación de hipótesis:** Verificar hallazgos experimentales
-- **Generación de figuras:** Crear visualizaciones para publicaciones
+#### **Campo de Consulta**
+- **Ubicación**: Parte superior de la página principal
+- **Placeholder**: "Ejemplo: How to configure Azure Virtual Network?"
+- **Función**: Ingrese su pregunta sobre Azure en lenguaje natural
 
-### F.6.2 Desarrollo de Sistema
+#### **Parámetros de Búsqueda**
+- **Número de documentos (k)**: Slider para seleccionar cuántos documentos recuperar (1-20)
+- **Enable CrossEncoder Reranking**: Checkbox para activar/desactivar reranking
+- **Usar RAG (Retrieval Augmented Generation)**: Checkbox para generar respuestas completas
 
-- **Debugging:** Identificar problemas en modelos específicos
-- **Optimización:** Comparar configuraciones y parámetros
-- **Monitoreo:** Tracking de performance a lo largo del tiempo
+#### **Botón de Búsqueda**
+- **Texto**: "🔍 Buscar"
+- **Acción**: Inicia el proceso de recuperación y generación
 
-### F.6.3 Presentaciones y Demos
+### F.5.3 Proceso de Uso
 
-- **Demos interactivas:** Mostrar capacidades del sistema en tiempo real
-- **Presentaciones:** Generar visualizaciones para audiencias técnicas
-- **Reportes ejecutivos:** Crear resúmenes para stakeholders no técnicos
+1. **Ingresar Consulta**: Escriba una pregunta específica sobre Azure
+   - Ejemplo: "How to configure SSL certificates in Azure Application Gateway?"
 
-## F.7 Métricas de Performance de la Aplicación
+2. **Configurar Parámetros**:
+   - Ajuste el número de documentos según necesidad (default: 10)
+   - Active reranking para mejorar relevancia (recomendado)
+   - Active RAG para obtener respuestas generadas
 
-### F.7.1 Tiempo de Carga
+3. **Ejecutar Búsqueda**: Haga clic en "🔍 Buscar"
 
-| Componente | Tiempo Promedio | Optimización |
-|------------|-----------------|--------------|
-| **Carga inicial** | 2.3 segundos | Caching de datos |
-| **Cambio de página** | 0.8 segundos | Session state |
-| **Generación de gráficos** | 1.5 segundos | Plotly optimizado |
-| **Exportación PDF** | 4.2 segundos | Procesamiento asíncrono |
+4. **Revisar Resultados**:
+   - **Respuesta Generada**: Aparece primero si RAG está activo
+   - **Documentos Recuperados**: Lista de documentos relevantes con:
+     - Título del documento
+     - Score de relevancia
+     - Contenido del fragmento
+     - Enlace a la documentación oficial
 
-### F.7.2 Uso de Recursos
+### F.5.4 Interpretación de Resultados
 
-- **Memoria RAM:** ~150MB (datos cargados)
-- **CPU:** Picos del 20% durante generación de gráficos
-- **Storage:** ~50MB cache de visualizaciones
-- **Network:** Mínimo (datos locales)
+#### **Métricas Mostradas**
+- **Antes del Reranking**: Scores originales del modelo de embedding
+- **Después del Reranking**: Scores ajustados por CrossEncoder
+- **Diferencia**: Cambio en el ordenamiento y relevancia
 
-## F.8 Mantenimiento y Actualizaciones
+#### **Visualización de Scores**
+- Gráfico de barras comparativo antes/después del reranking
+- Colores indican mejora (verde) o degradación (rojo) en posición
 
-### F.8.1 Actualizaciones de Datos
+### F.5.5 Casos de Uso Típicos
 
-```python
-def update_data_sources():
-    """Actualiza fuentes de datos experimentales"""
-    
-    # Detectar nuevos archivos de resultados
-    new_files = scan_for_new_results()
-    
-    # Validar formato y completitud
-    validated_files = validate_results_files(new_files)
-    
-    # Actualizar cache de la aplicación
-    update_app_cache(validated_files)
-    
-    # Notificar a usuarios activos
-    st.rerun()
+1. **Consulta de Procedimientos**: "How to create a virtual machine in Azure?"
+2. **Resolución de Problemas**: "Troubleshooting Azure Storage connection issues"
+3. **Mejores Prácticas**: "Best practices for Azure SQL Database security"
+4. **Configuración**: "Configure Azure Application Gateway with SSL"
+
+## F.6 Página: 📈 Análisis de Datos
+
+### F.6.1 Propósito
+Proporciona estadísticas y visualizaciones sobre el corpus de documentos y las colecciones en ChromaDB.
+
+### F.6.2 Secciones Principales
+
+#### **📊 Estadísticas del Corpus**
+- **Total de Documentos**: Número total de documentos únicos
+- **Total de Chunks**: Fragmentos procesados
+- **Promedio de Chunks por Documento**: Indicador de granularidad
+- **Tamaño Promedio de Chunk**: En caracteres
+
+#### **📈 Distribución de Documentos**
+- **Histograma**: Distribución de chunks por documento
+- **Interpretación**: Documentos con muchos chunks son más extensos/complejos
+
+#### **🗄️ Colecciones en ChromaDB**
+- **Tabla de Colecciones**: 
+  - Nombre de la colección
+  - Número de documentos
+  - Modelo de embedding usado
+  - Dimensionalidad de vectores
+
+### F.6.3 Uso de la Información
+
+1. **Verificar Integridad**: Confirmar que todas las colecciones están pobladas
+2. **Comparar Modelos**: Ver diferencias en número de documentos por modelo
+3. **Identificar Problemas**: Detectar colecciones vacías o incompletas
+4. **Planificar Mejoras**: Identificar documentos que necesitan mejor segmentación
+
+### F.6.4 Métricas Clave
+
+- **Cobertura**: Porcentaje de documentos procesados exitosamente
+- **Balance**: Distribución uniforme entre colecciones
+- **Calidad**: Tamaño apropiado de chunks para recuperación efectiva
+
+## F.7 Página: ⚙️ Configuración Métricas Acumulativas
+
+### F.7.1 Propósito
+Permite configurar y generar archivos de configuración para evaluaciones exhaustivas del sistema en Google Colab.
+
+### F.7.2 Elementos de Configuración
+
+#### **📝 Configuración General**
+- **Nombre del Experimento**: Identificador único para la evaluación
+- **Descripción**: Detalles sobre el propósito de la evaluación
+- **Número de Preguntas**: Cantidad de preguntas a evaluar (10-1000)
+
+#### **🎯 Selección de Modelos**
+- **Modelos de Embedding**: Checkboxes para seleccionar modelos a evaluar
+  - ✅ Ada (OpenAI)
+  - ✅ MPNet
+  - ✅ MiniLM
+  - ✅ E5-Large
+
+#### **📊 Métricas a Calcular**
+- **Métricas Tradicionales**: Precision@k, Recall@k, F1@k, NDCG@k
+- **Métricas RAG**: Faithfulness, Answer Relevancy, Context Precision
+- **Métricas Semánticas**: BERTScore (Precision, Recall, F1)
+
+#### **🔧 Parámetros de Evaluación**
+- **Top K**: Número de documentos a recuperar (default: 10)
+- **Enable Reranking**: Activar CrossEncoder para todos los modelos
+- **Batch Size**: Tamaño de lote para procesamiento (default: 50)
+
+### F.7.3 Proceso de Configuración
+
+1. **Definir Experimento**:
+   ```
+   Nombre: evaluacion_completa_agosto_2025
+   Descripción: Evaluación exhaustiva con 1000 preguntas por modelo
+   ```
+
+2. **Seleccionar Modelos**:
+   - Marcar todos los modelos para comparación completa
+   - O seleccionar subconjunto para evaluación específica
+
+3. **Configurar Métricas**:
+   - Mantener todas las métricas activas para análisis completo
+   - Desactivar métricas costosas si hay limitaciones de tiempo
+
+4. **Generar Configuración**:
+   - Click en "💾 Generar Configuración"
+   - Se descarga archivo `evaluation_config_[timestamp].json`
+
+### F.7.4 Archivo de Configuración Generado
+
+```json
+{
+  "experiment_name": "evaluacion_completa_agosto_2025",
+  "description": "Evaluación exhaustiva con 1000 preguntas por modelo",
+  "timestamp": "2025-08-03T10:30:00",
+  "models": ["ada", "mpnet", "minilm", "e5-large"],
+  "num_questions": 1000,
+  "metrics": {
+    "traditional": ["precision", "recall", "f1", "ndcg", "mrr"],
+    "rag": ["faithfulness", "answer_relevancy", "context_precision"],
+    "semantic": ["bertscore_precision", "bertscore_recall", "bertscore_f1"]
+  },
+  "parameters": {
+    "top_k": 10,
+    "enable_reranking": true,
+    "batch_size": 50,
+    "seed": 42
+  }
+}
 ```
 
-### F.8.2 Monitoreo de Performance
+### F.7.5 Uso del Archivo en Google Colab
 
-```python
-def monitor_app_performance():
-    """Monitorea performance de la aplicación"""
-    
-    metrics = {
-        'load_time': measure_load_time(),
-        'memory_usage': get_memory_usage(),
-        'active_users': count_active_sessions(),
-        'error_rate': calculate_error_rate()
-    }
-    
-    # Log métricas
-    logger.info(f"App metrics: {metrics}")
-    
-    # Alertas si performance degrada
-    if metrics['load_time'] > 5.0:
-        send_performance_alert(metrics)
-```
+1. **Subir a Colab**: Cargar el archivo JSON generado
+2. **Ejecutar Notebook**: `Cumulative_Ticket_Evaluation.ipynb`
+3. **Monitorear Progreso**: La evaluación mostrará progreso en tiempo real
+4. **Descargar Resultados**: Al finalizar, descargar `cumulative_results_*.json`
 
-## F.9 Conclusión
+## F.8 Página: 📊 Resultados Métricas Acumulativas
 
-La aplicación Streamlit proporciona una interfaz comprehensiva para explorar y analizar los resultados experimentales del sistema RAG. Su arquitectura modular permite fácil extensión y mantenimiento, mientras que sus capacidades de visualización facilitan el entendimiento de patrones complejos en los datos experimentales.
+### F.8.1 Propósito
+Visualiza y analiza los resultados de evaluaciones completas ejecutadas en Google Colab.
 
-### F.9.1 Beneficios Principales
+### F.8.2 Carga de Resultados
 
-1. **Accesibilidad:** Interfaz web intuitiva sin necesidad de conocimientos técnicos
-2. **Interactividad:** Exploración dinámica de resultados experimentales
-3. **Reproducibilidad:** Visualizaciones consistentes basadas en datos verificables
-4. **Extensibilidad:** Arquitectura modular para agregar nuevas funcionalidades
+#### **📁 Cargar Archivo de Resultados**
+1. Click en "Browse files" o arrastrar archivo
+2. Seleccionar archivo `cumulative_results_*.json`
+3. El sistema valida y carga automáticamente
 
-### F.9.2 Uso Recomendado
+#### **Validación del Archivo**
+- Verifica estructura JSON correcta
+- Confirma presencia de métricas requeridas
+- Detecta modelos evaluados
+- Calcula estadísticas de completitud
 
-- **Análisis exploratorio** de resultados experimentales
-- **Validación** de hallazgos de investigación
-- **Generación de reportes** para audiencias diversas
-- **Desarrollo iterativo** del sistema RAG
+### F.8.3 Visualizaciones Disponibles
 
----
+#### **📊 Comparación de Modelos**
+- **Gráfico de Barras**: Precision@5, Recall@5, F1@5 por modelo
+- **Antes/Después Reranking**: Impacto del CrossEncoder
+- **Tabla Resumen**: Todas las métricas en formato tabular
 
-**Acceso:** Las aplicaciones están disponibles ejecutando:
-- `streamlit run src/apps/main_qa_app.py` (aplicación principal)
-- `streamlit run src/apps/cumulative_metrics_results_matplotlib.py` (resultados experimentales)
+#### **📈 Análisis de Rendimiento**
+- **NDCG@k**: Calidad del ranking (1-15)
+- **MRR**: Mean Reciprocal Rank
+- **MAP**: Mean Average Precision
 
-Después de seguir las instrucciones de configuración del Anexo C.
+#### **🎯 Métricas RAG**
+- **Faithfulness**: Fidelidad de las respuestas generadas
+- **Answer Relevancy**: Relevancia de las respuestas
+- **Context Precision**: Precisión del contexto recuperado
+
+#### **📉 Análisis Temporal**
+- **Tiempo por Consulta**: Distribución de latencias
+- **Throughput**: Consultas procesadas por minuto
+- **Bottlenecks**: Identificación de cuellos de botella
+
+### F.8.4 Interpretación de Resultados
+
+#### **Identificar Mejor Modelo**
+1. Revisar Precision@5 (métrica principal)
+2. Considerar balance Precision/Recall
+3. Evaluar impacto del reranking
+4. Verificar consistencia en métricas RAG
+
+#### **Análisis de Reranking**
+- **Mejora Positiva**: Verde, el reranking ayuda
+- **Impacto Negativo**: Rojo, el reranking degrada
+- **Neutral**: Gris, cambio mínimo
+
+#### **Significancia Estadística**
+- Valores p < 0.05 indican diferencias significativas
+- Intervalos de confianza no solapados confirman diferencias
+- Tests de Wilcoxon para comparaciones pareadas
+
+### F.8.5 Exportación de Resultados
+
+#### **📄 Formatos Disponibles**
+1. **CSV**: Tabla de métricas para análisis externo
+2. **PNG**: Gráficos de alta resolución
+3. **JSON**: Datos crudos para procesamiento adicional
+4. **PDF**: Reporte completo con visualizaciones
+
+#### **🎨 Personalización**
+- Seleccionar métricas específicas
+- Filtrar modelos de interés
+- Ajustar escalas y colores
+- Agregar anotaciones
+
+### F.8.6 Casos de Uso Avanzados
+
+1. **Comparación Multi-Experimento**:
+   - Cargar múltiples archivos de resultados
+   - Comparar evolución temporal
+   - Identificar mejoras/degradaciones
+
+2. **Análisis por Subgrupos**:
+   - Filtrar por tipo de pregunta
+   - Analizar por servicio de Azure
+   - Segmentar por complejidad
+
+3. **Optimización de Parámetros**:
+   - Variar top_k y analizar impacto
+   - Ajustar umbrales de reranking
+   - Encontrar configuración óptima
+
+## F.9 Troubleshooting Común
+
+### F.9.1 Errores de Inicio
+
+**Error**: "ModuleNotFoundError"
+- **Solución**: Verificar instalación de dependencias con `pip install -r requirements.txt`
+
+**Error**: "ChromaDB connection failed"
+- **Solución**: Verificar que ChromaDB esté instalado y la ruta sea correcta
+
+### F.9.2 Problemas de Rendimiento
+
+**Síntoma**: Búsquedas muy lentas
+- **Causa**: Modelo de embedding no optimizado
+- **Solución**: Usar MiniLM para pruebas rápidas, Ada para producción
+
+**Síntoma**: Memoria insuficiente
+- **Causa**: Modelos generativos grandes
+- **Solución**: Usar TinyLlama en lugar de Mistral
+
+### F.9.3 Resultados Inesperados
+
+**Síntoma**: Métricas en cero
+- **Causa**: Configuración incorrecta del modelo
+- **Solución**: Verificar prefijos para E5-Large, normalización de embeddings
+
+**Síntoma**: Documentos irrelevantes
+- **Causa**: Query muy general o ambigua
+- **Solución**: Ser más específico, incluir nombres de servicios Azure
+
+## F.10 Mejores Prácticas
+
+### F.10.1 Para Búsqueda Individual
+1. Usar preguntas específicas con contexto
+2. Activar reranking para mejor precisión
+3. Ajustar k según necesidad (más documentos = más contexto)
+
+### F.10.2 Para Evaluaciones
+1. Usar mínimo 100 preguntas para significancia estadística
+2. Evaluar todos los modelos para comparación completa
+3. Guardar configuraciones para reproducibilidad
+
+### F.10.3 Para Análisis
+1. Comparar métricas antes/después de cambios
+2. Documentar configuraciones utilizadas
+3. Exportar resultados para respaldo
+
+## F.11 Conclusión
+
+La aplicación Streamlit proporciona una interfaz intuitiva y poderosa para interactuar con el sistema RAG de documentación Azure. Las cuatro páginas cubren el ciclo completo desde búsquedas individuales hasta evaluaciones exhaustivas, permitiendo tanto uso operacional como investigación sistemática del rendimiento del sistema.

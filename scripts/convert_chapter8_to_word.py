@@ -360,13 +360,13 @@ def process_markdown_line(doc, line, in_code_block=False):
     
     return in_code_block, None
 
-def convert_chapter8_to_word():
-    """Convertir capítulo 8 actualizado a Word"""
+def convert_markdown_to_word(input_path, output_filename):
+    """Convertir archivo markdown a Word"""
     
     # Rutas de archivos
-    input_file = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Finales/capitulo_8_actualizado.md"
+    input_file = input_path
     output_dir = Path("/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Finales/words")
-    output_file = output_dir / "capitulo_8_actualizado.docx"
+    output_file = output_dir / output_filename
     
     # Crear directorio si no existe
     output_dir.mkdir(exist_ok=True)
@@ -419,31 +419,82 @@ def convert_chapter8_to_word():
         print(f"Error guardando documento: {e}")
         return False
 
+def convert_chapter8_to_word():
+    """Convertir capítulo 8 actualizado a Word"""
+    input_path = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Finales/capitulo_8_actualizado.md"
+    return convert_markdown_to_word(input_path, "capitulo_8_actualizado.docx")
+
+def convert_anexo_b_to_word():
+    """Convertir anexo B a Word"""
+    input_path = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Finales/anexo_b_codigo_fuente.md"
+    return convert_markdown_to_word(input_path, "anexo_b_codigo_fuente.docx")
+
+def convert_anexo_f_to_word():
+    """Convertir anexo F a Word"""
+    input_path = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Finales/anexo_f_streamlit_app.md"
+    return convert_markdown_to_word(input_path, "anexo_f_streamlit_app.docx")
+
 def main():
     """Función principal"""
-    print("=== CONVERSIÓN CAPÍTULO 8 A WORD ===")
-    print("Configuración:")
-    print("- Fuente: Arial")
-    print("- Numeración: Comienza en 8")
-    print("- Bullets: Negros (•)")
-    print("- Formato: Justificado")
-    print()
+    import sys
     
-    success = convert_chapter8_to_word()
-    
-    if success:
-        print("\n✅ CONVERSIÓN COMPLETADA EXITOSAMENTE")
-        print("\nArchivo creado:")
-        print("- capitulo_8_actualizado.docx")
-        print("\nCaracterísticas del documento:")
-        print("- Fuente Arial en todo el documento")
-        print("- Títulos numerados comenzando en 8")
-        print("- Bullets negros para listas")
-        print("- Código con fuente Consolas y fondo gris")
-        print("- Párrafos justificados")
+    # Determinar qué archivo convertir
+    if len(sys.argv) > 1 and sys.argv[1] == "anexo_b":
+        print("=== CONVERSIÓN ANEXO B A WORD ===")
+        print("Configuración:")
+        print("- Fuente: Arial")
+        print("- Bullets: Negros (•)")
+        print("- Formato: Justificado")
+        print()
+        
+        success = convert_anexo_b_to_word()
+        
+        if success:
+            print("\n✅ CONVERSIÓN COMPLETADA EXITOSAMENTE")
+            print("\nArchivo creado:")
+            print("- anexo_b_codigo_fuente.docx")
+        else:
+            print("\n❌ ERROR EN LA CONVERSIÓN")
+    elif len(sys.argv) > 1 and sys.argv[1] == "anexo_f":
+        print("=== CONVERSIÓN ANEXO F A WORD ===")
+        print("Configuración:")
+        print("- Fuente: Arial")
+        print("- Bullets: Negros (•)")
+        print("- Formato: Justificado")
+        print()
+        
+        success = convert_anexo_f_to_word()
+        
+        if success:
+            print("\n✅ CONVERSIÓN COMPLETADA EXITOSAMENTE")
+            print("\nArchivo creado:")
+            print("- anexo_f_streamlit_app.docx")
+        else:
+            print("\n❌ ERROR EN LA CONVERSIÓN")
     else:
-        print("\n❌ ERROR EN LA CONVERSIÓN")
-        print("Revisar mensajes de error anteriores")
+        print("=== CONVERSIÓN CAPÍTULO 8 A WORD ===")
+        print("Configuración:")
+        print("- Fuente: Arial")
+        print("- Numeración: Comienza en 8")
+        print("- Bullets: Negros (•)")
+        print("- Formato: Justificado")
+        print()
+        
+        success = convert_chapter8_to_word()
+        
+        if success:
+            print("\n✅ CONVERSIÓN COMPLETADA EXITOSAMENTE")
+            print("\nArchivo creado:")
+            print("- capitulo_8_actualizado.docx")
+            print("\nCaracterísticas del documento:")
+            print("- Fuente Arial en todo el documento")
+            print("- Títulos numerados comenzando en 8")
+            print("- Bullets negros para listas")
+            print("- Código con fuente Consolas y fondo gris")
+            print("- Párrafos justificados")
+        else:
+            print("\n❌ ERROR EN LA CONVERSIÓN")
+            print("Revisar mensajes de error anteriores")
 
 if __name__ == "__main__":
     main()
