@@ -1,8 +1,6 @@
 # ===============================
 # DATOS Y BASES DE DATOS
 # ===============================
-# Ignore all files in data folder
-data/
 
 # ChromaDB databases
 chroma_db/

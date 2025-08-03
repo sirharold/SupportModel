@@ -50,10 +50,10 @@ SupportModel/
 │   ├── create_questions_*.py     # Población de colecciones
 │   └── verify_questions_*.py     # Validación de datos
 ├── tests/                        # Tests unitarios
-├── data/                         # Datos experimentales (ignorados en Git)
-│   ├── cumulative_results_*.json # Resultados experimentales
-│   ├── *.csv                     # Ground truth y datasets
-│   └── *.pt                      # Modelos entrenados
+├── data/                         # Datos experimentales
+│   ├── train_set.json            # Dataset de entrenamiento
+│   ├── val_set.json              # Dataset de validación
+│   └── ground_truth_links.csv    # Ground truth para evaluación
 ├── requirements.txt              # Dependencias del proyecto
 ├── .gitignore                    # Archivos ignorados por Git
 └── ARCHIVOS_IGNORADOS.md         # Documentación de archivos ignorados
@@ -99,6 +99,13 @@ SupportModel/
 - **`lib/`**: Librerías modulares para evaluación en Google Colab
 - Implementación completa del pipeline de evaluación multi-modelo
 
+#### B.1.3.9 Resultados Experimentales
+- **`cumulative_results_20250802_222752.json`**: Archivo principal de resultados experimentales
+  - Evaluación completa de 4,000 consultas (1,000 por modelo)
+  - Métricas detalladas antes y después de reranking
+  - Validación estadística con tests de significancia
+  - Datos de la evaluación experimental definitiva del 2 de agosto de 2025
+
 ### B.1.4 Tecnologías y Dependencias
 
 El proyecto utiliza las siguientes tecnologías principales:
@@ -116,9 +123,11 @@ El repositorio incluye:
 
 1. **Configuración de ambiente** completa (`requirements.txt`)
 2. **Scripts de verificación** para validar configuración
-3. **Datos de ejemplo** para testing rápido
-4. **Documentación detallada** de instalación y uso
-5. **Notebooks ejecutables** en Google Colab
+3. **Datasets de entrenamiento y validación** (`data/train_set.json`, `data/val_set.json`)
+4. **Ground truth validado** (`data/ground_truth_links.csv`)
+5. **Resultados experimentales completos** (`cumulative_results_20250802_222752.json`)
+6. **Documentación detallada** de instalación y uso
+7. **Notebooks ejecutables** en Google Colab
 
 ### B.1.6 Instrucciones de Acceso
 
@@ -159,4 +168,4 @@ Para consultas sobre el código fuente, implementación o extensiones:
 
 ### B.1.9 Nota sobre Versiones
 
-El código corresponde a la versión utilizada para la evaluación experimental reportada en este trabajo (julio 2025). Versiones posteriores pueden incluir mejoras y optimizaciones adicionales.
+El código corresponde a la versión utilizada para la evaluación experimental reportada en este trabajo (agosto 2025). Los resultados experimentales definitivos se obtuvieron el 2 de agosto de 2025 con 1,000 consultas por modelo. Versiones posteriores pueden incluir mejoras y optimizaciones adicionales basadas en los hallazgos de esta investigación.

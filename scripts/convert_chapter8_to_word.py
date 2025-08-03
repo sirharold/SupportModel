@@ -26,8 +26,8 @@ def setup_styles(doc):
     chapter_title_style.font.size = Pt(18)
     chapter_title_style.font.bold = True
     chapter_title_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
-    chapter_title_style.paragraph_format.space_before = Pt(24)
-    chapter_title_style.paragraph_format.space_after = Pt(12)
+    chapter_title_style.paragraph_format.space_before = Pt(0)
+    chapter_title_style.paragraph_format.space_after = Pt(18)
     
     # Estilos para subtítulos (niveles 2-6)
     heading_sizes = [16, 14, 12, 11, 10]
@@ -43,7 +43,7 @@ def setup_styles(doc):
         heading_style.font.bold = True
         heading_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.LEFT
         heading_style.paragraph_format.space_before = Pt(12)
-        heading_style.paragraph_format.space_after = Pt(6)
+        heading_style.paragraph_format.space_after = Pt(8)
     
     # Estilo para párrafos normales
     try:
@@ -55,7 +55,8 @@ def setup_styles(doc):
     normal_style.font.size = Pt(11)
     normal_style.paragraph_format.alignment = WD_PARAGRAPH_ALIGNMENT.JUSTIFY
     normal_style.paragraph_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
-    normal_style.paragraph_format.space_after = Pt(6)
+    normal_style.paragraph_format.space_after = Pt(0)
+    normal_style.paragraph_format.space_before = Pt(0)
     
     # Estilo para listas
     try:
@@ -110,6 +111,133 @@ def create_bullet_paragraph(doc, text, level=0):
     run.font.size = Pt(11)
     
     return paragraph
+
+def create_bullet_paragraph_with_formatting(doc, text, level=0):
+    """Crear párrafo con bullet negro y formato markdown"""
+    paragraph = doc.add_paragraph()
+    paragraph.style = 'List Paragraph'
+    
+    # Configurar bullet negro
+    paragraph.paragraph_format.left_indent = Inches(0.25 + (level * 0.25))
+    
+    # Crear elemento de lista con bullet negro
+    pPr = paragraph._element.get_or_add_pPr()
+    numPr = OxmlElement('w:numPr')
+    
+    # Bullet level
+    ilvl = OxmlElement('w:ilvl')
+    ilvl.set(qn('w:val'), str(level))
+    numPr.append(ilvl)
+    
+    # Bullet ID (usar ID estándar para bullets negros)
+    numId = OxmlElement('w:numId')
+    numId.set(qn('w:val'), '1')
+    numPr.append(numId)
+    
+    pPr.append(numPr)
+    
+    # Procesar texto con formato
+    add_formatted_text_to_paragraph(paragraph, text)
+    
+    return paragraph
+
+def add_formatted_text_to_paragraph(paragraph, text):
+    """Agregar texto con formato markdown a un párrafo"""
+    # Usar regex más específico y procesamiento secuencial
+    import re
+    
+    # Primero procesar negrita (**texto**)
+    parts = []
+    remaining_text = text
+    
+    # Encontrar todos los textos en negrita
+    bold_pattern = r'\*\*(.*?)\*\*'
+    bold_matches = list(re.finditer(bold_pattern, remaining_text))
+    
+    if bold_matches:
+        last_end = 0
+        for match in bold_matches:
+            # Texto antes del bold
+            if match.start() > last_end:
+                parts.append(('normal', remaining_text[last_end:match.start()]))
+            # Texto en bold
+            parts.append(('bold', match.group(1)))
+            last_end = match.end()
+        
+        # Texto después del último bold
+        if last_end < len(remaining_text):
+            parts.append(('normal', remaining_text[last_end:]))
+    else:
+        parts.append(('normal', remaining_text))
+    
+    # Ahora procesar cada parte para cursiva
+    final_parts = []
+    for part_type, part_text in parts:
+        if part_type == 'bold':
+            final_parts.append(('bold', part_text))
+        else:
+            # Procesar cursiva en texto normal
+            italic_pattern = r'(?<!\*)\*([^*]+)\*(?!\*)'
+            italic_matches = list(re.finditer(italic_pattern, part_text))
+            
+            if italic_matches:
+                last_end = 0
+                for match in italic_matches:
+                    # Texto antes del italic
+                    if match.start() > last_end:
+                        final_parts.append(('normal', part_text[last_end:match.start()]))
+                    # Texto en italic
+                    final_parts.append(('italic', match.group(1)))
+                    last_end = match.end()
+                
+                # Texto después del último italic
+                if last_end < len(part_text):
+                    final_parts.append(('normal', part_text[last_end:]))
+            else:
+                final_parts.append(('normal', part_text))
+    
+    # Procesar código inline en todas las partes normales
+    final_final_parts = []
+    for part_type, part_text in final_parts:
+        if part_type in ['bold', 'italic']:
+            final_final_parts.append((part_type, part_text))
+        else:
+            # Procesar código inline
+            code_pattern = r'`([^`]+)`'
+            code_matches = list(re.finditer(code_pattern, part_text))
+            
+            if code_matches:
+                last_end = 0
+                for match in code_matches:
+                    # Texto antes del código
+                    if match.start() > last_end:
+                        final_final_parts.append(('normal', part_text[last_end:match.start()]))
+                    # Texto código
+                    final_final_parts.append(('code', match.group(1)))
+                    last_end = match.end()
+                
+                # Texto después del último código
+                if last_end < len(part_text):
+                    final_final_parts.append(('normal', part_text[last_end:]))
+            else:
+                final_final_parts.append(('normal', part_text))
+    
+    # Agregar todas las partes al párrafo
+    for part_type, part_text in final_final_parts:
+        if not part_text:
+            continue
+            
+        run = paragraph.add_run(part_text)
+        run.font.name = 'Arial'
+        run.font.size = Pt(11)
+        
+        if part_type == 'bold':
+            run.bold = True
+        elif part_type == 'italic':
+            run.italic = True
+        elif part_type == 'code':
+            run.font.name = 'Consolas'
+            run.font.size = Pt(9)
 
 def add_bullet_numbering(doc):
     """Agregar definición de numeración para bullets negros"""
@@ -185,10 +313,9 @@ def process_markdown_line(doc, line, in_code_block=False):
             pass
         return in_code_block, None
     
-    # Líneas vacías
+    # Líneas vacías - NO agregar párrafos vacíos
     if not line.strip():
-        doc.add_paragraph()
-        return in_code_block, None
+        return in_code_block, 'skip'
     
     # Títulos
     if line.startswith('#'):
@@ -213,18 +340,14 @@ def process_markdown_line(doc, line, in_code_block=False):
         p.style = f'Heading {heading_level}'
         return in_code_block, None
     
-    # Listas con bullets
-    if line.strip().startswith('-') or line.strip().startswith('*'):
+    # Listas con bullets (solo guiones, no asteriscos de formato)
+    if line.strip().startswith('- '):
         # Determinar nivel de indentación
         indent_level = (len(line) - len(line.lstrip())) // 2
-        bullet_text = line.strip()[1:].strip()
+        bullet_text = line.strip()[2:].strip()  # Remover '- '
         
-        # Limpiar markdown dentro del texto
-        bullet_text = re.sub(r'\*\*(.*?)\*\*', r'\1', bullet_text)  # Bold
-        bullet_text = re.sub(r'\*(.*?)\*', r'\1', bullet_text)      # Italic
-        bullet_text = re.sub(r'`(.*?)`', r'\1', bullet_text)        # Code
-        
-        create_bullet_paragraph(doc, bullet_text, indent_level)
+        # Crear párrafo con formato
+        create_bullet_paragraph_with_formatting(doc, bullet_text, indent_level)
         return in_code_block, None
     
     # Párrafos normales
@@ -233,36 +356,7 @@ def process_markdown_line(doc, line, in_code_block=False):
     
     # Procesar texto con formato
     text = line.strip()
-    
-    # Dividir el texto en segmentos con y sin formato
-    segments = re.split(r'(\*\*.*?\*\*|\*.*?\*|`.*?`)', text)
-    
-    for segment in segments:
-        if not segment:
-            continue
-            
-        if segment.startswith('**') and segment.endswith('**'):
-            # Texto en negrita
-            run = p.add_run(segment[2:-2])
-            run.bold = True
-            run.font.name = 'Arial'
-            run.font.size = Pt(11)
-        elif segment.startswith('*') and segment.endswith('*'):
-            # Texto en cursiva
-            run = p.add_run(segment[1:-1])
-            run.italic = True
-            run.font.name = 'Arial'
-            run.font.size = Pt(11)
-        elif segment.startswith('`') and segment.endswith('`'):
-            # Texto código inline
-            run = p.add_run(segment[1:-1])
-            run.font.name = 'Consolas'
-            run.font.size = Pt(9)
-        else:
-            # Texto normal
-            run = p.add_run(segment)
-            run.font.name = 'Arial'
-            run.font.size = Pt(11)
+    add_formatted_text_to_paragraph(p, text)
     
     return in_code_block, None
 
@@ -307,7 +401,10 @@ def convert_chapter8_to_word():
     
     for i, line in enumerate(lines):
         try:
-            in_code_block, _ = process_markdown_line(doc, line, in_code_block)
+            in_code_block, action = process_markdown_line(doc, line, in_code_block)
+            # Skip líneas vacías para evitar espacios extra
+            if action == 'skip':
+                continue
         except Exception as e:
             print(f"Error procesando línea {i+1}: {e}")
             print(f"Línea: {line[:100]}...")
