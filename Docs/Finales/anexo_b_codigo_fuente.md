@@ -1,70 +1,105 @@
-# ANEXO B: CÓDIGO FUENTE PRINCIPAL
+# B. CÓDIGO FUENTE PRINCIPAL
 
-## Repositorio del Proyecto
+## B.1 Repositorio del Proyecto
 
 El código fuente completo del sistema RAG para recuperación semántica de documentación técnica de Microsoft Azure está disponible en el repositorio de GitHub del proyecto.
 
-### Ubicación del Repositorio
+### B.1.1 Ubicación del Repositorio
 
 **Repositorio GitHub:** [Pendiente de publicación]
 
-### Estructura del Repositorio
+### B.1.2 Estructura del Repositorio
 
 El repositorio contiene la implementación completa del sistema, organizada en los siguientes directorios principales:
 
 ```
 SupportModel/
 ├── src/                          # Código fuente principal
+│   ├── apps/                     # Aplicaciones Streamlit modulares
 │   ├── core/                     # Componentes centrales del sistema
-│   │   ├── embeddings.py         # Gestión de modelos de embedding
-│   │   ├── retriever.py          # Motor de recuperación vectorial
+│   │   ├── qa_pipeline.py        # Pipeline principal de Q&A
 │   │   └── reranker.py           # Reranking con CrossEncoder
 │   ├── data/                     # Procesamiento de datos
-│   │   ├── extractor.py          # Extracción de Microsoft Learn
-│   │   └── preprocessor.py       # Procesamiento de documentos
-│   └── evaluation/               # Framework de evaluación
-│       ├── metrics.py            # Métricas de evaluación
-│       └── ragas_evaluator.py    # Evaluación RAG especializada
-├── streamlit_app/                # Interfaz de usuario Streamlit
-│   ├── app.py                    # Aplicación principal
-│   └── utils/                    # Utilidades de la interfaz
+│   │   ├── embedding.py          # Gestión de modelos de embedding
+│   │   ├── processing.py         # Procesamiento de documentos
+│   │   └── extract_links.py      # Extracción de enlaces
+│   ├── evaluation/               # Framework de evaluación
+│   │   ├── metrics/              # Métricas especializadas
+│   │   └── comparison.py         # Comparación de modelos
+│   ├── services/                 # Servicios del sistema
+│   │   ├── auth/                 # Autenticación APIs
+│   │   ├── storage/              # ChromaDB y almacenamiento
+│   │   └── answer_generation/    # Generación de respuestas RAG
+│   └── ui/                       # Interfaces de usuario
+├── Docs/                         # Documentación del proyecto
+│   ├── Finales/                  # Documentación final de tesis
+│   │   ├── capitulo_*.md         # Capítulos de la tesis
+│   │   ├── anexo_*.md            # Anexos detallados
+│   │   └── Contenidos.md         # Tabla de contenidos
+│   ├── Analisis/                 # Scripts de análisis
+│   │   ├── analyze_metrics_v2.py # Análisis de métricas
+│   │   ├── verify_*_statistics.py # Verificación de estadísticas
+│   │   └── wilcoxon_*.py         # Tests estadísticos
+│   └── README.md                 # Documentación de estructura
 ├── colab_data/                   # Notebooks de Google Colab
-│   └── Cumulative_Ticket_Evaluation.ipynb
-├── data/                         # Datos del proyecto
-│   ├── cumulative_results_*.json # Resultados experimentales
-│   ├── train_set.json           # Conjunto de entrenamiento
-│   └── val_set.json             # Conjunto de validación
+│   ├── Cumulative_Ticket_Evaluation.ipynb  # Notebook principal
+│   ├── lib/                      # Librerías modulares para Colab
+│   └── *.parquet                 # Embeddings pre-calculados (ignorados)
 ├── external_helpers/             # Scripts auxiliares
-│   ├── calculate_topic_distribution_v2.py
-│   ├── verify_document_statistics.py
-│   └── verify_questions_statistics_v2.py
-└── requirements.txt              # Dependencies del proyecto
+│   ├── check_chromadb_*.py       # Verificación de ChromaDB
+│   ├── create_questions_*.py     # Población de colecciones
+│   └── verify_questions_*.py     # Validación de datos
+├── tests/                        # Tests unitarios
+├── data/                         # Datos experimentales (ignorados en Git)
+│   ├── cumulative_results_*.json # Resultados experimentales
+│   ├── *.csv                     # Ground truth y datasets
+│   └── *.pt                      # Modelos entrenados
+├── requirements.txt              # Dependencias del proyecto
+├── .gitignore                    # Archivos ignorados por Git
+└── ARCHIVOS_IGNORADOS.md         # Documentación de archivos ignorados
 ```
 
-### Componentes Principales
+### B.1.3 Componentes Principales
 
-#### 1. Motor de Recuperación (`src/core/`)
-- **`embeddings.py`**: Gestión de múltiples modelos de embedding (Ada, MPNet, MiniLM, E5-Large)
-- **`retriever.py`**: Implementación de búsqueda vectorial sobre ChromaDB
+#### B.1.3.1 Pipeline Principal (`src/core/`)
+- **`qa_pipeline.py`**: Pipeline principal de pregunta-respuesta con métricas
 - **`reranker.py`**: CrossEncoder con normalización sigmoid para reranking
 
-#### 2. Procesamiento de Datos (`src/data/`)
-- **`extractor.py`**: Extracción automatizada de documentación de Microsoft Learn
-- **`preprocessor.py`**: Segmentación y limpieza de documentos técnicos
+#### B.1.3.2 Procesamiento de Datos (`src/data/`)
+- **`embedding.py`**: Gestión de múltiples modelos de embedding (Ada, MPNet, MiniLM, E5-Large)
+- **`processing.py`**: Segmentación y limpieza de documentos técnicos
+- **`extract_links.py`**: Extracción y normalización de enlaces de ground truth
 
-#### 3. Framework de Evaluación (`src/evaluation/`)
-- **`metrics.py`**: Implementación de Precision@k, Recall@k, NDCG, MAP, MRR
-- **`ragas_evaluator.py`**: Métricas especializadas RAG (Faithfulness, Context Precision/Recall)
+#### B.1.3.3 Framework de Evaluación (`src/evaluation/`)
+- **`metrics/`**: Módulos especializados para métricas de recuperación y RAG
+- **`comparison.py`**: Comparación sistemática entre modelos de embedding
 
-#### 4. Interfaz de Usuario (`streamlit_app/`)
-- **`app.py`**: Aplicación Streamlit para exploración interactiva de resultados
-- Dashboard con visualizaciones de métricas comparativas
+#### B.1.3.4 Servicios del Sistema (`src/services/`)
+- **`storage/chromadb_utils.py`**: Utilidades para ChromaDB y gestión vectorial
+- **`answer_generation/ragas_evaluation.py`**: Evaluación RAG con RAGAS framework
+- **`auth/`**: Gestión de autenticación para APIs (OpenAI, Google)
 
-#### 5. Notebooks Experimentales (`colab_data/`)
+#### B.1.3.5 Aplicaciones Streamlit (`src/apps/`)
+- **`cumulative_metrics_results_matplotlib.py`**: Visualización de resultados experimentales
+- **`comparison_page.py`**: Comparación interactiva de modelos
+- **`main_qa_app.py`**: Interfaz principal de consultas
+
+#### B.1.3.6 Documentación Organizada (`Docs/`)
+- **`Finales/`**: Documentación final de la tesis (capítulos y anexos)
+- **`Analisis/`**: Scripts de análisis y verificación estadística
+- **`README.md`**: Documentación de la estructura del proyecto
+
+#### B.1.3.7 Scripts de Análisis (`Docs/Analisis/`)
+- **`analyze_metrics_v2.py`**: Análisis comprehensivo de métricas de rendimiento
+- **`verify_document_statistics.py`**: Verificación de estadísticas del corpus
+- **`wilcoxon_detailed_analysis.py`**: Tests estadísticos de significancia
+
+#### B.1.3.8 Notebooks Experimentales (`colab_data/`)
 - **`Cumulative_Ticket_Evaluation.ipynb`**: Notebook principal de evaluación experimental
+- **`lib/`**: Librerías modulares para evaluación en Google Colab
 - Implementación completa del pipeline de evaluación multi-modelo
 
-### Tecnologías y Dependencias
+### B.1.4 Tecnologías y Dependencias
 
 El proyecto utiliza las siguientes tecnologías principales:
 
@@ -75,7 +110,7 @@ El proyecto utiliza las siguientes tecnologías principales:
 - **Streamlit 1.46.1**: Interfaz de usuario web
 - **Transformers 4.44.0**: Arquitecturas de modelos de lenguaje
 
-### Reproducibilidad
+### B.1.5 Reproducibilidad
 
 El repositorio incluye:
 
@@ -85,7 +120,7 @@ El repositorio incluye:
 4. **Documentación detallada** de instalación y uso
 5. **Notebooks ejecutables** en Google Colab
 
-### Instrucciones de Acceso
+### B.1.6 Instrucciones de Acceso
 
 Para acceder al código fuente completo:
 
@@ -102,10 +137,10 @@ Para acceder al código fuente completo:
 
 3. **Ejecutar la aplicación:**
    ```bash
-   streamlit run streamlit_app/app.py
+   streamlit run src/apps/main_qa_app.py
    ```
 
-### Licencia y Términos de Uso
+### B.1.7 Licencia y Términos de Uso
 
 El código fuente se distribuye bajo los términos establecidos para investigación académica, con las siguientes consideraciones:
 
@@ -114,7 +149,7 @@ El código fuente se distribuye bajo los términos establecidos para investigaci
 - **Modelos propietarios**: OpenAI Ada requiere API key válida
 - **Atribución**: Citar apropiadamente en trabajos derivados
 
-### Contacto y Soporte
+### B.1.8 Contacto y Soporte
 
 Para consultas sobre el código fuente, implementación o extensiones:
 
@@ -122,6 +157,6 @@ Para consultas sobre el código fuente, implementación o extensiones:
 - **Institución**: [Institución académica]
 - **Email**: [Email de contacto]
 
-### Nota sobre Versiones
+### B.1.9 Nota sobre Versiones
 
 El código corresponde a la versión utilizada para la evaluación experimental reportada en este trabajo (julio 2025). Versiones posteriores pueden incluir mejoras y optimizaciones adicionales.

@@ -1,37 +1,38 @@
-# ANEXO F: STREAMLIT APP
+# F. STREAMLIT APP
 
-## Introducción
+## F.1 Introducción
 
 Este anexo documenta la aplicación web interactiva desarrollada con Streamlit para la exploración y visualización de los resultados experimentales del sistema RAG. La aplicación proporciona una interfaz intuitiva para analizar el rendimiento de los diferentes modelos de embedding, visualizar métricas comparativas, y explorar casos específicos de recuperación de documentos.
 
-## Arquitectura de la Aplicación
+## F.2 Arquitectura de la Aplicación
 
-### Estructura del Proyecto Streamlit
+### F.2.1 Estructura del Proyecto Streamlit
 
 ```
-streamlit_app/
-├── app.py                        # Aplicación principal
-├── pages/                        # Páginas modulares
-│   ├── 01_📊_Model_Comparison.py  # Comparación de modelos
-│   ├── 02_📈_Metrics_Analysis.py  # Análisis de métricas
-│   ├── 03_🔍_Query_Explorer.py    # Explorador de consultas
-│   └── 04_📋_Results_Summary.py   # Resumen de resultados
-├── utils/                        # Utilidades compartidas
-│   ├── data_loader.py            # Carga de datos experimentales
-│   ├── visualization.py         # Funciones de visualización
-│   └── metrics_calculator.py     # Cálculos de métricas
-├── assets/                       # Recursos estáticos
-│   ├── style.css                 # Estilos personalizados
-│   └── logo.png                  # Logo de la aplicación
-└── .streamlit/
-    └── config.toml               # Configuración de Streamlit
+src/apps/                         # Aplicaciones Streamlit del proyecto
+├── main_qa_app.py                # Aplicación principal de Q&A
+├── cumulative_metrics_results_matplotlib.py  # Visualización de resultados
+├── comparison_page.py            # Comparación de modelos
+├── cumulative_comparison.py      # Comparación acumulativa
+├── batch_queries_page.py         # Procesamiento de consultas en lote
+├── data_analysis_page.py         # Análisis de datos experimentales
+└── question_answer_comparison.py # Comparación de respuestas
+
+src/ui/                           # Interfaces de usuario compartidas
+├── display.py                    # Funciones de visualización
+├── enhanced_metrics_display.py   # Visualización de métricas avanzadas
+├── metrics_display.py           # Visualización básica de métricas
+└── pdf_generator.py             # Generación de reportes PDF
+
+.streamlit/                       # Configuración de Streamlit (directorio raíz)
+└── config.toml                   # Configuración global de Streamlit
 ```
 
-## Funcionalidades Principales
+## F.3 Funcionalidades Principales
 
-### 1. Página Principal (Dashboard)
+### F.3.1 Página Principal (Dashboard)
 
-#### 1.1 Resumen Ejecutivo
+#### F.3.1.1 Resumen Ejecutivo
 
 La página principal presenta un dashboard con las métricas clave del sistema:
 
@@ -68,7 +69,7 @@ with col4:
     )
 ```
 
-#### 1.2 Selector de Archivos de Resultados
+#### F.3.1.2 Selector de Archivos de Resultados
 
 La aplicación permite cargar diferentes archivos de resultados experimentales:
 
@@ -86,9 +87,9 @@ selected_file = st.selectbox(
 )
 ```
 
-### 2. Comparación de Modelos
+### F.3.2 Comparación de Modelos
 
-#### 2.1 Tabla Comparativa Interactiva
+#### F.3.2.1 Tabla Comparativa Interactiva
 
 ```python
 def create_comparison_table():
@@ -113,7 +114,7 @@ def create_comparison_table():
     )
 ```
 
-#### 2.2 Gráfico Radar Comparativo
+#### F.3.2.2 Gráfico Radar Comparativo
 
 ```python
 def create_radar_chart():
@@ -146,9 +147,9 @@ def create_radar_chart():
     st.plotly_chart(fig, use_container_width=True)
 ```
 
-### 3. Análisis de Métricas
+### F.3.3 Análisis de Métricas
 
-#### 3.1 Visualización de Impacto del Reranking
+#### F.3.3.1 Visualización de Impacto del Reranking
 
 ```python
 def plot_reranking_impact():
@@ -185,7 +186,7 @@ def plot_reranking_impact():
     st.pyplot(fig)
 ```
 
-#### 3.2 Análisis Estadístico (Wilcoxon)
+#### F.3.3.2 Análisis Estadístico (Wilcoxon)
 
 ```python
 def display_statistical_analysis():
@@ -227,9 +228,9 @@ def display_statistical_analysis():
         st.success(f"✅ {len(significant_pairs)} comparaciones estadísticamente significativas")
 ```
 
-### 4. Explorador de Consultas
+### F.3.4 Explorador de Consultas
 
-#### 4.1 Búsqueda Interactiva
+#### F.3.4.1 Búsqueda Interactiva
 
 ```python
 def create_query_explorer():
@@ -289,9 +290,9 @@ def display_query_results(results):
                 st.info("ℹ️ Documento no marcado como relevante")
 ```
 
-### 5. Visualizaciones Avanzadas
+### F.3.5 Visualizaciones Avanzadas
 
-#### 5.1 Distribución de Scores de Similitud
+#### F.3.5.1 Distribución de Scores de Similitud
 
 ```python
 def plot_similarity_distribution():
@@ -328,7 +329,7 @@ def plot_similarity_distribution():
     st.pyplot(fig)
 ```
 
-#### 5.2 Análisis de Correlación entre Métricas
+#### F.3.5.2 Análisis de Correlación entre Métricas
 
 ```python
 def plot_metrics_correlation():
@@ -370,9 +371,9 @@ def plot_metrics_correlation():
                       f"Correlación negativa fuerte ({correlation['value']:.3f})")
 ```
 
-### 6. Exportación de Reportes
+### F.3.6 Exportación de Reportes
 
-#### 6.1 Generación de Reportes PDF
+#### F.3.6.1 Generación de Reportes PDF
 
 ```python
 def generate_pdf_report():
@@ -406,7 +407,7 @@ def generate_pdf_report():
             )
 ```
 
-#### 6.2 Exportación de Datos
+#### F.3.6.2 Exportación de Datos
 
 ```python
 def export_data_section():
@@ -448,9 +449,9 @@ def export_data_section():
             )
 ```
 
-## Configuración y Despliegue
+## F.4 Configuración y Despliegue
 
-### 1. Configuración de Streamlit
+### F.4.1 Configuración de Streamlit
 
 **Archivo `.streamlit/config.toml`:**
 
@@ -481,7 +482,7 @@ font = "sans serif"
 level = "info"
 ```
 
-### 2. Variables de Ambiente
+### F.4.2 Variables de Ambiente
 
 ```bash
 # .env para Streamlit
@@ -497,65 +498,68 @@ CHROMADB_PATH=/Users/haroldgomez/chromadb2
 OPENAI_API_KEY=your_api_key_here
 ```
 
-### 3. Comandos de Ejecución
+### F.4.3 Comandos de Ejecución
 
 ```bash
-# Desarrollo local
-streamlit run streamlit_app/app.py
+# Desarrollo local - Aplicación principal Q&A
+streamlit run src/apps/main_qa_app.py
+
+# Aplicación de resultados experimentales
+streamlit run src/apps/cumulative_metrics_results_matplotlib.py
+
+# Aplicación de comparación de modelos
+streamlit run src/apps/comparison_page.py
 
 # Con configuración específica
-streamlit run streamlit_app/app.py --server.port 8502
+streamlit run src/apps/main_qa_app.py --server.port 8502
 
 # Modo debug
-streamlit run streamlit_app/app.py --logger.level debug
-
-# Producción (con gunicorn)
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker streamlit_app.app:app
+streamlit run src/apps/main_qa_app.py --logger.level debug
 ```
 
-## Funcionalidades de Usuario
+## F.5 Funcionalidades de Usuario
 
-### 1. Navegación Intuitiva
+### F.5.1 Navegación Intuitiva
 
 - **Sidebar navigation:** Navegación entre páginas mediante sidebar
 - **Breadcrumbs:** Indicadores de ubicación actual
 - **Search functionality:** Búsqueda rápida de consultas y documentos
 
-### 2. Interactividad
+### F.5.2 Interactividad
 
 - **Filtros dinámicos:** Filtrar resultados por modelo, métrica, rango de fechas
 - **Zoom en gráficos:** Gráficos interactivos con Plotly
 - **Tooltips informativos:** Ayuda contextual en métricas y visualizaciones
 
-### 3. Personalización
+### F.5.3 Personalización
 
 - **Temas:** Soporte para modo claro/oscuro
 - **Exportación:** Múltiples formatos de exportación
 - **Configuración:** Preferencias de usuario persistentes
 
-## Casos de Uso de la Aplicación
+## F.6 Casos de Uso de la Aplicación
 
-### 1. Investigación Académica
+### F.6.1 Investigación Académica
 
 - **Análisis exploratorio:** Identificar patrones en los datos
 - **Validación de hipótesis:** Verificar hallazgos experimentales
 - **Generación de figuras:** Crear visualizaciones para publicaciones
 
-### 2. Desarrollo de Sistema
+### F.6.2 Desarrollo de Sistema
 
 - **Debugging:** Identificar problemas en modelos específicos
 - **Optimización:** Comparar configuraciones y parámetros
 - **Monitoreo:** Tracking de performance a lo largo del tiempo
 
-### 3. Presentaciones y Demos
+### F.6.3 Presentaciones y Demos
 
 - **Demos interactivas:** Mostrar capacidades del sistema en tiempo real
 - **Presentaciones:** Generar visualizaciones para audiencias técnicas
 - **Reportes ejecutivos:** Crear resúmenes para stakeholders no técnicos
 
-## Métricas de Performance de la Aplicación
+## F.7 Métricas de Performance de la Aplicación
 
-### Tiempo de Carga
+### F.7.1 Tiempo de Carga
 
 | Componente | Tiempo Promedio | Optimización |
 |------------|-----------------|--------------|
@@ -564,16 +568,16 @@ gunicorn -w 4 -k uvicorn.workers.UvicornWorker streamlit_app.app:app
 | **Generación de gráficos** | 1.5 segundos | Plotly optimizado |
 | **Exportación PDF** | 4.2 segundos | Procesamiento asíncrono |
 
-### Uso de Recursos
+### F.7.2 Uso de Recursos
 
 - **Memoria RAM:** ~150MB (datos cargados)
 - **CPU:** Picos del 20% durante generación de gráficos
 - **Storage:** ~50MB cache de visualizaciones
 - **Network:** Mínimo (datos locales)
 
-## Mantenimiento y Actualizaciones
+## F.8 Mantenimiento y Actualizaciones
 
-### 1. Actualizaciones de Datos
+### F.8.1 Actualizaciones de Datos
 
 ```python
 def update_data_sources():
@@ -592,7 +596,7 @@ def update_data_sources():
     st.rerun()
 ```
 
-### 2. Monitoreo de Performance
+### F.8.2 Monitoreo de Performance
 
 ```python
 def monitor_app_performance():
@@ -613,18 +617,18 @@ def monitor_app_performance():
         send_performance_alert(metrics)
 ```
 
-## Conclusión
+## F.9 Conclusión
 
 La aplicación Streamlit proporciona una interfaz comprehensiva para explorar y analizar los resultados experimentales del sistema RAG. Su arquitectura modular permite fácil extensión y mantenimiento, mientras que sus capacidades de visualización facilitan el entendimiento de patrones complejos en los datos experimentales.
 
-### Beneficios Principales
+### F.9.1 Beneficios Principales
 
 1. **Accesibilidad:** Interfaz web intuitiva sin necesidad de conocimientos técnicos
 2. **Interactividad:** Exploración dinámica de resultados experimentales
 3. **Reproducibilidad:** Visualizaciones consistentes basadas en datos verificables
 4. **Extensibilidad:** Arquitectura modular para agregar nuevas funcionalidades
 
-### Uso Recomendado
+### F.9.2 Uso Recomendado
 
 - **Análisis exploratorio** de resultados experimentales
 - **Validación** de hallazgos de investigación
@@ -633,4 +637,8 @@ La aplicación Streamlit proporciona una interfaz comprehensiva para explorar y 
 
 ---
 
-**Acceso:** La aplicación está disponible ejecutando `streamlit run streamlit_app/app.py` después de seguir las instrucciones de configuración del Anexo C.
+**Acceso:** Las aplicaciones están disponibles ejecutando:
+- `streamlit run src/apps/main_qa_app.py` (aplicación principal)
+- `streamlit run src/apps/cumulative_metrics_results_matplotlib.py` (resultados experimentales)
+
+Después de seguir las instrucciones de configuración del Anexo C.

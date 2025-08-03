@@ -1,14 +1,14 @@
-# CAPÍTULO VII: CONCLUSIONES Y TRABAJO FUTURO
+# 8. CONCLUSIONES Y TRABAJO FUTURO
 
-## Introducción
+## 8.1 Introducción
 
 Este capítulo sintetiza los hallazgos principales de la investigación sobre recuperación semántica de información técnica especializada, basándose en la evaluación experimental rigurosa de un sistema RAG implementado sobre 187,031 documentos de Microsoft Azure. Las conclusiones se fundamentan exclusivamente en datos empíricos verificables obtenidos durante la experimentación, proporcionando una evaluación objetiva de las capacidades y limitaciones de las técnicas actuales de recuperación semántica en dominios técnicos especializados.
 
 La investigación respondió sistemáticamente a seis objetivos específicos mediante un framework experimental que evaluó cuatro modelos de embedding (Ada, MPNet, MiniLM, E5-Large) sobre un corpus comprehensivo de documentación técnica, utilizando métricas tradicionales de recuperación de información, métricas especializadas RAG, y validación estadística mediante tests de Wilcoxon. Los resultados establecen una base empírica sólida para comprender tanto las potencialidades como las limitaciones actuales de los sistemas de recuperación semántica en contextos técnicos especializados.
 
-## 1. Conclusiones Principales
+## 8.2 Conclusiones Principales
 
-### 1.1 Efectividad de la Recuperación Semántica en Dominios Técnicos
+### 8.2.1 Efectividad de la Recuperación Semántica en Dominios Técnicos
 
 La investigación demuestra que **los sistemas de recuperación semántica son efectivos para documentación técnica especializada, pero con limitaciones importantes** que requieren consideración cuidadosa en implementaciones prácticas.
 
@@ -19,7 +19,7 @@ La investigación demuestra que **los sistemas de recuperación semántica son e
 
 **Implicación Principal:** La efectividad real de los sistemas de recuperación semántica es superior a lo que sugieren las métricas tradicionales cuando se aplican criterios de evaluación estrictos basados en enlaces explícitos. Esto sugiere una brecha entre la evaluación técnica y la utilidad práctica de estos sistemas.
 
-### 1.2 Ausencia de un Modelo Óptimo Universal
+### 8.2.2 Ausencia de un Modelo Óptimo Universal
 
 **No existe un modelo de embedding universalmente superior** para todos los casos de uso en documentación técnica. La selección óptima depende del balance específico entre precisión, recursos computacionales y casos de uso.
 
@@ -32,7 +32,7 @@ La investigación demuestra que **los sistemas de recuperación semántica son e
 
 **Implicación Práctica:** Las organizaciones deben seleccionar modelos basándose en sus restricciones específicas de recursos, latencia y calidad requerida, más que en un ranking absoluto de rendimiento.
 
-### 1.3 Impacto Diferencial del Reranking Neural
+### 8.2.3 Impacto Diferencial del Reranking Neural
 
 El **CrossEncoder reranking demuestra mayor efectividad en modelos con recuperación inicial sub-óptima**, pero tiene impacto limitado en modelos ya optimizados.
 
@@ -43,7 +43,7 @@ El **CrossEncoder reranking demuestra mayor efectividad en modelos con recuperac
 
 **Implicación Técnica:** El reranking neural es especialmente valioso para crear sistemas costo-efectivos utilizando modelos eficientes como MiniLM, permitiendo alcanzar rendimiento competitivo con menor costo computacional inicial.
 
-### 1.4 Importancia Crítica de la Configuración Específica por Modelo
+### 8.2.4 Importancia Crítica de la Configuración Específica por Modelo
 
 El caso E5-Large representa un **hallazgo crítico sobre la importancia de la configuración específica por modelo** en sistemas de recuperación semántica.
 
@@ -58,7 +58,7 @@ El caso E5-Large representa un **hallazgo crítico sobre la importancia de la co
 
 **Implicación Metodológica:** Los modelos técnicamente superiores pueden fallar completamente sin configuración adecuada, destacando la importancia del expertise técnico especializado en la implementación de sistemas de recuperación semántica.
 
-### 1.5 Limitaciones del Ground Truth Estricto
+### 8.2.5 Limitaciones del Ground Truth Estricto
 
 La investigación revela una **limitación metodológica fundamental en la evaluación de sistemas de recuperación semántica para dominios técnicos**: el criterio de enlaces explícitos es más restrictivo que la realidad práctica.
 
@@ -69,11 +69,11 @@ La investigación revela una **limitación metodológica fundamental en la evalu
 
 **Implicación para Futuras Investigaciones:** Los criterios de evaluación deben evolucionar hacia metodologías más flexibles que capturen la relevancia semántica práctica, complementando métricas de enlaces explícitos con evaluación humana especializada.
 
-## 2. Contribuciones del Trabajo
+## 8.3 Contribuciones del Trabajo
 
-### 2.1 Contribuciones Metodológicas
+### 8.3.1 Contribuciones Metodológicas
 
-#### 2.1.1 Framework de Evaluación Multi-Métrica Integrado
+#### 8.3.1.1 Framework de Evaluación Multi-Métrica Integrado
 
 **Primera aplicación sistemática** de un framework que combina métricas tradicionales de recuperación de información, métricas especializadas RAG (RAGAS), y evaluación semántica (BERTScore) para documentación técnica especializada.
 
@@ -85,7 +85,7 @@ La investigación revela una **limitación metodológica fundamental en la evalu
 
 **Valor Científico:** Establece una metodología reproducible para evaluación comprehensiva de sistemas RAG en dominios especializados, abordando las limitaciones de enfoques uni-métricos.
 
-#### 2.1.2 Metodología de Ground Truth Objetiva
+#### 8.3.1.2 Metodología de Ground Truth Objetiva
 
 **Establecimiento de criterios objetivos** para validación basados en enlaces comunitarios verificados, eliminando subjetividad en la definición de relevancia.
 
@@ -97,7 +97,7 @@ La investigación revela una **limitación metodológica fundamental en la evalu
 
 **Valor Metodológico:** Proporciona un estándar reproducible para evaluación en dominios técnicos, aunque con limitaciones de cobertura que futuras investigaciones deben abordar.
 
-#### 2.1.3 Diseño Experimental Controlado
+#### 8.3.1.3 Diseño Experimental Controlado
 
 **Evaluación controlada rigurosa** de múltiples arquitecturas de embedding con control de variables experimentales para garantizar comparabilidad.
 
@@ -109,9 +109,9 @@ La investigación revela una **limitación metodológica fundamental en la evalu
 
 **Valor Científico:** Establece un protocolo experimental replicable que permite comparación válida entre arquitecturas de embedding diferentes.
 
-### 2.2 Contribuciones Técnicas
+### 8.3.2 Contribuciones Técnicas
 
-#### 2.2.1 Arquitectura ChromaDB Escalable para Investigación
+#### 8.3.2.1 Arquitectura ChromaDB Escalable para Investigación
 
 **Implementación de referencia** para almacenamiento y recuperación vectorial a escala académica, demostrando viabilidad de ChromaDB para investigación con >800,000 vectores.
 
@@ -123,7 +123,7 @@ La investigación revela una **limitación metodológica fundamental en la evalu
 
 **Valor Técnico:** Demuestra que ChromaDB es adecuado para investigación académica y prototipado, ofreciendo ventajas en simplicidad operacional sobre alternativas distribuidas como Pinecone o Weaviate.
 
-#### 2.2.2 Optimización de Reranking con Normalización Sigmoid
+#### 8.3.2.2 Optimización de Reranking con Normalización Sigmoid
 
 **Implementación optimizada** de CrossEncoder reranking con normalización sigmoid para comparabilidad entre modelos independientemente del número de documentos recuperados.
 
@@ -140,7 +140,7 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 **Valor de Implementación:** Proporciona una técnica de reranking optimizada que puede ser integrada en otros sistemas RAG con beneficios comprobados.
 
-#### 2.2.3 Pipeline Reproducible End-to-End
+#### 8.3.2.3 Pipeline Reproducible End-to-End
 
 **Sistema completo** desde extracción automatizada hasta evaluación con documentación exhaustiva y trazabilidad completa.
 
@@ -153,9 +153,9 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 **Valor de Sistema:** Establece un benchmark completo que puede ser extendido a otros dominios técnicos con modificaciones mínimas.
 
-### 2.3 Contribuciones al Dominio de Documentación Técnica
+### 8.3.3 Contribuciones al Dominio de Documentación Técnica
 
-#### 2.3.1 Benchmark Especializado Azure
+#### 8.3.3.1 Benchmark Especializado Azure
 
 **Establecimiento del corpus Azure más comprehensivo** para investigación académica en recuperación semántica de información técnica.
 
@@ -168,7 +168,7 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 **Valor para la Comunidad:** Proporciona un recurso estándar para futuras investigaciones, facilitando comparación directa entre técnicas y replicación de resultados.
 
-#### 2.3.2 Análisis de Desafíos Específicos del Dominio
+#### 8.3.3.2 Análisis de Desafíos Específicos del Dominio
 
 **Identificación sistemática** de desafíos únicos en recuperación de documentación técnica que no se presentan en dominios generales.
 
@@ -180,7 +180,7 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 **Valor Analítico:** Proporciona una base empírica para comprender las diferencias entre recuperación de información técnica y general, informando el diseño de futuros sistemas especializados.
 
-#### 2.3.3 Guías de Implementación Basadas en Evidencia
+#### 8.3.3.3 Guías de Implementación Basadas en Evidencia
 
 **Metodología completa replicable** en otros dominios técnicos especializados, con recomendaciones basadas en evidencia experimental.
 
@@ -192,11 +192,11 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 **Valor Práctico:** Reduce significativamente el tiempo y esfuerzo requerido para implementar sistemas similares en otros dominios técnicos especializados.
 
-## 3. Limitaciones Encontradas
+## 8.4 Limitaciones Encontradas
 
-### 3.1 Limitaciones de la Metodología de Evaluación
+### 8.4.1 Limitaciones de la Metodología de Evaluación
 
-#### 3.1.1 Tamaño de Muestra Insuficiente para Significancia Estadística
+#### 8.4.1.1 Tamaño de Muestra Insuficiente para Significancia Estadística
 
 La evaluación con **11 preguntas por modelo resultó insuficiente** para detectar diferencias estadísticamente significativas entre modelos, limitando la validez de las conclusiones comparativas.
 
@@ -209,7 +209,7 @@ La evaluación con **11 preguntas por modelo resultó insuficiente** para detect
 
 **Limitación Metodológica:** Futuras investigaciones requieren muestras sustancialmente mayores (50-100 preguntas) para validación estadística robusta.
 
-#### 3.1.2 Ground Truth Restrictivo
+#### 8.4.1.2 Ground Truth Restrictivo
 
 El criterio de evaluación basado **exclusivamente en enlaces explícitos subestima sistemáticamente** la efectividad real de los sistemas de recuperación semántica.
 
@@ -222,9 +222,9 @@ El criterio de evaluación basado **exclusivamente en enlaces explícitos subest
 
 **Necesidad:** Complementar evaluación automática con evaluación humana por expertos del dominio para capturar relevancia práctica.
 
-### 3.2 Limitaciones Técnicas de Implementación
+### 8.4.2 Limitaciones Técnicas de Implementación
 
-#### 3.2.1 Procesamiento Exclusivamente Textual
+#### 8.4.2.1 Procesamiento Exclusivamente Textual
 
 La **exclusión de contenido multimedia** representa una limitación significativa dado que la documentación técnica moderna es inherentemente multi-modal.
 
@@ -235,7 +235,7 @@ La **exclusión de contenido multimedia** representa una limitación significati
 
 **Implicación Práctica:** Los resultados son válidos solo para la componente textual de la documentación técnica, subestimando la complejidad real del dominio.
 
-#### 3.2.2 Limitaciones de Contextualización por Modelo
+#### 8.4.2.2 Limitaciones de Contextualización por Modelo
 
 Las **limitaciones de contexto variables** entre modelos requirieron estrategias de segmentación que pueden perder información contextual importante.
 
@@ -247,7 +247,7 @@ Las **limitaciones de contexto variables** entre modelos requirieron estrategias
 
 **Consecuencia:** Documentos largos se segmentaron perdiendo potencialmente relaciones contextuales importantes entre secciones, afectando especialmente a modelos de contexto limitado.
 
-#### 3.2.3 Dependencia de Configuración Específica por Modelo
+#### 8.4.2.3 Dependencia de Configuración Específica por Modelo
 
 El **caso E5-Large demuestra fragilidad** en la implementación de sistemas multi-modelo, donde configuración inadecuada puede anular completamente las capacidades de modelos técnicamente superiores.
 
@@ -258,9 +258,9 @@ El **caso E5-Large demuestra fragilidad** en la implementación de sistemas mult
 
 **Implicación:** La implementación exitosa de sistemas multi-modelo requiere expertise técnico especializado significativo y testing exhaustivo por modelo individual.
 
-### 3.3 Limitaciones de Alcance y Generalización
+### 8.4.3 Limitaciones de Alcance y Generalización
 
-#### 3.3.1 Especialización Exclusiva en Azure
+#### 8.4.3.1 Especialización Exclusiva en Azure
 
 La **delimitación estricta al ecosistema Azure** limita la generalización de resultados a otros dominios técnicos o plataformas cloud.
 
@@ -271,7 +271,7 @@ La **delimitación estricta al ecosistema Azure** limita la generalización de r
 
 **Límite de Generalización:** Los resultados pueden no aplicar directamente a AWS, Google Cloud, o dominios técnicos no relacionados con cloud computing.
 
-#### 3.3.2 Datos Exclusivamente Públicos
+#### 8.4.3.2 Datos Exclusivamente Públicos
 
 La **ausencia de datos corporativos internos** limita la validación con casos de uso industriales reales.
 
@@ -282,11 +282,11 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 
 **Impacto en Validez:** Los resultados pueden no reflejar completamente la complejidad y especificidad de consultas en entornos corporativos internos donde los stakes y especialización son mayores.
 
-## 4. Trabajo Futuro
+## 8.5 Trabajo Futuro
 
-### 4.1 Mejoras en Modelos
+### 8.5.1 Mejoras en Modelos
 
-#### 4.1.1 Investigación de Configuración Específica E5-Large
+#### 8.5.1.1 Investigación de Configuración Específica E5-Large
 
 **Prioridad Alta:** Investigar configuraciones específicas para maximizar el potencial del modelo E5-Large, que demostró alta calidad en métricas RAG pero falla completa en recuperación.
 
@@ -298,7 +298,7 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 
 **Resultado Esperado:** Transformar E5-Large de modelo fallido a potencialmente superior, dado su rendimiento en métricas de calidad semántica.
 
-#### 4.1.2 Implementación de Modelos Especializados Técnicos
+#### 8.5.1.2 Implementación de Modelos Especializados Técnicos
 
 **Objetivo:** Evaluar modelos específicamente entrenados para contenido técnico que pueden superar los modelos generales evaluados.
 
@@ -310,7 +310,7 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 
 **Metodología:** Replicar exactamente el framework experimental actual para comparación directa con resultados baseline establecidos.
 
-#### 4.1.3 Arquitecturas de Embedding Híbridas
+#### 8.5.1.3 Arquitecturas de Embedding Híbridas
 
 **Innovación:** Combinar fortalezas de múltiples modelos en arquitecturas ensemble para optimizar tanto recuperación como calidad semántica.
 
@@ -319,9 +319,9 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 - **Pipeline multi-etapa:** Recuperación inicial con modelo eficiente, reranking con modelo de alta calidad
 - **Especialización por tipo:** Modelos diferentes para consultas conceptuales vs. procedimentales
 
-### 4.2 Expansión de Fuentes de Datos
+### 8.5.2 Expansión de Fuentes de Datos
 
-#### 4.2.1 Ampliación de Corpus Multi-Dominio
+#### 8.5.2.1 Ampliación de Corpus Multi-Dominio
 
 **Objetivo:** Validar generalización de resultados expandiendo a otros ecosistemas cloud y dominios técnicos.
 
@@ -333,7 +333,7 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 
 **Valor:** Establecer si los hallazgos son específicos de Azure o generalizables a documentación técnica especializada.
 
-#### 4.2.2 Incorporación de Datos Corporativos
+#### 8.5.2.2 Incorporación de Datos Corporativos
 
 **Objetivo:** Validar efectividad con datos reales corporativos internos (sujeto a consideraciones de confidencialidad).
 
@@ -342,7 +342,7 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 - **Datos sintéticos:** Generación de tickets sintéticos que preserven patrones reales
 - **Estudios de caso:** Implementaciones piloto en entornos corporativos controlados
 
-#### 4.2.3 Contenido Multi-Modal
+#### 8.5.2.3 Contenido Multi-Modal
 
 **Innovación Mayor:** Extender el sistema para procesar elementos visuales y multimedia de documentación técnica.
 
@@ -352,9 +352,9 @@ La **ausencia de datos corporativos internos** limita la validación con casos d
 - **Código estructurado:** Parsing semántico de ejemplos de código para búsqueda por funcionalidad
 - **Embedding multi-modal:** Modelos como CLIP para representación conjunta texto-imagen
 
-### 4.3 Optimización de Pipeline
+### 8.5.3 Optimización de Pipeline
 
-#### 4.3.1 Búsqueda Híbrida Semántica-Léxica
+#### 8.5.3.1 Búsqueda Híbrida Semántica-Léxica
 
 **Objetivo:** Combinar búsqueda vectorial semántica con técnicas léxicas (BM25) para capturar tanto similitud conceptual como matches exactos de terminología.
 
@@ -372,7 +372,7 @@ def hybrid_search(query, top_k=10):
 - **Query expansion:** Expansión automática de consultas usando sinónimos técnicos
 - **Re-ranking multi-etapa:** Pipeline semantic → lexical → neural reranking
 
-#### 4.3.2 Evaluación Continua y Actualización
+#### 8.5.3.2 Evaluación Continua y Actualización
 
 **Objetivo:** Desarrollar metodologías para mantener efectividad del sistema ante evolución constante de documentación técnica.
 
@@ -382,7 +382,7 @@ def hybrid_search(query, top_k=10):
 - **Evaluación continua:** Framework para testing automático con nuevas consultas
 - **Feedback loop:** Incorporación de feedback de usuarios para mejora continua
 
-#### 4.3.3 Optimización de Latencia y Throughput
+#### 8.5.3.3 Optimización de Latencia y Throughput
 
 **Objetivo:** Optimizar el sistema para requisitos de producción con miles de consultas concurrentes.
 
@@ -392,11 +392,11 @@ def hybrid_search(query, top_k=10):
 - **Búsqueda aproximada:** Implementar HNSW o LSH para búsquedas sub-lineales
 - **Paralelización:** Distribución de carga entre múltiples instancias ChromaDB
 
-## 5. Recomendaciones para Implementación en Producción
+## 8.6 Recomendaciones para Implementación en Producción
 
-### 5.1 Arquitectura de Sistema Recomendada
+### 8.6.1 Arquitectura de Sistema Recomendada
 
-#### 5.1.1 Configuración Multi-Modelo Balanceada
+#### 8.6.1.1 Configuración Multi-Modelo Balanceada
 
 **Recomendación Principal:** Implementar arquitectura híbrida que combine eficiencia y calidad basándose en los hallazgos experimentales.
 
@@ -419,7 +419,7 @@ fallback_efficient:
 
 **Justificación:** MPNet demostró mejor balance entre calidad (Faithfulness=0.518) y eficiencia, mientras que MiniLM+reranking ofrece alternativa eficiente para cargas altas.
 
-#### 5.1.2 Infraestructura de Base de Datos Vectorial
+#### 8.6.1.2 Infraestructura de Base de Datos Vectorial
 
 **Recomendación de Escalabilidad:** Para producción, migrar de ChromaDB a soluciones distribuidas cuando el corpus supere 1M documentos.
 
@@ -433,9 +433,9 @@ fallback_efficient:
 - **Almacenamiento:** SSD NVMe para latencia <10ms
 - **CPU:** Mínimo 8 cores para reranking concurrente
 
-### 5.2 Métricas de Monitoreo en Producción
+### 8.6.2 Métricas de Monitoreo en Producción
 
-#### 5.2.1 KPIs Técnicos Críticos
+#### 8.6.2.1 KPIs Técnicos Críticos
 
 **Métricas de Rendimiento:**
 - **Latencia p95:** <500ms end-to-end (objetivo basado en UX aceptable)
@@ -448,16 +448,16 @@ fallback_efficient:
 - **Feedback positivo:** Evaluación directa de utilidad por usuarios finales
 - **Tiempo de resolución:** Reducción en tiempo promedio de resolución de tickets
 
-#### 5.2.2 Alertas y Degradación
+#### 8.6.2.2 Alertas y Degradación
 
 **Sistema de Alertas Basado en Evidencia:**
 - **Precision drop:** Alerta si Precision@5 < 0.03 (umbral crítico basado en MiniLM baseline)
 - **Latency spike:** Alerta si p95 > 1000ms (degradación significativa de UX)
 - **Error rate:** Alerta si tasa de error > 1% (tolerancia mínima aceptable)
 
-### 5.3 Consideraciones de Implementación Gradual
+### 8.6.3 Consideraciones de Implementación Gradual
 
-#### 5.3.1 Estrategia de Despliegue Faseado
+#### 8.6.3.1 Estrategia de Despliegue Faseado
 
 **Fase 1 (Piloto - 2-4 semanas):**
 - Implementar con MPNet en ambiente controlado
@@ -474,7 +474,7 @@ fallback_efficient:
 - Optimizar infraestructura para latencia
 - Establecer procesos de mejora continua
 
-#### 5.3.2 Criterios de Éxito Medibles
+#### 8.6.3.2 Criterios de Éxito Medibles
 
 **Criterios Técnicos:**
 - **Mejora en precisión:** >20% reducción en tiempo de búsqueda manual de documentos
@@ -486,9 +486,9 @@ fallback_efficient:
 - **Escalabilidad:** Capacidad de manejar 10x aumento en volumen sin degradación lineal de rendimiento
 - **Mantenibilidad:** <8 horas/mes esfuerzo de mantenimiento por 10K consultas
 
-### 5.4 Gestión del Conocimiento y Actualización
+### 8.6.4 Gestión del Conocimiento y Actualización
 
-#### 5.4.1 Estrategia de Actualización de Contenido
+#### 8.6.4.1 Estrategia de Actualización de Contenido
 
 **Frecuencia de Re-indexación:**
 - **Documentación crítica:** Semanal (actualizaciones de seguridad, breaking changes)
@@ -500,7 +500,7 @@ fallback_efficient:
 - **Regression testing:** Verificar que actualizaciones no degraden rendimiento existente
 - **Human evaluation:** Validación manual mensual en muestra representativa
 
-#### 5.4.2 Evolución y Mejora Continua
+#### 8.6.4.2 Evolución y Mejora Continua
 
 **Roadmap de Mejoras:**
 1. **Trimestre 1:** Establecer baseline de producción y optimizar configuración
@@ -513,7 +513,7 @@ fallback_efficient:
 - **Experimentación trimestral:** Piloto de nuevas técnicas en ambiente controlado
 - **Actualización semestral:** Incorporar mejoras validadas a producción
 
-## Conclusión del Capítulo
+## 8.7 Conclusión del Capítulo
 
 Esta investigación ha demostrado que **los sistemas de recuperación semántica son efectivos para documentación técnica especializada**, pero su implementación exitosa requiere consideración cuidadosa de múltiples factores técnicos, metodológicos y operacionales. Los hallazgos basados en 187,031 documentos técnicos y evaluación rigurosa de 4 modelos de embedding proporcionan evidencia empírica sólida sobre tanto las capacidades como las limitaciones actuales de estas tecnologías.
 
@@ -534,7 +534,7 @@ El trabajo futuro debe priorizar la **expansión del tamaño de muestra** para v
 
 Los resultados establecen una base sólida para el avance científico en recuperación semántica de información técnica, proporcionando tanto metodologías reproducibles como identificación clara de oportunidades de mejora que futuras investigaciones pueden abordar sistemáticamente.
 
-## Referencias del Capítulo
+## 8.8 Referencias del Capítulo
 
 Es, S., James, J., Espinosa-Anke, L., & Schockaert, S. (2023). RAGAS: Automated evaluation of retrieval augmented generation. *arXiv preprint arXiv:2309.15217*.
 

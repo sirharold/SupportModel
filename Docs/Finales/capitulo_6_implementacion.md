@@ -1,14 +1,14 @@
-# CAPÍTULO V: IMPLEMENTACIÓN
+# 6. IMPLEMENTACIÓN
 
-## Introducción
+## 6.1 Introducción
 
 Este capítulo detalla la implementación técnica del sistema RAG (Retrieval-Augmented Generation) desarrollado para mejorar la gestión de tickets de soporte técnico mediante recuperación semántica de documentación de Microsoft Azure. La implementación sigue un workflow natural que comienza con la extracción de datos, continúa con el establecimiento de la infraestructura de base de datos vectorial, la generación de embeddings, y culmina con el pipeline de recuperación y generación de respuestas.
 
 La arquitectura técnica adopta principios de ingeniería de software que priorizan la separación de responsabilidades, la extensibilidad y la reproducibilidad científica (McConnell, 2004). El sistema está diseñado para soportar evaluación experimental rigurosa mientras mantiene la flexibilidad necesaria para futuras optimizaciones y expansiones.
 
-## 1. Tecnologías Utilizadas
+## 6.2 Tecnologías Utilizadas
 
-### 1.1 Stack Tecnológico Principal
+### 6.2.1 Stack Tecnológico Principal
 
 **Lenguaje de Programación:**
 - Python 3.12.2 como lenguaje principal, seleccionado por su ecosistema maduro en machine learning y procesamiento de lenguaje natural (Van Rossum & Drake, 2009)
@@ -19,7 +19,7 @@ La arquitectura técnica adopta principios de ingeniería de software que priori
 **Base de Datos Vectorial:**
 - ChromaDB 0.5.23 como motor de almacenamiento y búsqueda vectorial, seleccionado por su simplicidad operacional y rendimiento en entornos de investigación (ChromaDB Team, 2024)
 
-### 1.2 Librerías Especializadas en NLP
+### 6.2.2 Librerías Especializadas en NLP
 
 **Modelos de Embeddings:**
 ```python
@@ -36,7 +36,7 @@ torch==2.2.2                  # Backend para modelos PyTorch
 bert-score==0.3.13            # Para métricas de evaluación semántica
 ```
 
-### 1.3 Infraestructura de Evaluación
+### 6.2.3 Infraestructura de Evaluación
 
 **Entorno de Cómputo:**
 - Google Colab con GPU Tesla T4 para aceleración de cómputo en evaluaciones masivas
@@ -48,9 +48,9 @@ bert-score==0.3.13            # Para métricas de evaluación semántica
 - JSON para metadatos y resultados de evaluación
 - Google Drive para sincronización automática de resultados experimentales
 
-## 2. Extracción Automatizada de Datos desde Microsoft Learn
+## 6.3 Extracción Automatizada de Datos desde Microsoft Learn
 
-### 2.1 Herramientas y Técnicas de Web Scraping
+### 6.3.1 Herramientas y Técnicas de Web Scraping
 
 La extracción de datos representa la primera fase del proyecto y constituye la base fundamental que alimenta todo el sistema RAG. La implementación combina Selenium para navegación dinámica y BeautifulSoup para parsing de contenido, estableciendo una metodología robusta para la recolección de datos técnicos especializados.
 
@@ -67,7 +67,7 @@ La extracción de datos representa la primera fase del proyecto y constituye la 
 - Estructura HTML variable entre páginas necesitó selectores CSS robustos
 - Volumen de datos (>20,000 preguntas) requirió sistema incremental con checkpoints
 
-### 2.2 Proceso de Extracción de Documentación
+### 6.3.2 Proceso de Extracción de Documentación
 
 El proceso de extracción de documentación técnica de Microsoft Learn sigue una metodología estructurada que garantiza la completitud y calidad de los datos recolectados:
 
@@ -95,7 +95,7 @@ El proceso de extracción de documentación técnica de Microsoft Learn sigue un
 - Cobertura completa de servicios principales de Azure
 - Metadatos ricos incluyendo títulos, URLs, y contenido textual
 
-### 2.3 Proceso de Extracción de Preguntas y Respuestas
+### 6.3.3 Proceso de Extracción de Preguntas y Respuestas
 
 La extracción de preguntas desde Microsoft Q&A implementa técnicas especializadas para capturar no solo el contenido textual sino también las relaciones semánticas y la validación comunitaria:
 
@@ -125,9 +125,9 @@ La extracción de preguntas desde Microsoft Q&A implementa técnicas especializa
 - Longitud promedio de pregunta: 119.9 tokens
 - Longitud promedio de respuesta: 221.6 tokens
 
-### 2.4 Consideraciones Éticas y Legales del Uso de Documentación Técnica
+### 6.3.4 Consideraciones Éticas y Legales del Uso de Documentación Técnica
 
-#### 2.4.1 Marco Legal y Licenciamiento
+#### 6.3.4.1 Marco Legal y Licenciamiento
 
 El uso de documentación de Microsoft Learn se fundamenta en el cumplimiento estricto de las condiciones de licenciamiento establecidas por Microsoft Corporation. La documentación técnica disponible en learn.microsoft.com se encuentra licenciada bajo Creative Commons Attribution 4.0 International (CC BY 4.0), excepto donde se indique lo contrario (Microsoft Corporation, 2024).
 
@@ -137,7 +137,7 @@ El uso de documentación de Microsoft Learn se fundamenta en el cumplimiento est
 - **No Redistribución:** Ausencia de publicación o exposición del contenido textual íntegro
 - **Transformación Académica:** Uso como insumo para modelos de recuperación semántica
 
-#### 2.4.2 Buenas Prácticas Implementadas
+#### 6.3.4.2 Buenas Prácticas Implementadas
 
 **Respeto por Recursos del Servidor:**
 - Implementación de delays adaptativos entre requests para evitar sobrecarga
@@ -154,7 +154,7 @@ El uso de documentación de Microsoft Learn se fundamenta en el cumplimiento est
 - Mantenimiento de trazabilidad mediante URLs originales
 - Disponibilidad de scripts y procedimientos para validación independiente
 
-#### 2.4.3 Limitaciones y Salvaguardas
+#### 6.3.4.3 Limitaciones y Salvaguardas
 
 **Limitaciones Voluntariamente Adoptadas:**
 - Exclusión de contenido marcado como confidencial o beta
@@ -170,9 +170,9 @@ La implementación de estas consideraciones éticas asegura que el proyecto mant
 
 **Nota sobre Implementación de Scraping:** El código específico de scraping no se incluye en el sistema actual debido a que la extracción de datos se realizó en una fase previa del proyecto. Los datos extraídos se almacenaron en formato estructurado (JSON y Parquet) y se utilizan directamente desde ChromaDB en la implementación actual.
 
-## 3. Implementación de ChromaDB
+## 6.4 Implementación de ChromaDB
 
-### 3.1 Arquitectura de Base de Datos Vectorial
+### 6.4.1 Arquitectura de Base de Datos Vectorial
 
 Una vez completada la extracción de datos, el siguiente paso fue establecer la infraestructura de almacenamiento vectorial. ChromaDB fue seleccionado como base de datos vectorial principal después de una migración desde Weaviate, basada en criterios de optimización para flujos de investigación académica.
 
@@ -187,7 +187,7 @@ Una vez completada la extracción de datos, el siguiente paso fue establecer la 
 - Ventajas: Latencia local (<10ms), portabilidad de datos, simplicidad de configuración
 - Aplicabilidad: Óptimo para investigación y desarrollo iterativo
 
-### 3.2 Configuración e Inicialización
+### 6.4.2 Configuración e Inicialización
 
 La configuración de ChromaDB implementa un patrón de cliente singleton con manejo de conexiones persistentes, optimizado para el patrón de uso académico:
 
@@ -220,7 +220,7 @@ class ChromaDBClientWrapper:
         return self._collections[collection_name]
 ```
 
-### 3.3 Gestión de Colecciones Multi-Modelo
+### 6.4.3 Gestión de Colecciones Multi-Modelo
 
 La arquitectura de almacenamiento implementa colecciones separadas para cada modelo de embedding, permitiendo comparaciones directas sin interferencia cruzada:
 
@@ -250,7 +250,7 @@ CHROMADB_COLLECTION_CONFIG = {
 }
 ```
 
-### 3.4 Optimizaciones de Rendimiento
+### 6.4.4 Optimizaciones de Rendimiento
 
 **Almacenamiento Eficiente:**
 - Utilización de formato Parquet para embeddings pre-computados
@@ -267,9 +267,9 @@ CHROMADB_COLLECTION_CONFIG = {
 - Throughput: ~241 documentos/segundo para embedding generation
 - Almacenamiento total: 6.48 GB para todas las colecciones
 
-## 4. Arquitectura del Sistema RAG
+## 6.5 Arquitectura del Sistema RAG
 
-### 4.1 Componente de Indexación y Embeddings
+### 6.5.1 Componente de Indexación y Embeddings
 
 Tras establecer la infraestructura de ChromaDB, el siguiente paso fue implementar la generación y gestión de embeddings múltiples. El sistema permite comparación directa entre diferentes modelos de representación vectorial:
 
@@ -310,9 +310,9 @@ class EmbeddingClient:
         return self.generate_embedding(text, use_document_model=True)
 ```
 
-### 4.2 Componente de Búsqueda Vectorial
+### 6.5.2 Componente de Búsqueda Vectorial
 
-#### 4.2.1 Búsqueda Vectorial con Filtrado de Diversidad
+#### 6.5.2.1 Búsqueda Vectorial con Filtrado de Diversidad
 
 El componente de búsqueda implementa algoritmos de similitud coseno con filtrado de diversidad para evitar resultados redundantes:
 
@@ -365,7 +365,7 @@ def _apply_diversity_filtering(self, docs: List[Dict], top_k: int,
     return selected
 ```
 
-#### 4.2.2 Búsqueda Híbrida por Enlaces Validados
+#### 6.5.2.2 Búsqueda Híbrida por Enlaces Validados
 
 El sistema implementa búsqueda híbrida que combina recuperación por enlaces directos con búsqueda vectorial:
 
@@ -401,7 +401,7 @@ def lookup_docs_by_links_batch(self, links: List[str], batch_size: int = 50) -> 
     return found_docs
 ```
 
-### 4.3 Componente de Evaluación
+### 6.5.3 Componente de Evaluación
 
 La implementación de métricas sigue estándares establecidos en literatura de recuperación de información:
 
@@ -435,9 +435,9 @@ def calculate_retrieval_metrics(retrieved_docs: List[Dict],
     return metrics
 ```
 
-## 5. Pipeline de Procesamiento RAG
+## 6.6 Pipeline de Procesamiento RAG
 
-### 5.1 Pipeline End-to-End
+### 6.6.1 Pipeline End-to-End
 
 El pipeline de procesamiento implementa una arquitectura multi-etapa que integra todos los componentes desarrollados previamente:
 
@@ -525,7 +525,7 @@ def answer_question_with_rag(question: str, chromadb_wrapper: ChromaDBClientWrap
     }
 ```
 
-### 5.2 Reranking con CrossEncoder
+### 6.6.2 Reranking con CrossEncoder
 
 El componente de reranking implementa el modelo ms-marco-MiniLM-L-6-v2 con normalización Min-Max:
 
@@ -578,7 +578,7 @@ def rerank_with_llm(question: str, docs: List[dict], openai_client: OpenAI,
     return sorted(docs, key=lambda d: d.get("score", 0.0), reverse=True)[:top_k]
 ```
 
-### 5.3 Generación de Respuestas Multi-Modal
+### 6.6.3 Generación de Respuestas Multi-Modal
 
 El sistema soporta múltiples backends de generación de respuestas:
 
@@ -617,9 +617,9 @@ Answer:"""
     return response.choices[0].message.content.strip()
 ```
 
-## 6. Interfaz de Usuario (Streamlit)
+## 6.7 Interfaz de Usuario (Streamlit)
 
-### 6.1 Arquitectura Multi-Página
+### 6.7.1 Arquitectura Multi-Página
 
 La interfaz de usuario implementa una aplicación Streamlit multi-página que integra todos los componentes del sistema:
 
@@ -654,7 +654,7 @@ def main():
         render_configuration_panel()
 ```
 
-### 6.2 Interfaz de Consulta Q&A
+### 6.7.2 Interfaz de Consulta Q&A
 
 ```python
 def render_qa_interface():
@@ -702,7 +702,7 @@ def render_qa_interface():
                 render_qa_results(result, show_sources)
 ```
 
-### 6.3 Dashboard de Métricas
+### 6.7.3 Dashboard de Métricas
 
 ```python
 def render_metrics_dashboard():
@@ -739,9 +739,9 @@ def render_metrics_dashboard():
         st.dataframe(metrics_df, use_container_width=True)
 ```
 
-## 7. Optimizaciones y Mejoras
+## 6.8 Optimizaciones y Mejoras
 
-### 7.1 Optimizaciones de Rendimiento
+### 6.8.1 Optimizaciones de Rendimiento
 
 **Caching Inteligente:**
 - Implementación de LRU cache para modelos de embeddings cargados
@@ -758,7 +758,7 @@ def render_metrics_dashboard():
 - Uso de generators para procesamiento de datasets extensos
 - Monitoreo activo de uso de memoria con alertas
 
-### 7.2 Mejoras de Calidad
+### 6.8.2 Mejoras de Calidad
 
 **Filtrado de Diversidad:**
 - Algoritmo de diversidad semántica para evitar documentos redundantes
@@ -775,7 +775,7 @@ def render_metrics_dashboard():
 - Detección de documentos corrompidos o incompletos
 - Métricas de calidad de datos integradas en pipeline
 
-### 7.3 Extensibilidad Arquitectónica  
+### 6.8.3 Extensibilidad Arquitectónica  
 
 **Interfaces Modulares:**
 - Separación clara entre capas de datos, lógica y presentación
@@ -794,7 +794,7 @@ def render_metrics_dashboard():
 
 La implementación técnica descrita sigue el workflow natural del proyecto: desde la extracción inicial de datos, pasando por el establecimiento de la infraestructura de base de datos vectorial, la generación de embeddings, hasta culminar en un pipeline RAG completo con interfaz de usuario comprehensiva. Esta arquitectura modular y las optimizaciones implementadas proporcionan una base sólida tanto para investigación académica como para potencial implementación en entornos de producción.
 
-## Referencias del Capítulo
+## 6.9 Referencias del Capítulo
 
 Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C., & Wirth, R. (2000). CRISP-DM 1.0 step-by-step data mining guide. SPSS Inc.
 

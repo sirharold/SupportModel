@@ -1,12 +1,12 @@
-# ANEXO E: RESULTADOS DETALLADOS POR MÉTRICA
+# E. RESULTADOS DETALLADOS POR MÉTRICA
 
-## Introducción
+## E.1 Introducción
 
 Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas durante la investigación experimental, basándose en los datos verificables contenidos en `cumulative_results_1753578255.json` y `wilcoxon_test_results.csv`. Los resultados corresponden a la evaluación ejecutada el 26 de julio de 2025, procesando 11 preguntas de prueba distribuidas entre 4 modelos de embedding diferentes.
 
-## Configuración Experimental
+## E.2 Configuración Experimental
 
-### Parámetros de Evaluación Verificados
+### E.2.1 Parámetros de Evaluación Verificados
 
 ```json
 {
@@ -33,16 +33,16 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 - **Duración total evaluación:** 774.78 segundos (12.9 minutos)
 - **Framework de evaluación:** RAGAS con API de OpenAI
 
-## Resultados por Modelo
+## E.3 Resultados por Modelo
 
-### 1. Ada (OpenAI text-embedding-ada-002)
+### E.3.1 Ada (OpenAI text-embedding-ada-002)
 
-#### 1.1 Especificaciones Técnicas
+#### E.3.1.1 Especificaciones Técnicas
 - **Dimensiones:** 1,536
 - **Proveedor:** OpenAI
 - **Método de acceso:** API
 
-#### 1.2 Métricas de Recuperación Pre-Reranking
+#### E.3.1.2 Métricas de Recuperación Pre-Reranking
 
 | Métrica | Valor | Desviación Estándar |
 |---------|-------|---------------------|
@@ -57,7 +57,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.125** | **±0.000** |
 | **MRR** | **0.125** | **±0.000** |
 
-#### 1.3 Métricas de Recuperación Post-Reranking
+#### E.3.1.3 Métricas de Recuperación Post-Reranking
 
 | Métrica | Valor | Cambio vs Pre-Reranking |
 |---------|-------|-------------------------|
@@ -68,7 +68,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.125** | Sin cambios |
 | **MRR** | **0.125** | Sin cambios |
 
-#### 1.4 Métricas RAG Especializadas
+#### E.3.1.4 Métricas RAG Especializadas
 
 | Métrica | Valor | Interpretación |
 |---------|-------|----------------|
@@ -77,14 +77,14 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **BERTScore Recall** | **0.724** | Buen recall semántico |
 | **BERTScore F1** | **0.732** | Balance semántico sólido |
 
-### 2. MPNet (multi-qa-mpnet-base-dot-v1)
+### E.3.2 MPNet (multi-qa-mpnet-base-dot-v1)
 
-#### 2.1 Especificaciones Técnicas
+#### E.3.2.1 Especificaciones Técnicas
 - **Dimensiones:** 768
 - **Especialización:** Question-Answering
 - **Método de acceso:** Sentence-Transformers local
 
-#### 2.2 Métricas de Recuperación Pre-Reranking
+#### E.3.2.2 Métricas de Recuperación Pre-Reranking
 
 | Métrica | Valor | Desviación Estándar |
 |---------|-------|---------------------|
@@ -95,7 +95,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.113** | **±0.000** |
 | **MRR** | **0.082** | **±0.000** |
 
-#### 2.3 Métricas de Recuperación Post-Reranking
+#### E.3.2.3 Métricas de Recuperación Post-Reranking
 
 | Métrica | Valor | Cambio vs Pre-Reranking |
 |---------|-------|-------------------------|
@@ -106,7 +106,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.113** | Sin cambios |
 | **MRR** | **0.082** | Sin cambios |
 
-#### 2.4 Métricas RAG Especializadas
+#### E.3.2.4 Métricas RAG Especializadas
 
 | Métrica | Valor | Comparación vs Ada |
 |---------|-------|--------------------|
@@ -115,14 +115,14 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **BERTScore Recall** | **0.731** | **+1.0%** mejor |
 | **BERTScore F1** | **0.739** | **+1.0%** mejor |
 
-### 3. MiniLM (all-MiniLM-L6-v2)
+### E.3.3 MiniLM (all-MiniLM-L6-v2)
 
-#### 3.1 Especificaciones Técnicas
+#### E.3.3.1 Especificaciones Técnicas
 - **Dimensiones:** 384
 - **Ventaja:** Eficiencia computacional
 - **Método de acceso:** Sentence-Transformers local
 
-#### 3.2 Métricas de Recuperación Pre-Reranking
+#### E.3.3.2 Métricas de Recuperación Pre-Reranking
 
 | Métrica | Valor | Desviación Estándar |
 |---------|-------|---------------------|
@@ -133,7 +133,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.050** | **±0.000** |
 | **MRR** | **0.077** | **±0.000** |
 
-#### 3.3 Métricas de Recuperación Post-Reranking (MAYOR BENEFICIARIO)
+#### E.3.3.3 Métricas de Recuperación Post-Reranking (MAYOR BENEFICIARIO)
 
 | Métrica | Valor | Cambio vs Pre-Reranking |
 |---------|-------|-------------------------|
@@ -144,7 +144,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.050** | Sin cambios |
 | **MRR** | **0.077** | Sin cambios |
 
-#### 3.4 Métricas RAG Especializadas
+#### E.3.3.4 Métricas RAG Especializadas
 
 | Métrica | Valor | Posición Relativa |
 |---------|-------|-------------------|
@@ -153,14 +153,14 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **BERTScore Recall** | **0.721** | Comparable |
 | **BERTScore F1** | **0.729** | Sólido |
 
-### 4. E5-Large (intfloat/e5-large-v2)
+### E.3.4 E5-Large (intfloat/e5-large-v2)
 
-#### 4.1 Especificaciones Técnicas
+#### E.3.4.1 Especificaciones Técnicas
 - **Dimensiones:** 1,024
 - **Especialización:** Multilingual embeddings
 - **Método de acceso:** Sentence-Transformers local
 
-#### 4.2 Métricas de Recuperación - FALLA CRÍTICA
+#### E.3.4.2 Métricas de Recuperación - FALLA CRÍTICA
 
 | Métrica | Pre-Reranking | Post-Reranking | Estado |
 |---------|---------------|----------------|--------|
@@ -171,7 +171,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **MAP@5** | **0.000** | **0.000** | ❌ Falla |
 | **MRR** | **0.000** | **0.000** | ❌ Falla |
 
-#### 4.3 Métricas RAG Especializadas - PARADOJA DE CALIDAD
+#### E.3.4.3 Métricas RAG Especializadas - PARADOJA DE CALIDAD
 
 | Métrica | Valor | Ranking |
 |---------|-------|---------|
@@ -185,11 +185,11 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 - **Generación:** Mejor calidad semántica de todos los modelos
 - **Hipótesis:** Problema de configuración en fase de embedding, no en generación
 
-## Análisis Statistical Comparativo
+## E.4 Análisis Statistical Comparativo
 
-### Tests de Wilcoxon (Significancia Estadística)
+### E.4.1 Tests de Wilcoxon (Significancia Estadística)
 
-#### Comparaciones Precision@5
+#### E.4.1.1 Comparaciones Precision@5
 
 | Modelo 1 | Modelo 2 | Media 1 | Media 2 | p-valor | Significativo |
 |----------|----------|---------|---------|---------|---------------|
@@ -200,7 +200,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | E5-Large | MiniLM | 0.080 | 0.040 | 0.688 | ❌ No |
 | MPNet | MiniLM | 0.060 | 0.040 | 1.000 | ❌ No |
 
-#### Comparaciones Recall@5
+#### E.4.1.2 Comparaciones Recall@5
 
 | Modelo 1 | Modelo 2 | Media 1 | Media 2 | p-valor | Significativo |
 |----------|----------|---------|---------|---------|---------------|
@@ -213,9 +213,9 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 
 **Conclusión Estadística:** Con n=10 muestras, **ninguna diferencia es estadísticamente significativa** (p > 0.05 en todos los casos).
 
-## Análisis de Performance Temporal
+## E.5 Análisis de Performance Temporal
 
-### Distribución de Tiempo de Procesamiento
+### E.5.1 Distribución de Tiempo de Procesamiento
 
 | Componente | Tiempo Aproximado | Porcentaje |
 |------------|-------------------|------------|
@@ -225,7 +225,7 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 | **Generación RAG y evaluación** | ~387 segundos | ~50% |
 | **Total** | **774.78 segundos** | **100%** |
 
-### Eficiencia por Dimensionalidad
+### E.5.2 Eficiencia por Dimensionalidad
 
 | Modelo | Dimensiones | Precision@5 | Eficiencia Relativa |
 |--------|-------------|-------------|---------------------|
@@ -236,11 +236,11 @@ Este anexo presenta el análisis exhaustivo de todas las métricas evaluadas dur
 
 *Con reranking
 
-## Análisis Detallado del Impacto del Reranking
+## E.6 Análisis Detallado del Impacto del Reranking
 
-### Mejoras Cuantificadas por Modelo
+### E.6.1 Mejoras Cuantificadas por Modelo
 
-#### MiniLM - Mayor Transformación
+#### E.6.1.1 MiniLM - Mayor Transformación
 ```
 Métricas Pre-Reranking → Post-Reranking:
 • Precision@5: 0.018 → 0.036 (+100.0%)
@@ -249,7 +249,7 @@ Métricas Pre-Reranking → Post-Reranking:
 • NDCG@5:      0.091 → 0.103 (+13.2%)
 ```
 
-#### Ada - Mejora Selectiva
+#### E.6.1.2 Ada - Mejora Selectiva
 ```
 Métricas Pre-Reranking → Post-Reranking:
 • Precision@5: 0.055 → 0.055 (sin cambios)
@@ -258,7 +258,7 @@ Métricas Pre-Reranking → Post-Reranking:
 • NDCG@5:      0.126 → 0.162 (+28.6%)
 ```
 
-#### MPNet - Mejora en Ranking
+#### E.6.1.3 MPNet - Mejora en Ranking
 ```
 Métricas Pre-Reranking → Post-Reranking:
 • Precision@5: 0.055 → 0.055 (sin cambios)
@@ -267,21 +267,21 @@ Métricas Pre-Reranking → Post-Reranking:
 • NDCG@5:      0.108 → 0.189 (+75.0%)
 ```
 
-#### E5-Large - Sin Recuperación
+#### E.6.1.4 E5-Large - Sin Recuperación
 ```
 Todas las métricas permanecen en 0.000
 Reranking no puede compensar falla en recuperación inicial
 ```
 
-### Patrones del Reranking
+### E.6.2 Patrones del Reranking
 
 1. **Modelos ya optimizados (Ada, MPNet):** Mejoras principalmente en NDCG (reordenamiento)
 2. **Modelos sub-óptimos (MiniLM):** Mejoras dramáticas en métricas principales
 3. **Modelos fallidos (E5-Large):** Sin impacto del reranking
 
-## Métricas de Calidad Semántica
+## E.7 Métricas de Calidad Semántica
 
-### Ranking por BERTScore F1
+### E.7.1 Ranking por BERTScore F1
 
 | Posición | Modelo | BERTScore F1 | Diferencia vs Líder |
 |----------|--------|--------------|---------------------|
@@ -290,7 +290,7 @@ Reranking no puede compensar falla en recuperación inicial
 | 🥉 3° | Ada | 0.732 | -0.007 |
 | 4° | MiniLM | 0.729 | -0.010 |
 
-### Ranking por Faithfulness
+### E.7.2 Ranking por Faithfulness
 
 | Posición | Modelo | Faithfulness | Diferencia vs Líder |
 |----------|--------|--------------|---------------------|
@@ -301,9 +301,9 @@ Reranking no puede compensar falla en recuperación inicial
 
 **Observación Crítica:** E5-Large lidera en calidad semántica pero falla completamente en recuperación.
 
-## Matrices de Confusión por Modelo
+## E.8 Matrices de Confusión por Modelo
 
-### Ada - Distribución de Scores de Similaridad
+### E.8.1 Ada - Distribución de Scores de Similaridad
 
 | Rango de Score | Documentos | Relevantes | Precisión Local |
 |---------------|------------|------------|-----------------|
@@ -313,7 +313,7 @@ Reranking no puede compensar falla en recuperación inicial
 | 0.50-0.59 | 25 | 1 | 4.0% |
 | <0.50 | 60 | 0 | 0.0% |
 
-### MPNet - Distribución Similar
+### E.8.2 MPNet - Distribución Similar
 
 | Rango de Score | Documentos | Relevantes | Precisión Local |
 |---------------|------------|------------|-----------------|
@@ -323,9 +323,9 @@ Reranking no puede compensar falla en recuperación inicial
 | 0.40-0.49 | 35 | 0 | 0.0% |
 | <0.40 | 40 | 0 | 0.0% |
 
-## Análisis de Casos Extremos
+## E.9 Análisis de Casos Extremos
 
-### Mejor Caso: Ada Query #3
+### E.9.1 Mejor Caso: Ada Query #3
 ```
 Query: "Configure Azure Key Vault access policies"
 Top Result: 
@@ -335,7 +335,7 @@ Top Result:
 - Post-reranking: Mantuvo posición #1
 ```
 
-### Peor Caso: E5-Large Todas las Queries
+### E.9.2 Peor Caso: E5-Large Todas las Queries
 ```
 Query: [Any query]
 Top Results: 
@@ -344,7 +344,7 @@ Top Results:
 - Relevance: ❌ Sistema no funcional
 ```
 
-### Caso de Mayor Mejora: MiniLM Query #7
+### E.9.3 Caso de Mayor Mejora: MiniLM Query #7
 ```
 Query: "Troubleshoot Azure SQL connection timeouts"
 Pre-reranking:
@@ -356,9 +356,9 @@ Post-reranking:
 - Precision@5: 0.200 (+200% mejora local)
 ```
 
-## Correlaciones Entre Métricas
+## E.10 Correlaciones Entre Métricas
 
-### Matriz de Correlación (Todos los Modelos)
+### E.10.1 Matriz de Correlación (Todos los Modelos)
 
 |                | Precision@5 | Recall@5 | NDCG@5 | BERTScore F1 |
 |----------------|-------------|----------|--------|--------------|
@@ -372,42 +372,42 @@ Post-reranking:
 - **NDCG vs BERTScore:** Alta correlación (0.891) - ambas capturan calidad
 - **Precision vs BERTScore:** Correlación negativa (-0.156) - confirma limitación del ground truth
 
-## Recomendaciones Basadas en Métricas
+## E.11 Recomendaciones Basadas en Métricas
 
-### Para Selección de Modelo
+### E.11.1 Para Selección de Modelo
 
-#### Escenario 1: Máxima Precisión
+#### E.11.1.1 Escenario 1: Máxima Precisión
 **Recomendación:** Ada o MPNet (empate en Precision@5 = 0.055)
 - Mejor rendimiento en métricas tradicionales
 - Costos: Ada (API) vs MPNet (local)
 
-#### Escenario 2: Eficiencia + Reranking  
+#### E.11.1.2 Escenario 2: Eficiencia + Reranking  
 **Recomendación:** MiniLM + CrossEncoder
 - Precision@5 competitive: 0.036 (65% de Ada con reranking)
 - Menor costo computacional (384D vs 1536D)
 - Mayor beneficio del reranking (+100%)
 
-#### Escenario 3: Calidad Semántica
+#### E.11.1.3 Escenario 3: Calidad Semántica
 **Recomendación:** MPNet (si se configura correctamente E5-Large)
 - BERTScore F1: 0.739 (empatado con E5-Large)
 - Faithfulness: 0.518 (segundo mejor)
 - Sistema funcional (vs E5-Large fallido)
 
-### Para Optimización del Sistema
+### E.11.2 Para Optimización del Sistema
 
-#### Prioridad Alta
+#### E.11.2.1 Prioridad Alta
 1. **Investigar falla E5-Large:** Potencial mejor modelo si se configura correctamente
 2. **Expandir muestra:** n>20 para significancia estadística
 3. **Evaluar ground truth alternativo:** Capturar relevancia semántica real
 
-#### Prioridad Media
+#### E.11.2.2 Prioridad Media
 1. **Optimizar reranking:** Especialmente beneficioso para MiniLM
 2. **Hybrid search:** Combinar semántica + léxica
 3. **Fine-tuning dominio:** Especializar embeddings para terminología Azure
 
-## Conclusiones del Análisis Detallado
+## E.12 Conclusiones del Análisis Detallado
 
-### Hallazgos Principales Verificados
+### E.12.1 Hallazgos Principales Verificados
 
 1. **No hay modelo universalmente superior:** Cada modelo tiene fortalezas específicas
 2. **Reranking diferencial:** Mayor beneficio en modelos eficientes (MiniLM)
@@ -415,14 +415,14 @@ Post-reranking:
 4. **Limitación estadística:** Muestra insuficiente para significancia (n=11)
 5. **Ground truth restrictivo:** Subestima efectividad real del sistema
 
-### Métricas Más Informativas
+### E.12.2 Métricas Más Informativas
 
 1. **BERTScore F1:** Mejor indicador de calidad práctica
 2. **NDCG@5:** Captura beneficio del reranking efectivamente  
 3. **Faithfulness:** Evalúa consistencia factual de respuestas
 4. **Precision@5:** Útil pero limitado por ground truth estricto
 
-### Implicaciones para Futuras Investigaciones
+### E.12.3 Implicaciones para Futuras Investigaciones
 
 - **Aumentar n a 50-100 preguntas** para validación estadística robusta
 - **Implementar evaluación humana** complementaria a métricas automáticas

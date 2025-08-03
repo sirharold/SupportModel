@@ -1,12 +1,12 @@
-# ANEXO C: CONFIGURACIÓN DE AMBIENTE
+# C. CONFIGURACIÓN DE AMBIENTE
 
-## Introducción
+## C.1 Introducción
 
 Este anexo proporciona las instrucciones detalladas para configurar el ambiente de desarrollo y ejecución del sistema RAG para recuperación semántica de documentación técnica de Microsoft Azure. La configuración se basa en las dependencias especificadas en `requirements.txt` y ha sido validada en los entornos utilizados durante la investigación experimental.
 
-## Requisitos del Sistema
+## C.2 Requisitos del Sistema
 
-### Requisitos Mínimos de Hardware
+### C.2.1 Requisitos Mínimos de Hardware
 
 **Para Desarrollo y Testing:**
 - **CPU**: 4 cores mínimo (Intel i5/AMD Ryzen 5 o superior)
@@ -20,16 +20,16 @@ Este anexo proporciona las instrucciones detalladas para configurar el ambiente 
 - **Almacenamiento**: 50GB+ SSD (ChromaDB + modelos + datos)
 - **GPU**: Opcional, mejora rendimiento de embeddings (CUDA compatible)
 
-### Requisitos de Software
+### C.2.2 Requisitos de Software
 
 - **Sistema Operativo**: Linux (Ubuntu 20.04+), macOS (10.15+), Windows 10+
 - **Python**: 3.8.0 o superior (3.9.x recomendado)
 - **pip**: Última versión
 - **Git**: Para clonado del repositorio
 
-## Configuración del Ambiente Python
+## C.3 Configuración del Ambiente Python
 
-### 1. Creación de Ambiente Virtual
+### C.3.1 Creación de Ambiente Virtual
 
 ```bash
 # Crear ambiente virtual
@@ -42,9 +42,9 @@ source venv_support_model/bin/activate
 venv_support_model\Scripts\activate
 ```
 
-### 2. Instalación de Dependencias
+### C.3.2 Instalación de Dependencias
 
-#### Instalación Estándar
+#### C.3.2.1 Instalación Estándar
 
 ```bash
 # Actualizar pip
@@ -54,7 +54,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-#### Dependencias Principales (requirements.txt)
+#### C.3.2.2 Dependencias Principales (requirements.txt)
 
 ```txt
 # Core APIs y Base de Datos
@@ -90,7 +90,7 @@ google-auth-oauthlib==1.2.2       # OAuth para Google APIs
 google-api-python-client==2.175.0 # Cliente Python para APIs Google
 ```
 
-### 3. Verificación de Instalación
+### C.3.3 Verificación de Instalación
 
 ```bash
 # Verificar instalación Python
@@ -103,9 +103,9 @@ python -c "import sentence_transformers; print('Sentence-Transformers:', sentenc
 python -c "import streamlit; print('Streamlit:', streamlit.__version__)"
 ```
 
-## Configuración de Variables de Ambiente
+## C.4 Configuración de Variables de Ambiente
 
-### 1. Archivo .env
+### C.4.1 Archivo .env
 
 Crear archivo `.env` en el directorio raíz del proyecto:
 
@@ -132,7 +132,7 @@ EVAL_TOP_K=10
 EVAL_BATCH_SIZE=4
 ```
 
-### 2. Variables de Sistema (Opcional)
+### C.4.2 Variables de Sistema (Opcional)
 
 ```bash
 # Configurar variables permanentes (Linux/macOS)
@@ -144,9 +144,9 @@ source ~/.bashrc
 [Environment]::SetEnvironmentVariable("OPENAI_API_KEY", "your_key_here", "User")
 ```
 
-## Configuración de ChromaDB
+## C.5 Configuración de ChromaDB
 
-### 1. Inicialización de Base de Datos
+### C.5.1 Inicialización de Base de Datos
 
 ```python
 # Script de inicialización (initialize_chromadb.py)
@@ -166,7 +166,7 @@ print("ChromaDB inicializado correctamente")
 print(f"Ubicación: /Users/haroldgomez/chromadb2")
 ```
 
-### 2. Verificación de Colecciones
+### C.5.2 Verificación de Colecciones
 
 ```python
 # Verificar estado de colecciones
@@ -191,9 +191,9 @@ def verify_collections():
 verify_collections()
 ```
 
-## Configuración de Modelos de Embedding
+## C.6 Configuración de Modelos de Embedding
 
-### 1. Descarga Automática de Modelos
+### C.6.1 Descarga Automática de Modelos
 
 Los modelos se descargan automáticamente en el primer uso:
 
@@ -222,7 +222,7 @@ for model_name in models:
         print(f"❌ {model_name}: Error - {e}")
 ```
 
-### 2. Configuración de CrossEncoder
+### C.6.2 Configuración de CrossEncoder
 
 ```python
 # Test de CrossEncoder para reranking
@@ -242,11 +242,11 @@ scores = reranker.predict([(query, doc) for doc in documents])
 print(f"   Scores de ejemplo: {scores}")
 ```
 
-## Configuración de la Aplicación Streamlit
+## C.7 Configuración de la Aplicación Streamlit
 
-### 1. Configuración Básica
+### C.7.1 Configuración Básica
 
-Crear archivo `streamlit_app/.streamlit/config.toml`:
+Crear archivo `.streamlit/config.toml` en el directorio raíz del proyecto:
 
 ```toml
 [global]
@@ -267,18 +267,21 @@ secondaryBackgroundColor = "#f5f5f5"
 textColor = "#000000"
 ```
 
-### 2. Test de Aplicación
+### C.7.2 Test de Aplicación
 
 ```bash
-# Ejecutar aplicación Streamlit
-streamlit run streamlit_app/app.py
+# Ejecutar aplicación Streamlit principal
+streamlit run src/apps/main_qa_app.py
+
+# O ejecutar página de resultados experimentales
+streamlit run src/apps/cumulative_metrics_results_matplotlib.py
 
 # Debería abrir automáticamente en: http://localhost:8501
 ```
 
-## Resolución de Problemas Comunes
+## C.8 Resolución de Problemas Comunes
 
-### 1. Errores de Instalación
+### C.8.1 Errores de Instalación
 
 **Error: "Microsoft Visual C++ 14.0 is required" (Windows)**
 ```bash
@@ -293,7 +296,7 @@ pip install --upgrade pip setuptools wheel
 pip install --no-cache-dir -r requirements.txt
 ```
 
-### 2. Errores de Memoria
+### C.8.2 Errores de Memoria
 
 **Error: "RuntimeError: [enforce fail at CPUAllocator.cpp]"**
 ```bash
@@ -302,7 +305,7 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 ```
 
-### 3. Errores de ChromaDB
+### C.8.3 Errores de ChromaDB
 
 **Error: "ConnectionError: Could not connect to ChromaDB"**
 ```python
@@ -313,7 +316,7 @@ os.makedirs(chromadb_path, exist_ok=True)
 os.chmod(chromadb_path, 0o755)
 ```
 
-### 4. Errores de API
+### C.8.4 Errores de API
 
 **Error: "OpenAI API rate limit exceeded"**
 ```python
@@ -333,22 +336,22 @@ def safe_api_call(func, *args, **kwargs):
                 raise
 ```
 
-## Configuración para Desarrollo
+## C.9 Configuración para Desarrollo
 
-### 1. Herramientas de Desarrollo
+### C.9.1 Herramientas de Desarrollo
 
 ```bash
 # Instalación de herramientas de desarrollo
 pip install pytest black flake8 jupyter
 
 # Formateo de código
-black src/ streamlit_app/
+black src/ Docs/Analisis/
 
 # Linting
-flake8 src/ streamlit_app/ --max-line-length=88
+flake8 src/ Docs/Analisis/ --max-line-length=88
 ```
 
-### 2. Pre-commit Hooks (Opcional)
+### C.9.2 Pre-commit Hooks (Opcional)
 
 ```bash
 # Instalación de pre-commit
@@ -372,9 +375,9 @@ EOF
 pre-commit install
 ```
 
-## Configuración para Producción
+## C.10 Configuración para Producción
 
-### 1. Optimizaciones de Performance
+### C.10.1 Optimizaciones de Performance
 
 ```bash
 # Variables de ambiente para producción
@@ -384,7 +387,7 @@ export MKL_NUM_THREADS=4
 export CUDA_VISIBLE_DEVICES=0  # Si GPU disponible
 ```
 
-### 2. Configuración de Logging
+### C.10.2 Configuración de Logging
 
 ```python
 # logging_config.py
@@ -403,9 +406,9 @@ def setup_logging():
 setup_logging()
 ```
 
-## Verificación Final del Ambiente
+## C.11 Verificación Final del Ambiente
 
-### Script de Verificación Completa
+### C.11.1 Script de Verificación Completa
 
 ```python
 # verify_environment.py
@@ -462,7 +465,7 @@ Ejecutar verificación:
 python verify_environment.py
 ```
 
-## Soporte y Contacto
+## C.12 Soporte y Contacto
 
 Para problemas de configuración no cubiertos en este anexo:
 

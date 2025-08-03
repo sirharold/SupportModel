@@ -79,6 +79,7 @@ build/
 # ===============================
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+colab_data/old_versions/
 
 # ===============================
 # EDITORES E IDEs

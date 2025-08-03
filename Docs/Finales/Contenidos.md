@@ -41,7 +41,32 @@
   4. CrossEncoders y Reranking    
   5. Bases de Datos Vectoriales    
 
-  CAPÍTULO IV: METODOLOGÍA    
+  CAPÍTULO IV: ANÁLISIS EXPLORATORIO DE DATOS (EDA)
+  1. Características del Corpus de Documentos
+     1.1. Composición General del Corpus
+     1.2. Análisis de Longitud de Documentos
+     1.3. Distribución Temática del Corpus
+     1.4. Análisis de Calidad del Corpus
+  2. Características del Dataset de Preguntas
+     2.1. Composición del Dataset de Preguntas
+     2.2. Análisis de Longitud de Preguntas
+     2.3. Distribución de Tipos de Preguntas
+     2.4. Análisis de Ground Truth
+  3. Análisis de Correspondencia entre Datos
+     3.1. Mapping Preguntas-Documentos
+     3.2. Distribución Temática de Ground Truth
+     3.3. Calidad de la Correspondencia
+  4. Hallazgos Principales del EDA
+     4.1. Características Estructurales
+     4.2. Implicaciones para el Sistema RAG
+     4.3. Benchmarking del Corpus
+  5. Recomendaciones para Mejoras
+     5.1. Mejoras al Corpus de Documentación
+     5.2. Mejoras al Dataset de Preguntas
+     5.3. Mejoras Metodológicas
+  6. Conclusiones del EDA
+
+  CAPÍTULO V: METODOLOGÍA    
   1. Diseño de la Investigación    
   2. Recolección y Preparación de Datos    
      2.1. Extracción de Microsoft Learn    
@@ -55,7 +80,7 @@
      4.2. Parámetros de Búsqueda    
   5. Proceso de Evaluación    
 
-  CAPÍTULO V: IMPLEMENTACIÓN    
+  CAPÍTULO VI: IMPLEMENTACIÓN    
   1. Tecnologías Utilizadas    
   2. Arquitectura del Sistema    
      2.1. Componente de Indexación    
@@ -71,7 +96,7 @@
   6. Interfaz de Usuario (Streamlit)    
   7. Optimizaciones y Mejoras    
 
-  CAPÍTULO VI: RESULTADOS Y ANÁLISIS    
+  CAPÍTULO VII: RESULTADOS Y ANÁLISIS    
   1. Resultados por Modelo de Embedding    
      1.1. Ada (OpenAI)    
      1.2. MPNet    
@@ -85,7 +110,7 @@
   4. Análisis de Casos de Uso    
   5. Discusión de Resultados    
 
-  CAPÍTULO VII: CONCLUSIONES Y TRABAJO FUTURO    
+  CAPÍTULO VIII: CONCLUSIONES Y TRABAJO FUTURO    
   1. Conclusiones Principales    
   2. Contribuciones del Trabajo  
   3. Limitaciones Encontradas    

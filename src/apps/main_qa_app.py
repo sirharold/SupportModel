@@ -17,15 +17,16 @@ from src.core.qa_pipeline import answer_question_documents_only, answer_question
 from src.services.auth.clients import initialize_clients
 from src.services.local_models import preload_tinyllama_model
 from src.apps.comparison_page import show_comparison_page
-from src.apps.batch_queries_page import show_batch_queries_page
+# from src.apps.batch_queries_page import show_batch_queries_page  # Module doesn't exist
 from src.apps.data_analysis_page import show_data_analysis_page
 from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.apps.cumulative_metrics_results_matplotlib import show_cumulative_metrics_results_page as show_cumulative_metrics_results_matplotlib_page
 from src.apps.question_answer_comparison import show_question_answer_comparison_page
 from src.apps.cumulative_comparison import show_cumulative_comparison_page
-from src.apps.cumulative_n_questions_config import show_cumulative_n_questions_config_page
-from src.apps.cumulative_n_questions_results import show_cumulative_n_questions_results_page
+# from src.apps.cumulative_n_questions_config import show_cumulative_n_questions_config_page  # Module doesn't exist
+# from src.apps.cumulative_n_questions_results import show_cumulative_n_questions_results_page  # Module doesn't exist
+from src.apps.chapter_4_visualizations import main as show_chapter_4_visualizations
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -118,16 +119,14 @@ page = st.sidebar.radio(
     "Selecciona una página:",
     [
         "🔍 Búsqueda Individual",
-        #"📊 Consultas en Lote",
-        #"🔬 Comparación de Modelos",
-        #"🔄 Comparador Pregunta vs Respuesta",
-        #"📊 Análisis Acumulativo N Preguntas",
+        "📊 Visualizaciones Capítulo 4",
         "📈 Análisis de Datos",
+        "🔬 Comparación de Modelos",
+        "🔄 Comparador Pregunta vs Respuesta",
+        "📊 Análisis Acumulativo N Preguntas",
         "⚙️ Configuración Métricas Acumulativas",
         "📈 Resultados Métricas Acumulativas",
         "📊 Resultados Matplotlib",
-        #"🔧 Configuración Análisis N Preguntas (Colab)",
-        #"📊 Resultados Análisis N Preguntas (Colab)",
     ],
     index=0
 )
@@ -1132,8 +1131,8 @@ if page == "🔍 Búsqueda Individual":
         st.metric("Tiempo promedio", f"{st.session_state.session_metrics['avg_response_time']:.2f}s")
         st.metric("Docs recuperados", st.session_state.session_metrics['total_docs_retrieved'])
 
-elif page == "📊 Consultas en Lote":
-    show_batch_queries_page()
+# elif page == "📊 Consultas en Lote":
+#     show_batch_queries_page()  # Module doesn't exist
 
 elif page == "🔬 Comparación de Modelos":
     show_comparison_page()
@@ -1143,6 +1142,9 @@ elif page == "🔄 Comparador Pregunta vs Respuesta":
 
 elif page == "📊 Análisis Acumulativo N Preguntas":
     show_cumulative_comparison_page()
+
+elif page == "📊 Visualizaciones Capítulo 4":
+    show_chapter_4_visualizations()
 
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()
@@ -1154,10 +1156,10 @@ elif page == "📈 Resultados Métricas Acumulativas":
 elif page == "📊 Resultados Matplotlib":
     show_cumulative_metrics_results_matplotlib_page()
 
-elif page == "🔧 Configuración Análisis N Preguntas (Colab)":
-    show_cumulative_n_questions_config_page()
-elif page == "📊 Resultados Análisis N Preguntas (Colab)":
-    show_cumulative_n_questions_results_page()
+# elif page == "🔧 Configuración Análisis N Preguntas (Colab)":
+#     show_cumulative_n_questions_config_page()  # Module doesn't exist
+# elif page == "📊 Resultados Análisis N Preguntas (Colab)":
+#     show_cumulative_n_questions_results_page()  # Module doesn't exist
 
 # Footer común
 st.markdown("---")

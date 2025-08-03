@@ -1,12 +1,12 @@
-# ANEXO D: EJEMPLOS DE CONSULTAS Y RESPUESTAS
+# D. EJEMPLOS DE CONSULTAS Y RESPUESTAS
 
-## Introducción
+## D.1 Introducción
 
 Este anexo presenta ejemplos representativos de consultas técnicas evaluadas durante la investigación experimental, junto con las respuestas y documentos recuperados por el sistema RAG. Los ejemplos están basados en datos reales del corpus de Microsoft Q&A y documentación de Microsoft Learn, proporcionando una visión práctica del comportamiento del sistema en diferentes tipos de consultas técnicas.
 
-## Categorización de Consultas
+## D.2 Categorización de Consultas
 
-### Tipos de Consultas Identificadas
+### D.2.1 Tipos de Consultas Identificadas
 
 Basándose en el análisis del corpus de 13,436 preguntas, las consultas se categorizan en:
 
@@ -15,11 +15,11 @@ Basándose en el análisis del corpus de 13,436 preguntas, las consultas se cate
 3. **Consultas Conceptuales (22%)**: Entendimiento de conceptos y arquitecturas
 4. **Consultas de Implementación (15%)**: Pasos específicos de implementación
 
-## Ejemplos por Categoría
+## D.3 Ejemplos por Categoría
 
-### 1. Consultas de Configuración
+### D.3.1 Consultas de Configuración
 
-#### Ejemplo 1.1: Configuración de Azure Active Directory
+#### D.3.1.1 Ejemplo: Configuración de Azure Active Directory
 
 **Consulta Original:**
 "How do I configure dynamic membership rules for Azure AD groups based on user attributes?"
@@ -49,7 +49,7 @@ stored in your directory...
 
 **Análisis:** El sistema identificó correctamente el documento más relevante en la primera posición, demostrando efectividad para consultas específicas de configuración.
 
-#### Ejemplo 1.2: Configuración de Storage Account
+#### D.3.1.2 Ejemplo: Configuración de Storage Account
 
 **Consulta Original:**
 "What are the steps to configure Azure Storage encryption with customer-managed keys?"
@@ -65,9 +65,9 @@ stored in your directory...
 - **NDCG@5 Mejora:** 0.108 → 0.189 (+75% con CrossEncoder)
 - **Documento más específico promovido a posición #1**
 
-### 2. Consultas de Troubleshooting
+### D.3.2 Consultas de Troubleshooting
 
-#### Ejemplo 2.1: Problemas de Conectividad
+#### D.3.2.1 Ejemplo: Problemas de Conectividad
 
 **Consulta Original:**
 "Virtual machine cannot connect to SQL Database, getting timeout errors"
@@ -86,7 +86,7 @@ stored in your directory...
 - **Debilidad:** Requiere síntesis de información de múltiples fuentes
 - **Mejora con Reranking:** CrossEncoder ordena por especificidad del problema
 
-#### Ejemplo 2.2: Errores de Deployment
+#### D.3.2.2 Ejemplo: Errores de Deployment
 
 **Consulta Original:**
 "ARM template deployment fails with 'resource already exists' error"
@@ -105,9 +105,9 @@ stored in your directory...
 - **Título:** "Resolve errors for resource already exists"
 - **Contenido:** Guía específica para manejar conflictos de nombres en ARM templates
 
-### 3. Consultas Conceptuales
+### D.3.3 Consultas Conceptuales
 
-#### Ejemplo 3.1: Arquitecturas de Referencia
+#### D.3.3.1 Ejemplo: Arquitecturas de Referencia
 
 **Consulta Original:**
 "What is the difference between Azure Service Bus and Event Hubs for messaging scenarios?"
@@ -125,7 +125,7 @@ Este ejemplo ilustra la **falla crítica de configuración de E5-Large** identif
 - Pero falla completamente en la recuperación de documentos relevantes
 - Sugiere problema en la fase de embedding, no en la generación
 
-#### Ejemplo 3.2: Comparación de Servicios
+#### D.3.3.2 Ejemplo: Comparación de Servicios
 
 **Consulta Original:**
 "When should I use Azure Functions vs Logic Apps for automation?"
@@ -141,9 +141,9 @@ Este ejemplo ilustra la **falla crítica de configuración de E5-Large** identif
 - **Context Precision:** Alta (documentos directamente comparativos)
 - **Faithfulness:** 0.518 (respuesta consistente con fuentes)
 
-### 4. Consultas de Implementación
+### D.3.4 Consultas de Implementación
 
-#### Ejemplo 4.1: Pasos de Configuración Específicos
+#### D.3.4.1 Ejemplo: Pasos de Configuración Específicos
 
 **Consulta Original:**
 "How to implement Azure disk encryption with Platform Managed Keys step by step?"
@@ -166,31 +166,31 @@ Título: "Server-side encryption of Azure Disk Storage"
 
 **Implicación:** Demuestra la limitación del ground truth estricto. Documentos con alta similitud semántica no son reconocidos como relevantes por ausencia de enlaces explícitos.
 
-## Análisis de Patrones de Recuperación
+## D.4 Análisis de Patrones de Recuperación
 
-### 1. Fortalezas Identificadas
+### D.4.1 Fortalezas Identificadas
 
-#### Alta Similitud Semántica
+#### D.4.1.1 Alta Similitud Semántica
 - **Promedio Cosine Similarity:** >0.79 en primer resultado para Ada/MPNet
 - **Consistencia:** Sistema encuentra documentos semánticamente relacionados consistentemente
 
-#### Beneficio del Reranking
+#### D.4.1.2 Beneficio del Reranking
 - **MiniLM:** +100% mejora en métricas principales con CrossEncoder
 - **Casos exitosos:** Especialmente efectivo para consultas específicas vs. generales
 
-### 2. Debilidades Identificadas
+### D.4.2 Debilidades Identificadas
 
-#### Ground Truth Restrictivo
+#### D.4.2.1 Ground Truth Restrictivo
 - **Problema:** Documentos útiles no reconocidos por ausencia de enlaces explícitos
 - **Evidencia:** BERTScore F1 ≥ 0.729 vs Precision@5 ≤ 0.055
 
-#### Variabilidad por Complejidad
+#### D.4.2.2 Variabilidad por Complejidad
 - **Consultas simples:** Mayor éxito en recuperación
 - **Consultas complejas:** Requieren síntesis de múltiples documentos
 
-## Casos de Éxito y Fallo
+## D.5 Casos de Éxito y Fallo
 
-### Caso de Éxito: Configuración Específica
+### D.5.1 Caso de Éxito: Configuración Específica
 
 **Consulta:** "Configure Azure Key Vault access policies for service principals"
 
@@ -204,7 +204,7 @@ Título: "Server-side encryption of Azure Disk Storage"
 2. **Documentación especializada:** Existe documento específico para esta tarea
 3. **Embeddings apropiados:** Ada captura correctamente la relación semántica
 
-### Caso de Fallo Aparente: Documentos Relacionados
+### D.5.2 Caso de Fallo Aparente: Documentos Relacionados
 
 **Consulta:** "Best practices for Azure resource naming conventions"
 
@@ -219,9 +219,9 @@ Título: "Server-side encryption of Azure Disk Storage"
 
 **Conclusión:** Fallo del método de evaluación, no del sistema.
 
-## Mejoras Observadas con Reranking
+## D.6 Mejoras Observadas con Reranking
 
-### Ejemplo: Promoción de Documentos Específicos
+### D.6.1 Ejemplo: Promoción de Documentos Específicos
 
 **Consulta:** "How to troubleshoot Azure SQL connection timeouts?"
 
@@ -237,30 +237,30 @@ Título: "Server-side encryption of Azure Disk Storage"
 
 **Mejora:** NDCG@5 incrementa 75% debido a reordenamiento efectivo
 
-## Recomendaciones para Consultas
+## D.7 Recomendaciones para Consultas
 
-### Para Usuarios del Sistema
+### D.7.1 Para Usuarios del Sistema
 
-#### Consultas Más Efectivas:
+#### D.7.1.1 Consultas Más Efectivas:
 1. **Ser específico:** "Configure Azure Key Vault" vs "Azure security"
 2. **Incluir contexto:** "Azure Functions vs Logic Apps for automation"
 3. **Usar terminología oficial:** Nombres exactos de servicios Azure
 
-#### Consultas Menos Efectivas:
+#### D.7.1.2 Consultas Menos Efectivas:
 1. **Demasiado generales:** "How to use Azure?"
 2. **Sin contexto:** "Error message troubleshooting"
 3. **Múltiples temas:** "Configure networks, storage, and compute"
 
-### Para Desarrolladores del Sistema
+### D.7.2 Para Desarrolladores del Sistema
 
-#### Mejoras Sugeridas:
+#### D.7.2.1 Mejoras Sugeridas:
 1. **Query expansion:** Expandir consultas con sinónimos técnicos
 2. **Context window:** Aumentar ventana de contexto para documentos largos
 3. **Multi-document synthesis:** Combinar información de múltiples fuentes
 
-## Métricas de Calidad por Tipo de Consulta
+## D.8 Métricas de Calidad por Tipo de Consulta
 
-### Análisis Cuantitativo
+### D.8.1 Análisis Cuantitativo
 
 | Tipo de Consulta | Precision@5 | BERTScore F1 | Beneficio Reranking |
 |------------------|-------------|--------------|-------------------|
@@ -274,16 +274,16 @@ Título: "Server-side encryption of Azure Disk Storage"
 - **Troubleshooting:** Mayor beneficio del reranking (documentos específicos promovidos)
 - **Calidad semántica:** Consistente entre tipos (BERTScore ~0.73-0.75)
 
-## Conclusiones de los Ejemplos
+## D.9 Conclusiones de los Ejemplos
 
-### Hallazgos Principales
+### D.9.1 Hallazgos Principales
 
 1. **Sistema efectivo para consultas específicas:** Especialmente configuración y troubleshooting directo
 2. **Reranking valioso:** Especialmente para promover documentos específicos sobre generales
 3. **Limitación de evaluación:** Ground truth subestima efectividad real del sistema
 4. **Calidad semántica alta:** BERTScore indica documentos útiles incluso cuando no "oficialmente" relevantes
 
-### Implicaciones Prácticas
+### D.9.2 Implicaciones Prácticas
 
 Para implementación en producción:
 - **Combinar métricas:** No depender solo de precision/recall tradicional

@@ -1,6 +1,6 @@
-# CAPÍTULO VI: RESULTADOS Y ANÁLISIS
+# 7. RESULTADOS Y ANÁLISIS
 
-## Introducción
+## 7.1 Introducción
 
 Este capítulo presenta los resultados experimentales del sistema RAG desarrollado para la recuperación semántica de documentación técnica de Microsoft Azure. Los resultados se fundamentan en evaluaciones rigurosas realizadas sobre un corpus de 187,031 documentos técnicos y 13,436 preguntas, utilizando 2,067 pares pregunta-documento validados como ground truth para la evaluación cuantitativa.
 
@@ -8,9 +8,9 @@ La experimentación siguió el paradigma de test collection establecido por Cran
 
 El análisis aborda sistemáticamente cada uno de los objetivos específicos planteados en el Capítulo I, proporcionando evidencia empírica para evaluar la efectividad de diferentes arquitecturas de embeddings, técnicas de reranking, y metodologías de evaluación en el dominio técnico especializado de Microsoft Azure.
 
-## 1. Resultados por Modelo de Embedding
+## 7.2 Resultados por Modelo de Embedding
 
-### 1.1 Configuración Experimental
+### 7.2.1 Configuración Experimental
 
 La evaluación experimental se ejecutó el 26 de julio de 2025, procesando 11 preguntas de prueba distribuidas entre 4 modelos de embedding diferentes. La configuración experimental verificada incluye:
 
@@ -27,9 +27,9 @@ La evaluación experimental se ejecutó el 26 de julio de 2025, procesando 11 pr
 - **Dimensiones por modelo:** Ada (1,536D), E5-Large (1,024D), MPNet (768D), MiniLM (384D)
 - **Ground truth:** 2,067 pares pregunta-documento validados
 
-### 1.2 Ada (OpenAI text-embedding-ada-002)
+### 7.2.2 Ada (OpenAI text-embedding-ada-002)
 
-#### 1.2.1 Métricas de Recuperación
+#### 7.2.2.1 Métricas de Recuperación
 
 El modelo Ada demostró el mejor rendimiento general entre todos los modelos evaluados, tanto en la fase de recuperación inicial como después del reranking:
 
@@ -51,7 +51,7 @@ El modelo Ada demostró el mejor rendimiento general entre todos los modelos eva
 
 {**PLACEHOLDER_FIGURA_6.1:** Gráfico de barras comparando métricas de Ada antes y después del reranking}
 
-#### 1.2.2 Métricas RAG Especializadas
+#### 7.2.2.2 Métricas RAG Especializadas
 
 **Calidad de Generación (RAGAS):**
 - **Faithfulness:** 0.482 (buena consistencia factual)
@@ -64,13 +64,13 @@ El modelo Ada demostró el mejor rendimiento general entre todos los modelos eva
 - **BERTScore Recall:** 0.724
 - **BERTScore F1:** 0.732
 
-#### 1.2.3 Análisis de Casos Específicos
+#### 7.2.2.3 Análisis de Casos Específicos
 
 El análisis detallado de documentos recuperados muestra que Ada logra identificar documentos semánticamente relacionados con scores de similitud coseno superiores a 0.79 en el primer resultado. Sin embargo, la evaluación estricta basada en enlaces explícitos en respuestas aceptadas revela que muchos documentos relevantes no obtienen reconocimiento en las métricas tradicionales de precisión, evidenciando las limitaciones del criterio de evaluación más que deficiencias del modelo.
 
-### 1.3 MPNet (multi-qa-mpnet-base-dot-v1)
+### 7.2.3 MPNet (multi-qa-mpnet-base-dot-v1)
 
-#### 1.3.1 Métricas de Recuperación
+#### 7.2.3.1 Métricas de Recuperación
 
 MPNet, optimizado específicamente para tareas de pregunta-respuesta, demostró rendimiento comparable a Ada en las métricas principales:
 
@@ -92,7 +92,7 @@ MPNet, optimizado específicamente para tareas de pregunta-respuesta, demostró 
 
 {**PLACEHOLDER_FIGURA_6.2:** Gráfico de barras comparando métricas de MPNet antes y después del reranking}
 
-#### 1.3.2 Métricas RAG Especializadas
+#### 7.2.3.2 Métricas RAG Especializadas
 
 **Calidad de Generación (RAGAS):**
 - **Faithfulness:** 0.518 (mejor que Ada)
@@ -100,13 +100,13 @@ MPNet, optimizado específicamente para tareas de pregunta-respuesta, demostró 
 - **BERTScore Recall:** 0.731
 - **BERTScore F1:** 0.739
 
-#### 1.3.3 Análisis Especializado Q&A
+#### 7.2.3.3 Análisis Especializado Q&A
 
 La especialización de MPNet en tareas de pregunta-respuesta se refleja en su superior rendimiento en métricas de calidad semántica, particularmente en faithfulness y BERTScore, donde supera consistentemente a Ada. Esto sugiere que aunque ambos modelos recuperan documentos similares, MPNet genera representaciones más apropiadas para tareas de generación de respuestas.
 
-### 1.4 MiniLM (all-MiniLM-L6-v2)
+### 7.2.4 MiniLM (all-MiniLM-L6-v2)
 
-#### 1.4.1 Métricas de Recuperación
+#### 7.2.4.1 Métricas de Recuperación
 
 MiniLM, como modelo más ligero (384 dimensiones), mostró el rendimiento más bajo en métricas de recuperación, pero demostró mejoras significativas con el reranking:
 
@@ -128,7 +128,7 @@ MiniLM, como modelo más ligero (384 dimensiones), mostró el rendimiento más b
 
 {**PLACEHOLDER_FIGURA_6.3:** Gráfico de barras mostrando las mejoras dramáticas de MiniLM con reranking}
 
-#### 1.4.2 Métricas RAG Especializadas
+#### 7.2.4.2 Métricas RAG Especializadas
 
 **Calidad de Generación (RAGAS):**
 - **Faithfulness:** 0.509 (competitivo)
@@ -136,13 +136,13 @@ MiniLM, como modelo más ligero (384 dimensiones), mostró el rendimiento más b
 - **BERTScore Recall:** 0.721
 - **BERTScore F1:** 0.729
 
-#### 1.4.3 Impacto del Reranking
+#### 7.2.4.3 Impacto del Reranking
 
 MiniLM es el modelo que más se beneficia del CrossEncoder reranking, duplicando su rendimiento en las métricas principales. Este resultado sugiere que aunque las representaciones iniciales son menos precisas debido a la menor dimensionalidad, el reranking neural puede compensar efectivamente estas limitaciones, haciendo de MiniLM una opción viable para aplicaciones con restricciones de recursos.
 
-### 1.5 E5-Large (intfloat/e5-large-v2)
+### 7.2.5 E5-Large (intfloat/e5-large-v2)
 
-#### 1.5.1 Métricas de Recuperación - Falla Crítica
+#### 7.2.5.1 Métricas de Recuperación - Falla Crítica
 
 E5-Large presentó una falla crítica en todas las métricas de recuperación, con valores de 0.0 en todas las categorías tanto antes como después del reranking:
 
@@ -159,7 +159,7 @@ E5-Large presentó una falla crítica en todas las métricas de recuperación, c
 
 {**PLACEHOLDER_FIGURA_6.4:** Gráfico mostrando el contraste entre E5-Large (todas las métricas en 0) y otros modelos}
 
-#### 1.5.2 Métricas RAG Especializadas - Calidad Contradictoria
+#### 7.2.5.2 Métricas RAG Especializadas - Calidad Contradictoria
 
 Paradójicamente, E5-Large mostró el mejor rendimiento en métricas de generación RAG:
 
@@ -169,7 +169,7 @@ Paradójicamente, E5-Large mostró el mejor rendimiento en métricas de generaci
 - **BERTScore Recall:** 0.731
 - **BERTScore F1:** 0.739
 
-#### 1.5.3 Análisis de la Falla
+#### 7.2.5.3 Análisis de la Falla
 
 El contraste entre métricas de recuperación nulas y alta calidad en generación sugiere un problema específico en la compatibilidad entre E5-Large y el dominio técnico de Azure, posiblemente relacionado con:
 
@@ -179,11 +179,11 @@ El contraste entre métricas de recuperación nulas y alta calidad en generació
 
 Esta situación representa un caso de estudio valioso sobre la importancia de la configuración adecuada de modelos especializados.
 
-## 2. Análisis Comparativo
+## 7.3 Análisis Comparativo
 
-### 2.1 Métricas de Precisión
+### 7.3.1 Métricas de Precisión
 
-#### 2.1.1 Ranking de Modelos por Precision@5
+#### 7.3.1.1 Ranking de Modelos por Precision@5
 
 **Ranking ANTES del Reranking:**
 1. **Ada y MPNet:** 0.055 (empate)
@@ -197,9 +197,9 @@ Esta situación representa un caso de estudio valioso sobre la importancia de la
 
 {**PLACEHOLDER_TABLA_6.1:** Tabla comparativa detallada de todas las métricas por modelo}
 
-#### 2.1.2 Análisis de Significancia Estadística
+#### 7.3.1.2 Análisis de Significancia Estadística
 
-Los tests de Wilcoxon realizados sobre 10 muestras por comparación (archivo `wilcoxon_test_results.csv`) revelan resultados estadísticamente importantes:
+Los tests de Wilcoxon realizados sobre 10 muestras por comparación (archivo `Docs/Analisis/wilcoxon_test_results.csv`) revelan resultados estadísticamente importantes:
 
 **Hallazgos Principales:**
 - **No hay diferencias estadísticamente significativas** entre modelos (todos los p-valores > 0.05)
@@ -211,9 +211,9 @@ Este resultado sugiere que las diferencias observadas pueden ser debidas al tama
 
 {**PLACEHOLDER_FIGURA_6.5:** Heatmap de p-valores del test de Wilcoxon entre todos los pares de modelos}
 
-### 2.2 Métricas de Relevancia Semántica
+### 7.3.2 Métricas de Relevancia Semántica
 
-#### 2.2.1 Análisis BERTScore
+#### 7.3.2.1 Análisis BERTScore
 
 Los resultados de BERTScore, que evalúa similitud semántica utilizando representaciones contextuales, muestran un patrón diferente al de las métricas de recuperación tradicionales:
 
@@ -225,7 +225,7 @@ Los resultados de BERTScore, que evalúa similitud semántica utilizando represe
 
 Esta inversión en el ranking sugiere que las métricas de recuperación basadas en enlaces explícitos pueden no capturar completamente la calidad semántica de las respuestas generadas.
 
-#### 2.2.2 Análisis de Faithfulness
+#### 7.3.2.2 Análisis de Faithfulness
 
 **Ranking por Faithfulness (RAGAS):**
 1. **E5-Large:** 0.591 (+13.9% vs promedio)
@@ -235,9 +235,9 @@ Esta inversión en el ranking sugiere que las métricas de recuperación basadas
 
 {**PLACEHOLDER_FIGURA_6.6:** Gráfico radar comparando las cinco métricas principales por modelo}
 
-### 2.3 Tiempos de Respuesta y Eficiencia
+### 7.3.3 Tiempos de Respuesta y Eficiencia
 
-#### 2.3.1 Análisis de Performance Temporal
+#### 7.3.3.1 Análisis de Performance Temporal
 
 **Tiempo de Procesamiento por Modelo (11 preguntas):**
 - **Tiempo total evaluación:** 774.78 segundos
@@ -250,7 +250,7 @@ Esta inversión en el ranking sugiere que las métricas de recuperación basadas
 - **Reranking CrossEncoder:** ~25% del tiempo total
 - **Generación RAG y evaluación:** ~50% del tiempo total
 
-#### 2.3.2 Eficiencia por Dimensionalidad
+#### 7.3.3.2 Eficiencia por Dimensionalidad
 
 **Relación Dimensiones vs Performance:**
 - **MiniLM (384D):** Mejor ratio eficiencia/rendimiento después del reranking
@@ -260,11 +260,11 @@ Esta inversión en el ranking sugiere que las métricas de recuperación basadas
 
 {**PLACEHOLDER_FIGURA_6.7:** Gráfico de dispersión mostrando dimensionalidad vs rendimiento vs tiempo de procesamiento}
 
-## 3. Impacto del CrossEncoder
+## 7.4 Impacto del CrossEncoder
 
-### 3.1 Análisis Cuantitativo del Reranking
+### 7.4.1 Análisis Cuantitativo del Reranking
 
-#### 3.1.1 Mejoras por Modelo
+#### 7.4.1.1 Mejoras por Modelo
 
 El impacto del CrossEncoder (`ms-marco-MiniLM-L-6-v2`) con normalización sigmoid varió significativamente entre modelos:
 
@@ -284,7 +284,7 @@ El impacto del CrossEncoder (`ms-marco-MiniLM-L-6-v2`) con normalización sigmoi
 
 {**PLACEHOLDER_FIGURA_6.8:** Gráfico de barras comparando el impacto porcentual del reranking por modelo y métrica}
 
-#### 3.1.2 Análisis de la Normalización Sigmoid
+#### 7.4.1.2 Análisis de la Normalización Sigmoid
 
 La implementación de normalización sigmoid en lugar de min-max permite comparabilidad entre modelos independientemente del número de documentos recuperados. El análisis del código de reranking (`src/core/reranker.py`) confirma:
 
@@ -295,9 +295,9 @@ final_scores = 1 / (1 + np.exp(-raw_scores))
 
 Esta aproximación mantiene scores interpretables en el rango [0,1] con distribución más natural que la normalización min-max, especialmente importante para comparaciones entre modelos con diferentes características de recuperación inicial.
 
-### 3.2 Análisis Cualitativo del Reranking
+### 7.4.2 Análisis Cualitativo del Reranking
 
-#### 3.2.1 Casos de Mejora Efectiva
+#### 7.4.2.1 Casos de Mejora Efectiva
 
 El reranking demuestra mayor efectividad en escenarios donde:
 
@@ -305,17 +305,17 @@ El reranking demuestra mayor efectividad en escenarios donde:
 2. **Consultas complejas:** CrossEncoder procesa conjuntamente query-documento, capturando interacciones que embeddings bi-encoder no detectan
 3. **Ordenamiento fino:** Mejoras en NDCG indican reordenamiento efectivo de documentos relevantes hacia posiciones superiores
 
-#### 3.2.2 Limitaciones del Reranking Observadas
+#### 7.4.2.2 Limitaciones del Reranking Observadas
 
 1. **Modelos ya optimizados:** Ada y MPNet muestran mejoras limitadas en precision/recall, sugiriendo que su recuperación inicial es difícil de superar
 2. **Fallas sistémicas:** E5-Large no se recupera con reranking, confirmando que el problema es en la fase de embedding inicial
 3. **Costo computacional:** El reranking representa ~25% del tiempo total de procesamiento
 
-## 4. Análisis de Casos de Uso
+## 7.5 Análisis de Casos de Uso
 
-### 4.1 Casos de Éxito
+### 7.5.1 Casos de Éxito
 
-#### 4.1.1 Recuperación Semántica Efectiva
+#### 7.5.1.1 Recuperación Semántica Efectiva
 
 **Ejemplo de Consulta Exitosa:**
 {**PLACEHOLDER_EJEMPLO_4.1:** Mostrar caso real donde Ada/MPNet recuperaron documentos relevantes con high cosine similarity scores}
@@ -325,14 +325,14 @@ El reranking demuestra mayor efectividad en escenarios donde:
 - **Coincidencia semántica:** La consulta y documento comparten conceptos técnicos sin overlap léxico exacto
 - **Beneficio del reranking:** Reordenamiento mejoró posición de documentos más específicos
 
-#### 4.1.2 Impacto Diferencial del Reranking
+#### 7.5.1.2 Impacto Diferencial del Reranking
 
 **Caso MiniLM - Mejora Dramática:**
 {**PLACEHOLDER_EJEMPLO_4.2:** Ejemplo específico donde MiniLM pasó de no recuperar documentos relevantes a encontrar múltiples resultados después del reranking}
 
-### 4.2 Casos de Fallo
+### 7.5.2 Casos de Fallo
 
-#### 4.2.1 Limitaciones de Ground Truth
+#### 7.5.2.1 Limitaciones de Ground Truth
 
 **Problema Identificado:** El criterio de evaluación basado en enlaces explícitos es más estricto que la realidad práctica.
 
@@ -341,7 +341,7 @@ El reranking demuestra mayor efectividad en escenarios donde:
 
 Esta situación ejemplifica una limitación metodológica más que una falla del sistema, sugiriendo la necesidad de criterios de evaluación más flexibles para dominios técnicos especializados.
 
-#### 4.2.2 Falla Sistemática E5-Large
+#### 7.5.2.2 Falla Sistemática E5-Large
 
 **Análisis Técnico de la Falla:**
 - **Hipótesis principal:** Incompatibilidad de configuración de prefijos
@@ -350,11 +350,11 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 {**PLACEHOLDER_FIGURA_6.9:** Diagrama de flujo mostrando donde falla E5-Large en el pipeline de recuperación}
 
-## 5. Discusión de Resultados
+## 7.6 Discusión de Resultados
 
-### 5.1 Respuesta a las Preguntas de Investigación
+### 7.6.1 Respuesta a las Preguntas de Investigación
 
-#### 5.1.1 Objetivo Específico 1: Corpus Comprehensivo ✅
+#### 7.6.1.1 Objetivo Específico 1: Corpus Comprehensivo ✅
 
 **Pregunta:** ¿Es posible construir un corpus representativo del conocimiento técnico de Microsoft Azure?
 
@@ -366,7 +366,7 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** El objetivo se cumplió exitosamente, estableciendo un benchmark para futuras investigaciones en el dominio.
 
-#### 5.1.2 Objetivo Específico 2: Arquitecturas de Embeddings ✅
+#### 7.6.1.2 Objetivo Específico 2: Arquitecturas de Embeddings ✅
 
 **Pregunta:** ¿Cuál es la arquitectura de embeddings óptima para documentación técnica especializada?
 
@@ -378,7 +378,7 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** No existe un "modelo óptimo" universal; la selección depende del balance entre precisión, costo y recursos computacionales.
 
-#### 5.1.3 Objetivo Específico 3: Sistema de Almacenamiento Vectorial ✅
+#### 7.6.1.3 Objetivo Específico 3: Sistema de Almacenamiento Vectorial ✅
 
 **Pregunta:** ¿Es ChromaDB adecuado para búsquedas semánticas a escala en dominios técnicos?
 
@@ -390,7 +390,7 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** ChromaDB es adecuado para investigación académica y prototipado, con ventajas significativas en simplicidad operacional sobre alternativas distribuidas.
 
-#### 5.1.4 Objetivo Específico 4: Mecanismos de Reranking ✅
+#### 7.6.1.4 Objetivo Específico 4: Mecanismos de Reranking ✅
 
 **Pregunta:** ¿Mejora el CrossEncoder la precisión de recuperación en documentación técnica?
 
@@ -402,7 +402,7 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** El reranking es especialmente valioso para modelos eficientes como MiniLM, permitiendo balance óptimo entre recursos y rendimiento.
 
-#### 5.1.5 Objetivo Específico 5: Evaluación Sistemática ✅
+#### 7.6.1.5 Objetivo Específico 5: Evaluación Sistemática ✅
 
 **Pregunta:** ¿Qué métricas capturan mejor la efectividad en recuperación de documentación técnica?
 
@@ -414,7 +414,7 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** Evaluación multi-métrica es esencial; ninguna métrica individual captura completamente la efectividad en dominios técnicos especializados.
 
-#### 5.1.6 Objetivo Específico 6: Metodología Reproducible ✅
+#### 7.6.1.6 Objetivo Específico 6: Metodología Reproducible ✅
 
 **Pregunta:** ¿Es la metodología suficientemente documentada y reproducible?
 
@@ -426,9 +426,9 @@ Esta situación ejemplifica una limitación metodológica más que una falla del
 
 **Conclusión:** La metodología cumple estándares de reproducibilidad científica, facilitando extensión y validación independiente.
 
-### 5.2 Limitaciones Identificadas y su Impacto
+### 7.6.2 Limitaciones Identificadas y su Impacto
 
-#### 5.2.1 Limitaciones de Evaluación
+#### 7.6.2.1 Limitaciones de Evaluación
 
 **Ground Truth Restrictivo:**
 Las métricas tradicionales basadas en enlaces explícitos subestiman la efectividad real del sistema. Esta limitación se evidencia en la contradicción entre métricas de recuperación bajas (Precision@5 ≤ 0.055) y alta calidad semántica (BERTScore F1 ≥ 0.729).
@@ -436,7 +436,7 @@ Las métricas tradicionales basadas en enlaces explícitos subestiman la efectiv
 **Tamaño de Muestra:**
 La evaluación con 11 preguntas, aunque suficiente para demostración de concepto, resulta insuficiente para detectar diferencias estadísticamente significativas entre modelos (todos los p-valores > 0.05 en tests de Wilcoxon).
 
-#### 5.2.2 Limitaciones Técnicas
+#### 7.6.2.2 Limitaciones Técnicas
 
 **Dependencia de Configuración:**
 El caso E5-Large demuestra que modelos técnicamente superiores pueden fallar completamente por configuración inadecuada, destacando la importancia crítica del fine-tuning específico por modelo.
@@ -444,41 +444,41 @@ El caso E5-Large demuestra que modelos técnicamente superiores pueden fallar co
 **Procesamiento Textual Limitado:**
 La exclusión de contenido multimedia representa una limitación significativa, dado que 30-40% de la documentación técnica moderna incluye elementos visuales complementarios.
 
-### 5.3 Contribuciones del Trabajo
+### 7.6.3 Contribuciones del Trabajo
 
-#### 5.3.1 Contribuciones Metodológicas
+#### 7.6.3.1 Contribuciones Metodológicas
 
 1. **Framework de Evaluación Multi-Métrica:** Primera aplicación sistemática de RAGAS + BERTScore + métricas tradicionales en documentación técnica especializada
 2. **Análisis Comparativo Riguroso:** Evaluación controlada de 4 arquitecturas de embedding con validación estadística
 3. **Metodología de Ground Truth:** Establecimiento de criterios objetivos basados en enlaces comunitarios validados
 
-#### 5.3.2 Contribuciones Técnicas
+#### 7.6.3.2 Contribuciones Técnicas
 
 1. **Optimización de Reranking:** Demostración de que CrossEncoder puede duplicar el rendimiento de modelos eficientes como MiniLM
 2. **Arquitectura ChromaDB:** Implementación escalable para investigación académica con >800K vectores
 3. **Pipeline Reproducible:** Sistema completo desde extracción hasta evaluación con documentación exhaustiva
 
-#### 5.3.3 Contribuciones al Dominio
+#### 7.6.3.3 Contribuciones al Dominio
 
 1. **Benchmark Especializado:** Establecimiento del corpus Azure más comprehensivo para investigación académica
 2. **Análisis de Dominio:** Identificación de desafíos específicos en recuperación de documentación técnica
 3. **Guías de Implementación:** Metodología completa replicable en otros dominios técnicos especializados
 
-### 5.4 Implicaciones para Futuras Investigaciones
+### 7.6.4 Implicaciones para Futuras Investigaciones
 
-#### 5.4.1 Direcciones de Mejora Inmediata
+#### 7.6.4.1 Direcciones de Mejora Inmediata
 
 1. **Expansión de Muestra:** Evaluación con 100+ preguntas para detectar diferencias estadísticamente significativas
 2. **Optimización E5-Large:** Investigación de configuraciones específicas para maximizar potencial del modelo
 3. **Evaluación Humana:** Complementar métricas automáticas con evaluación por expertos del dominio
 
-#### 5.4.2 Extensiones de Largo Plazo
+#### 7.6.4.2 Extensiones de Largo Plazo
 
 1. **Multimodalidad:** Incorporación de procesamiento de imágenes y diagramas técnicos
 2. **Fine-tuning Especializado:** Entrenamiento de modelos específicos para terminología Azure
 3. **Evaluación Cross-Domain:** Extensión a otros ecosistemas cloud (AWS, GCP)
 
-## Conclusión del Capítulo
+## 7.7 Conclusión del Capítulo
 
 Los resultados experimentales demuestran que es posible desarrollar sistemas efectivos de recuperación semántica para documentación técnica especializada, aunque con limitaciones importantes que requieren consideración cuidadosa. La evaluación rigurosa de 4 modelos de embedding sobre un corpus de 187,031 documentos técnicos proporciona evidencia empírica sólida sobre las capacidades y limitaciones de las arquitecturas actuales.
 
@@ -488,7 +488,7 @@ Los hallazgos principales confirman que: (1) modelos como Ada y MPNet ofrecen re
 
 Los resultados establecen una base sólida para futuras investigaciones en recuperación semántica de información técnica, proporcionando tanto metodologías reproducibles como identificación clara de áreas de mejora.
 
-## Referencias del Capítulo
+## 7.8 Referencias del Capítulo
 
 Cleverdon, C. (1967). The Cranfield tests on index language devices. *Aslib Proceedings*, 19(6), 173-194.
 
@@ -504,7 +504,7 @@ Zhang, T., Kishore, V., Wu, F., Weinberger, K. Q., & Artzi, Y. (2019). BERTScore
 
 Todos los resultados cuantitativos presentados en este capítulo provienen de archivos de datos experimentales verificables:
 - Métricas de rendimiento: `/data/cumulative_results_1753578255.json`
-- Análisis estadístico: `/wilcoxon_test_results.csv`
+- Análisis estadístico: `Docs/Analisis/wilcoxon_test_results.csv`
 - Ground truth: `/data/preguntas_con_links_validos.csv`
 - Configuración verificada: `data_verification: {is_real_data: true, no_simulation: true, no_random_values: true}`
 

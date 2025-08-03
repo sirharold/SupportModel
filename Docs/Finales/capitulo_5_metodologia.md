@@ -1,6 +1,6 @@
-# CAPÍTULO III: METODOLOGÍA
+# 5. METODOLOGÍA
 
-## Introducción
+## 5.1 Introducción
 
 La metodología empleada en este proyecto se fundamenta en el proceso estándar para minería de datos CRISP-DM (Cross-Industry Standard Process for Data Mining), adaptado específicamente para el desarrollo y evaluación de sistemas de recuperación de información semántica (Chapman et al., 2000; Shearer, 2000). El diseño metodológico se orienta hacia la construcción, implementación y evaluación rigurosa de un sistema RAG (Retrieval-Augmented Generation) especializado en el dominio técnico de Microsoft Azure.
 
@@ -8,9 +8,103 @@ La aproximación metodológica se estructura en seis fases principales: (1) comp
 
 El proyecto adopta un paradigma de investigación positivista, enfocándose en la medición cuantitativa del rendimiento de diferentes arquitecturas de recuperación semántica mediante métricas objetivas y procedimientos estadísticamente validados (Creswell & Creswell, 2017). La metodología incorpora elementos de investigación experimental controlada, donde se manipulan sistemáticamente las variables independientes (modelos de embeddings, estrategias de reranking) para evaluar su impacto en las variables dependientes (métricas de recuperación y calidad de respuestas).
 
-## 1. Diseño de la Investigación
+## 5.2 Diseño de la Investigación
 
-### 1.1 Enfoque Metodológico General
+### 5.2.1 Flujo Metodológico del Proyecto
+
+El siguiente diagrama presenta una vista integral del flujo metodológico empleado en este proyecto, mostrando las fases principales, sus interrelaciones y los entregables clave de cada etapa:
+
+```mermaid
+flowchart TB
+    %% Estilos
+    classDef phaseStyle fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b
+    classDef processStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
+    classDef outputStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
+    classDef decisionStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+
+    %% Fase 1: Conceptualización
+    A[FASE 1: CONCEPTUALIZACIÓN Y DISEÑO<br/>Semanas 1-3]:::phaseStyle
+    A --> A1[Identificación del Problema]:::processStyle
+    A --> A2[Revisión de Literatura]:::processStyle
+    A --> A3[Definición de Objetivos]:::processStyle
+    A1 & A2 & A3 --> A4[Diseño de Arquitectura RAG]:::outputStyle
+
+    %% Fase 2: Recolección de Datos
+    A4 --> B[FASE 2: RECOLECCIÓN Y PREPARACIÓN DE DATOS<br/>Semanas 4-8]:::phaseStyle
+    B --> B1[Web Scraping Microsoft Learn<br/>62,417 documentos]:::processStyle
+    B --> B2[Extracción Microsoft Q&A<br/>13,436 preguntas]:::processStyle
+    B1 & B2 --> B3[Procesamiento y Normalización]:::processStyle
+    B3 --> B4[Validación Ground Truth<br/>2,067 pares validados]:::outputStyle
+
+    %% Fase 3: Implementación de Embeddings
+    B4 --> C[FASE 3: IMPLEMENTACIÓN DE EMBEDDINGS<br/>Semanas 9-12]:::phaseStyle
+    C --> C1{Selección de Modelos}:::decisionStyle
+    C1 --> C2[Ada<br/>1,536 dim]:::processStyle
+    C1 --> C3[MPNet<br/>768 dim]:::processStyle
+    C1 --> C4[MiniLM<br/>384 dim]:::processStyle
+    C1 --> C5[E5-Large<br/>1,024 dim]:::processStyle
+    C2 & C3 & C4 & C5 --> C6[Generación Masiva de Embeddings<br/>187,031 chunks]:::outputStyle
+
+    %% Fase 4: Desarrollo de Reranking
+    C6 --> D[FASE 4: MECANISMOS DE RERANKING<br/>Semanas 13-15]:::phaseStyle
+    D --> D1[Implementación CrossEncoder<br/>ms-marco-MiniLM-L-6-v2]:::processStyle
+    D --> D2[Normalización Min-Max]:::processStyle
+    D1 & D2 --> D3[Pipeline Multi-Etapa Optimizado]:::outputStyle
+
+    %% Fase 5: Evaluación
+    D3 --> E[FASE 5: EVALUACIÓN EXPERIMENTAL<br/>Semanas 16-18]:::phaseStyle
+    E --> E1[Framework RAGAS]:::processStyle
+    E --> E2[Métricas Tradicionales<br/>Precision, Recall, F1, MRR, nDCG]:::processStyle
+    E --> E3[Métricas Semánticas<br/>BERTScore]:::processStyle
+    E1 & E2 & E3 --> E4{Configuraciones<br/>Experimentales}:::decisionStyle
+    E4 --> E5[40 Configuraciones<br/>4 modelos × 2 reranking × 5 k-values]:::outputStyle
+
+    %% Fase 6: Análisis
+    E5 --> F[FASE 6: ANÁLISIS Y DOCUMENTACIÓN<br/>Semanas 19-20]:::phaseStyle
+    F --> F1[Análisis Estadístico<br/>Test de Wilcoxon]:::processStyle
+    F --> F2[Validación de Resultados]:::processStyle
+    F1 & F2 --> F3[Documentación Final<br/>y Artefactos Reproducibles]:::outputStyle
+
+    %% Iteraciones y Feedback
+    E5 -.->|Feedback| C
+    F2 -.->|Refinamiento| D
+```
+
+### 5.2.2 Descripción de las Fases Metodológicas
+
+El flujo metodológico ilustrado representa un proceso sistemático y riguroso que garantiza la calidad científica del proyecto:
+
+**Fase 1 - Conceptualización y Diseño (Semanas 1-3):**
+- **Entrada**: Problemática identificada en sistemas de soporte técnico
+- **Proceso**: Análisis exhaustivo de literatura, definición de objetivos SMART
+- **Salida**: Arquitectura RAG completa con especificaciones técnicas
+
+**Fase 2 - Recolección y Preparación de Datos (Semanas 4-8):**
+- **Entrada**: Especificaciones de datos requeridos
+- **Proceso**: Web scraping ético, normalización de URLs, validación manual
+- **Salida**: Corpus validado de 62,417 documentos y 2,067 pares pregunta-documento
+
+**Fase 3 - Implementación de Embeddings (Semanas 9-12):**
+- **Entrada**: Corpus procesado y modelos seleccionados
+- **Proceso**: Generación paralela de embeddings para 4 arquitecturas
+- **Salida**: 187,031 vectores por modelo almacenados en ChromaDB
+
+**Fase 4 - Desarrollo de Reranking (Semanas 13-15):**
+- **Entrada**: Sistema de recuperación vectorial base
+- **Proceso**: Implementación de CrossEncoder con normalización Min-Max
+- **Salida**: Pipeline optimizado de recuperación en dos etapas
+
+**Fase 5 - Evaluación Experimental (Semanas 16-18):**
+- **Entrada**: Sistema completo y conjunto de evaluación
+- **Proceso**: Ejecución sistemática de 40 configuraciones experimentales
+- **Salida**: Métricas comprehensivas para análisis comparativo
+
+**Fase 6 - Análisis y Documentación (Semanas 19-20):**
+- **Entrada**: Resultados experimentales completos
+- **Proceso**: Validación estadística, documentación técnica
+- **Salida**: Artefactos reproducibles y conclusiones validadas
+
+### 5.2.3 Enfoque Metodológico General
 
 El diseño de investigación adoptado corresponde a un estudio experimental comparativo con enfoque cuantitativo, estructurado según los principios de Design Science Research (DSR) para sistemas de información (Hevner et al., 2004; Peffers et al., 2007). Este enfoque resulta particularmente apropiado para proyectos que buscan crear y evaluar artefactos tecnológicos innovadores para resolver problemas prácticos específicos.
 
@@ -22,7 +116,7 @@ La investigación sigue un diseño factorial que permite evaluar sistemáticamen
 
 Esta estructura factorial 4×2×5 genera 40 configuraciones experimentales diferentes, proporcionando una evaluación comprehensiva del espacio de diseño del sistema RAG.
 
-### 1.2 Paradigma de Evaluación
+### 5.2.4 Paradigma de Evaluación
 
 La evaluación se fundamenta en el paradigma de test collection establecido por Cranfield (Cleverdon, 1967) y posteriormente refinado para sistemas de recuperación de información modernos (Voorhees & Harman, 2005). Este paradigma requiere tres componentes esenciales:
 
@@ -32,7 +126,7 @@ La evaluación se fundamenta en el paradigma de test collection establecido por 
 
 La aplicación de este paradigma en el contexto de documentación técnica especializada presenta desafíos únicos relacionados con la especificidad del dominio, la evolución temporal de la documentación, y la variabilidad en la formulación de consultas técnicas (Kelly, 2009).
 
-### 1.3 Variables de Investigación
+### 5.2.5 Variables de Investigación
 
 Las variables del estudio se clasifican en tres categorías principales:
 
@@ -54,9 +148,9 @@ Las variables del estudio se clasifican en tres categorías principales:
 - Versiones de software (Python 3.12.2, ChromaDB 0.5.23)
 - Temperatura de modelos generativos (0.1)
 
-## 2. Planificación Temporal del Proyecto
+## 5.3 Planificación Temporal del Proyecto
 
-### 2.1 Cronograma General
+### 5.3.1 Cronograma General
 
 {Fecha de inicio del proyecto de 20 semanas} El proyecto se ejecutó en un período de 20 semanas, distribuidas según la siguiente planificación basada en los hitos documentados:
 
@@ -97,7 +191,7 @@ Las variables del estudio se clasifican en tres categorías principales:
 - Documentación técnica y académica
 - Preparación de artefactos reproducibles
 
-### 2.2 Carta Gantt Detallada
+### 5.3.2 Carta Gantt Detallada
 
 ```
 Actividad                    Sem 1-3  Sem 4-8  Sem 9-12  Sem 13-15  Sem 16-18  Sem 19-20
@@ -117,7 +211,7 @@ Análisis estadístico                                                    ██
 Documentación final                                                     ████████████
 ```
 
-### 2.3 Hitos Críticos y Entregables
+### 5.3.3 Hitos Críticos y Entregables
 
 Los hitos críticos del proyecto fueron:
 
@@ -127,9 +221,9 @@ Los hitos críticos del proyecto fueron:
 4. **Hito H4**: Finalización metodológica y documentación técnica
 5. **Hito H5**: Implementación de visualizaciones y análisis final
 
-## 3. Recolección y Preparación de Datos
+## 5.4 Recolección y Preparación de Datos
 
-### 3.1 Estrategia de Recolección de Datos
+### 5.4.1 Estrategia de Recolección de Datos
 
 La recolección de datos se ejecutó mediante un enfoque de web scraping sistemático y éticamente responsable, siguiendo las directrices establecidas para investigación académica con datos públicos (Landers & Behrend, 2015). La estrategia se fundamenta en dos corpus principales:
 
@@ -144,7 +238,7 @@ El proceso de extracción siguió protocolos éticos estrictos:
 **Corpus de Consultas Técnicas (Microsoft Q&A):**
 Las preguntas técnicas se recolectaron del foro público Microsoft Q&A, representando consultas reales de usuarios en contextos de soporte técnico. Este corpus proporciona variabilidad lingüística y diversidad en la formulación de problemas técnicos, elementos esenciales para evaluación robusta de sistemas de recuperación.
 
-### 3.2 Procesamiento y Normalización de Datos
+### 5.4.2 Procesamiento y Normalización de Datos
 
 El procesamiento de datos siguió un pipeline sistemático de limpieza y normalización diseñado para optimizar la calidad de los embeddings resultantes:
 
@@ -177,7 +271,7 @@ El establecimiento de ground truth siguió un proceso sistemático de filtrado:
 
 Este proceso garantizó un ground truth de alta calidad basado en correspondencias reales entre preguntas técnicas y documentación oficial.
 
-### 3.3 Características del Corpus Final
+### 5.4.3 Características del Corpus Final
 
 **Estadísticas del Corpus de Documentos:**
 - Total de documentos únicos: 62,417
@@ -186,7 +280,7 @@ Este proceso garantizó un ground truth de alta calidad basado en correspondenci
 - Longitud promedio por documento original: 1,048.0 tokens (σ=802.4) [calculado mediante `verify_document_statistics.py`]
 - Distribución de temas: Development (40.2%), Operations (27.6%), Security (19.9%), Azure Services (12.3%)
 
-#### 3.3.1 Metodología de Cálculo de Distribución Temática
+#### 5.4.3.1 Metodología de Cálculo de Distribución Temática
 
 La distribución temática del corpus se calculó mediante análisis automatizado de contenido implementado en el script `calculate_topic_distribution_v2.py`. La metodología empleó clasificación basada en palabras clave con ponderación por frecuencia, operando sobre una muestra estratificada de 5,000 documentos del corpus total.
 
@@ -211,9 +305,9 @@ La distribución temática del corpus se calculó mediante análisis automatizad
 - Longitud promedio de respuesta: 221.6 tokens (σ=182.7) [calculado mediante `verify_questions_statistics_v2.py`]
 - Distribución temporal: 2020-2025 (con concentración en 2023-2024: 77.3%) [calculado mediante `verify_questions_statistics_v2.py`]
 
-## 4. Implementación de Arquitecturas de Embedding
+## 5.5 Implementación de Arquitecturas de Embedding
 
-### 4.1 Selección y Justificación de Modelos
+### 5.5.1 Selección y Justificación de Modelos
 
 La selección de modelos de embedding se basó en criterios de rendimiento en benchmarks especializados, disponibilidad para investigación académica, y complementariedad arquitectónica (Muennighoff et al., 2023). Los modelos seleccionados representan diferentes enfoques arquitectónicos y estrategias de entrenamiento:
 
@@ -244,7 +338,7 @@ La selección de modelos de embedding se basó en criterios de rendimiento en be
 - **Dimensionalidad**: 1,024 dimensiones
 - **Ventajas**: Rendimiento superior en tareas de recuperación, robustez cross-domain
 
-### 4.2 Configuración Técnica de Embeddings
+### 5.5.2 Configuración Técnica de Embeddings
 
 **Configuración de Hardware y Software:**
 - **Sistema**: MacBook Pro 16,1 (Intel Core i7, 6 núcleos, 2.6 GHz)
@@ -301,9 +395,9 @@ def generate_query_embedding(self, question: str, model_name: str) -> np.ndarray
 
 Tiempo total de procesamiento y tamaños exactos pendientes de verificación con archivos parquet reales}.
 
-### 4.3 Almacenamiento en Base de Datos Vectorial
+### 5.5.3 Almacenamiento en Base de Datos Vectorial
 
-#### 4.3.1 Evolución de la Arquitectura de Almacenamiento: De Weaviate a ChromaDB
+#### 5.5.3.1 Evolución de la Arquitectura de Almacenamiento: De Weaviate a ChromaDB
 
 **Implementación Inicial con Weaviate Cloud:**
 La arquitectura inicial del sistema empleó Weaviate Cloud como base de datos vectorial, fundamentada en las siguientes ventajas técnicas (Weaviate, 2023):
@@ -330,7 +424,7 @@ La migración se basó en criterios técnicos específicos para optimización de
 - **Independencia operacional**: Ejecución completa offline para experimentación intensiva
 - **Eficiencia en iteración**: Ciclos de desarrollo más rápidos para ajuste de hiperparámetros
 
-#### 4.3.2 ChromaDB como Solución Final de Almacenamiento
+#### 5.5.3.2 ChromaDB como Solución Final de Almacenamiento
 La selección de ChromaDB se fundamentó en criterios técnicos específicos para investigación académica (ChromaDB Team, 2023):
 - **Simplicidad de configuración**: Instalación y configuración mínima
 - **Flexibilidad de metadatos**: Soporte nativo para filtros complejos
@@ -383,9 +477,9 @@ El sistema implementa 9 colecciones especializadas:
 
 Esta arquitectura permite comparaciones directas entre modelos manteniendo aislamiento de datos y optimización específica por modelo.
 
-## 5. Desarrollo de Mecanismos de Recuperación y Reranking
+## 5.6 Desarrollo de Mecanismos de Recuperación y Reranking
 
-### 5.1 Pipeline de Recuperación Multi-Etapa
+### 5.6.1 Pipeline de Recuperación Multi-Etapa
 
 El sistema implementa un pipeline de recuperación de dos etapas optimizado para balance entre eficiencia y precisión, siguiendo el paradigma establecido por sistemas de recuperación de gran escala (Karpukhin et al., 2020; Qu et al., 2021):
 
@@ -446,7 +540,7 @@ def rerank_with_cross_encoder(question: str, documents: list, cross_encoder, top
     return reranked[:top_k]
 ```
 
-### 5.2 Justificación del CrossEncoder Seleccionado
+### 5.6.2 Justificación del CrossEncoder Seleccionado
 
 **Modelo: cross-encoder/ms-marco-MiniLM-L-6-v2**
 
@@ -479,12 +573,12 @@ self.cross_encoder = CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')
 **Decisión de Normalización:**
 La aplicación de normalización Min-Max a los scores del CrossEncoder demostró mayor interpretabilidad y estabilidad que el uso directo de logits, proporcionando scores en el rango [0,1] más intuitivos para análisis comparativo entre modelos.
 
-### 5.3 Estrategia de Normalización de Scores
+### 5.6.3 Estrategia de Normalización de Scores
 
 **Baseline Comparativo:**
 El sistema establece como baseline los scores de recuperación vectorial sin reranking, permitiendo una comparación directa del impacto del CrossEncoder en las métricas de recuperación. Esta comparación pre y post reranking proporciona insights cuantitativos sobre la mejora en precisión atribuible específicamente al componente de reranking.
 
-### 5.4 Normalización de Scores
+### 5.6.4 Normalización de Scores
 
 La normalización Min-Max se implementó para garantizar comparabilidad de scores entre diferentes consultas y sesiones de evaluación:
 
@@ -498,15 +592,15 @@ donde S = {s_1, s_2, ..., s_n} son todos los scores para una consulta específic
 **Validación Empírica:**
 Análisis comparativo con normalización Z-score y sigmoid demostró que Min-Max produce distribuciones más estables y interpretables para evaluación de sistemas de recuperación, particularmente en métricas @k donde thresholding implícito es crítico.
 
-## 6. Framework de Evaluación Comprehensivo
+## 5.7 Framework de Evaluación Comprehensivo
 
-### 6.1 Selección del Conjunto de Evaluación
+### 5.7.1 Selección del Conjunto de Evaluación
 
 Para la evaluación sistemática del sistema, se utilizó una muestra de 10 consultas seleccionadas del conjunto total de 2,067 preguntas con ground truth validado. {Esta limitación en el tamaño de muestra se debió a restricciones computacionales y de tiempo, representando una evaluación piloto del sistema desarrollado}. 
 
 Si bien el tamaño de muestra es limitado para generalizaciones estadísticas robustas, proporciona insights iniciales sobre el comportamiento del sistema y establece la metodología para evaluaciones futuras de mayor escala.
 
-### 6.2 Diseño del Framework de Evaluación
+### 5.7.2 Diseño del Framework de Evaluación
 
 El framework de evaluación implementado combina métricas tradicionales de recuperación de información con métricas especializadas para sistemas RAG, siguiendo las mejores prácticas establecidas en la literatura de evaluación de sistemas de información (Sanderson, 2010; Ferro & Peters, 2019).
 
@@ -537,7 +631,7 @@ class ComprehensiveEvaluationFramework:
         return results
 ```
 
-### 6.2 Métricas Tradicionales de Recuperación
+### 5.7.3 Métricas Tradicionales de Recuperación
 
 **Precision@k:**
 Mide la proporción de documentos relevantes entre los k primeros documentos recuperados:
@@ -561,7 +655,7 @@ Métrica sofisticada que considera tanto relevancia como posición:
 nDCG@k = DCG@k / IDCG@k
 donde DCG@k = Σ(rel_i / log₂(i+1)) para i=1 hasta k.
 
-### 6.3 Métricas Especializadas RAG
+### 5.7.4 Métricas Especializadas RAG
 
 **Implementación RAGAS:**
 Se utilizó la biblioteca RAGAS (Es et al., 2023) para métricas especializadas en sistemas RAG:
@@ -640,7 +734,7 @@ Determina si toda la información necesaria para responder completamente está p
 **Faithfulness:**
 Evalúa consistencia factual entre la respuesta generada y el contexto proporcionado, detectando alucinaciones.
 
-### 6.4 Evaluación Semántica con BERTScore
+### 5.7.5 Evaluación Semántica con BERTScore
 
 **Configuración BERTScore:**
 ```python
@@ -672,7 +766,7 @@ La selección de `distiluse-base-multilingual-cased-v2` se basó en:
 - Robustez a variaciones estilísticas en texto técnico
 - Validación previa en dominios técnicos especializados
 
-### 6.5 Validación Estadística
+### 5.7.6 Validación Estadística
 
 **Diseño de Tests Estadísticos:**
 La validación estadística utiliza tests no paramétricos apropiados para métricas de recuperación:
@@ -707,7 +801,7 @@ Dado que se realizan múltiples comparaciones entre modelos, se aplica correcci�
 
 Para 6 comparaciones principales entre modelos, α_adjusted = 0.05/6 = 0.0083.
 
-### 6.6 Procedimientos de Reproducibilidad
+### 5.7.7 Procedimientos de Reproducibilidad
 
 **Control de Semillas Aleatorias:**
 ```python
@@ -752,9 +846,9 @@ experimental_config = {
 }
 ```
 
-## 7. Consideraciones Éticas y de Validez
+## 5.8 Consideraciones Éticas y de Validez
 
-### 7.1 Aspectos Éticos de la Investigación
+### 5.8.1 Aspectos Éticos de la Investigación
 
 **Uso Responsable de Datos Públicos:**
 Aunque todos los datos utilizados son públicamente accesibles, se implementaron protocolos éticos rigurosos:
@@ -769,10 +863,10 @@ Aunque todos los datos utilizados son públicamente accesibles, se implementaron
 - Procedimientos de evaluación completamente especificados
 - Configuraciones experimentales preservadas en formato serializado
 
-### 7.2 Validez Interna y Externa
+### 5.8.2 Validez Interna y Externa
 
 **Validez Interna:**
-- Control de variables confusas mediante diseño experimental riguroso
+- Control de variables extrañas (confounding variables) mediante diseño experimental riguroso, asegurando que las diferencias observadas en las métricas se deban únicamente a los modelos de embedding y estrategias de reranking evaluados, y no a factores externos como variaciones en el hardware, orden de procesamiento, o sesgo de selección
 - Uso de múltiples métricas independientes para validación cruzada
 - Validación estadística con corrección para comparaciones múltiples
 - Implementación de procedimientos de reproducibilidad estrictos
@@ -783,7 +877,7 @@ Aunque todos los datos utilizados son públicamente accesibles, se implementaron
 - Representatividad de consultas basada en datos reales de usuarios
 - Limitaciones temporales por naturaleza estática del corpus
 
-### 7.3 Limitaciones Metodológicas
+### 5.8.3 Limitaciones Metodológicas
 
 **Limitaciones del Ground Truth:**
 - Dependencia de enlaces explícitos en respuestas limita cobertura
@@ -800,7 +894,7 @@ Aunque todos los datos utilizados son públicamente accesibles, se implementaron
 - Evaluación en punto único en el tiempo
 - Posible obsolescencia de algunos enlaces de referencia
 
-## Conclusión del Capítulo
+## 5.9 Conclusión del Capítulo
 
 La metodología presentada proporciona un framework robusto y sistemático para la evaluación comprehensiva de sistemas RAG en dominios técnicos especializados. La combinación de métodos cuantitativos rigurosos, validación estadística apropiada, y consideraciones éticas sólidas garantiza la validez científica y la reproducibilidad de los resultados obtenidos.
 
@@ -808,7 +902,7 @@ El diseño experimental factorial permite evaluar sistemáticamente el impacto d
 
 Las limitaciones identificadas son inherentes al contexto de investigación y han sido mitigadas mediante diseño experimental cuidadoso y transparencia metodológica. Los resultados obtenidos mediante esta metodología proporcionan insights valiosos para el desarrollo de sistemas de recuperación semántica en dominios técnicos especializados.
 
-## Referencias del Capítulo
+## 5.10 Referencias del Capítulo
 
 Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C., & Wirth, R. (2000). CRISP-DM 1.0: Step-by-step data mining guide. *SPSS Inc.*
 
