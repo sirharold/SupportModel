@@ -127,42 +127,103 @@ Permite realizar consultas individuales sobre documentación de Azure y obtener 
 3. **Mejores Prácticas**: "Best practices for Azure SQL Database security"
 4. **Configuración**: "Configure Azure Application Gateway with SSL"
 
-## F.6 Página: 📈 Análisis de Datos
+## F.6 Página: 📈 Análisis de Datos (Capítulo 4)
 
 ### F.6.1 Propósito
-Proporciona estadísticas y visualizaciones sobre el corpus de documentos y las colecciones en ChromaDB.
+Presenta un mosaico completo con todas las figuras y visualizaciones del **Capítulo 4: Análisis Exploratorio de Datos** de la tesis, mostrando las características del corpus Microsoft Azure Documentation.
 
-### F.6.2 Secciones Principales
+### F.6.2 Contenido Principal
 
-#### **📊 Estadísticas del Corpus**
-- **Total de Documentos**: Número total de documentos únicos
-- **Total de Chunks**: Fragmentos procesados
-- **Promedio de Chunks por Documento**: Indicador de granularidad
-- **Tamaño Promedio de Chunk**: En caracteres
+#### **📊 Métricas Generales**
+Panel superior con 4 métricas clave:
+- **Total Documentos**: ~16,900 documentos procesados
+- **Total Chunks**: ~67,600 fragmentos generados  
+- **Total Preguntas**: ~18,000 de Microsoft Q&A
+- **Promedio Chunks/Doc**: ~4.0 fragmentos por documento
 
-#### **📈 Distribución de Documentos**
-- **Histograma**: Distribución de chunks por documento
-- **Interpretación**: Documentos con muchos chunks son más extensos/complejos
+#### **🎨 Mosaico de Figuras (6 visualizaciones)**
 
-#### **🗄️ Colecciones en ChromaDB**
-- **Tabla de Colecciones**: 
-  - Nombre de la colección
-  - Número de documentos
-  - Modelo de embedding usado
-  - Dimensionalidad de vectores
+**Fila 1: Distribuciones Principales**
+- **Figura 4.1**: Histograma de distribución de chunks por documento
+- **Figura 4.2**: Gráfico de pie de áreas temáticas de Azure
 
-### F.6.3 Uso de la Información
+**Fila 2: Análisis por Servicio y Preguntas**  
+- **Figura 4.3**: Boxplot de chunks por servicio de Azure
+- **Figura 4.4**: Histograma de tipos de preguntas Microsoft Q&A
 
-1. **Verificar Integridad**: Confirmar que todas las colecciones están pobladas
-2. **Comparar Modelos**: Ver diferencias en número de documentos por modelo
-3. **Identificar Problemas**: Detectar colecciones vacías o incompletas
-4. **Planificar Mejoras**: Identificar documentos que necesitan mejor segmentación
+**Fila 3: Proceso y Análisis Avanzado**
+- **Figura 4.5**: Diagrama de flujo del proceso de Ground Truth
+- **Figura 4.6**: Panel de análisis de complejidad (4 subfiguras)
 
-### F.6.4 Métricas Clave
+### F.6.3 Interpretación de las Visualizaciones
 
-- **Cobertura**: Porcentaje de documentos procesados exitosamente
-- **Balance**: Distribución uniforme entre colecciones
-- **Calidad**: Tamaño apropiado de chunks para recuperación efectiva
+#### **Figura 4.1: Distribución de Chunks**
+- Muestra la granularidad del corpus
+- Mayoría de documentos tienen 4-8 chunks
+- Líneas de media y mediana para referencia
+- Gradiente de colores por frecuencia
+
+#### **Figura 4.2: Áreas Temáticas**
+- **Compute & VMs**: 25% (área dominante)
+- **Storage & Databases**: 22% 
+- **Networking**: 18%
+- **Security & Identity**: 15%
+- **DevOps & Deployment**: 12%
+- **Monitoring & Analytics**: 8%
+
+#### **Figura 4.3: Chunks por Servicio**
+- Servicios complejos (Kubernetes, VMs) requieren más chunks
+- Boxplots muestran variabilidad por servicio
+- Ordenados por mediana descendente
+- Colores diferenciados por servicio
+
+#### **Figura 4.4: Tipos de Preguntas**
+- **Configuración**: 3,200 preguntas (dominante)
+- **Troubleshooting**: 2,800 preguntas
+- **Mejores Prácticas**: 2,400 preguntas
+- Refleja necesidades prácticas de usuarios
+
+#### **Figura 4.5: Proceso Ground Truth**
+- Flujo de 18,436 → 2,067 pares validados
+- Muestra filtros aplicados y porcentajes
+- Diagrama con nodos y flechas direccionales
+- Destaca la calidad sobre cantidad
+
+#### **Figura 4.6: Análisis de Complejidad**
+- **Subfigura 1**: Scatter plot longitud-chunks
+- **Subfigura 2**: Histograma longitud de queries
+- **Subfigura 3**: Matriz de correlación
+- **Subfigura 4**: Tendencias temporales
+
+### F.6.4 Hallazgos Principales Mostrados
+
+#### **📈 Características del Corpus**
+- 187,031 chunks procesados exitosamente
+- 62,417 documentos únicos de Microsoft Learn
+- Distribución equilibrada entre servicios principales
+- Granularidad óptima para recuperación semántica
+
+#### **❓ Características de las Preguntas**  
+- 18,436 preguntas originales de Microsoft Q&A
+- 2,067 pares validados con ground truth
+- 68.2% cobertura entre preguntas y documentos
+- Enfoque práctico en configuración y troubleshooting
+
+### F.6.5 Navegación y Uso
+
+1. **Exploración Visual**: Scroll vertical para ver todas las figuras
+2. **Interpretaciones**: Cada figura incluye explicación detallada
+3. **Métricas Destacadas**: Panel superior con estadísticas clave
+4. **Conclusiones**: Resumen de hallazgos al final de la página
+5. **Interactividad**: Figuras generadas dinámicamente con matplotlib
+
+### F.6.6 Valor para la Investigación
+
+Esta página consolida todo el análisis exploratorio en una vista comprehensiva que:
+- **Documenta la calidad** del corpus utilizado
+- **Justifica la metodología** de segmentación
+- **Muestra la cobertura** entre preguntas y documentos
+- **Valida la representatividad** del dataset de evaluación
 
 ## F.7 Página: ⚙️ Configuración Métricas Acumulativas
 

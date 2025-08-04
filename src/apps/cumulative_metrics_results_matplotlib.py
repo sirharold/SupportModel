@@ -28,6 +28,7 @@ def get_local_results_files():
     
     local_results_folders = [
         ".",  # Directorio raíz del proyecto (donde están los archivos reales)
+        "data",  # Carpeta data donde están los archivos de resultados
         "simulated_drive/results",
         "results"
     ]
@@ -96,26 +97,38 @@ def show_available_results_section():
     st.subheader("📂 Resultados Disponibles")
     
     # Intentar obtener archivos de Google Drive primero
-    with st.spinner("🔍 Buscando archivos de resultados en Google Drive..."):
-        files_result = get_all_results_files_from_drive()
+    try:
+        with st.spinner("🔍 Buscando archivos de resultados en Google Drive..."):
+            files_result = get_all_results_files_from_drive()
+    except Exception as e:
+        st.warning(f"⚠️ Error al conectar con Google Drive: {str(e)}")
+        files_result = {'success': False, 'error': str(e)}
     
     files = []
     gdrive_success = files_result['success'] and files_result.get('files')
     
     if gdrive_success:
         files = files_result['files']
+        # Asegurar que todos los archivos de Google Drive tengan el campo 'source'
+        for file in files:
+            if 'source' not in file:
+                file['source'] = 'gdrive'
         st.success(f"✅ Encontrados {len(files)} archivos de resultados en Google Drive")
     else:
         # Fallback a archivos locales
         st.warning("⚠️ No se pudieron obtener archivos de Google Drive, buscando archivos locales...")
-        with st.spinner("🔍 Buscando archivos de resultados locales..."):
-            local_files = get_local_results_files()
-        
-        if local_files:
-            files = local_files
-            st.info(f"📁 Encontrados {len(files)} archivos de resultados locales")
-        else:
-            st.error("❌ No se encontraron archivos de resultados ni en Google Drive ni localmente")
+        try:
+            with st.spinner("🔍 Buscando archivos de resultados locales..."):
+                local_files = get_local_results_files()
+            
+            if local_files:
+                files = local_files
+                st.info(f"📁 Encontrados {len(files)} archivos de resultados locales")
+            else:
+                st.error("❌ No se encontraron archivos de resultados ni en Google Drive ni localmente")
+        except Exception as e:
+            st.error(f"❌ Error buscando archivos locales: {str(e)}")
+            st.exception(e)
             
     if files:
         # Mostrar archivos en formato mejorado
@@ -136,8 +149,13 @@ def show_available_results_section():
                 
                 # Formatear la opción de display
                 if file_size:
-                    size_mb = int(file_size) / (1024 * 1024)
-                    size_str = f"{size_mb:.1f} MB"
+                    try:
+                        # Asegurar que file_size sea un número válido
+                        size_bytes = int(str(file_size))  # Convertir a string primero, luego a int
+                        size_mb = size_bytes / (1024 * 1024)
+                        size_str = f"{size_mb:.1f} MB"
+                    except (ValueError, TypeError):
+                        size_str = "N/A"
                 else:
                     size_str = "N/A"
                 
@@ -179,12 +197,13 @@ def show_available_results_section():
                 
                 st.write(f"📄 **Nombre:** {selected_file['file_name']}")
                 if 'size' in selected_file:
-                    if is_local:
-                        size_mb = int(selected_file['size']) / (1024 * 1024)
+                    try:
+                        # Manejar tanto archivos locales como de Google Drive
+                        size_bytes = int(str(selected_file['size']))
+                        size_mb = size_bytes / (1024 * 1024)
                         st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
-                    else:
-                        size_mb = int(selected_file['size']) / (1024 * 1024)
-                        st.write(f"📏 **Tamaño:** {size_mb:.1f} MB")
+                    except (ValueError, TypeError):
+                        st.write(f"📏 **Tamaño:** N/A")
                         
                 if 'modified_time' in selected_file:
                     st.write(f"📅 **Modificado:** {selected_file['modified_time']}")

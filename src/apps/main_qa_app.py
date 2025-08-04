@@ -18,6 +18,7 @@ from src.services.auth.clients import initialize_clients
 from src.services.local_models import preload_tinyllama_model
 from src.apps.data_analysis_page import show_data_analysis_page
 from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
+from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.apps.cumulative_metrics_results_matplotlib import show_cumulative_metrics_results_page as show_cumulative_metrics_results_matplotlib_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
@@ -1141,7 +1142,7 @@ elif page == "📈 Análisis de Datos":
 
 elif page == "⚙️ Configuración Métricas Acumulativas":
     show_cumulative_metrics_create_page()
-elif page == "📈 Resultados Métricas Acumulativas":
+elif page == "📊 Resultados Métricas Acumulativas":
     show_cumulative_metrics_results_page()
 elif page == "📊 Resultados Matplotlib":
     show_cumulative_metrics_results_matplotlib_page()
