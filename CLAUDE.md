@@ -156,3 +156,5 @@ def normalize_url(url: str) -> str:
 
 **Fecha de último análisis**: 2025-07-29
 **Estado**: Problema identificado, soluciones definidas, listo para implementación
+- Nunca uses datos aleatorios o inventados.
+- Si haces una inferencia, debes explicitar que lo estás haciendo

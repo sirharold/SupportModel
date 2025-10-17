@@ -17,7 +17,7 @@ SCOPES = [
 ]
 
 # Rutas de archivos
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TOKEN_FILE = os.path.join(PROJECT_ROOT, 'token.pickle')
 CREDENTIALS_FILE = os.path.join(PROJECT_ROOT, 'src', 'config', 'credentials.json')
 

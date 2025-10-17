@@ -744,7 +744,7 @@ def get_all_results_files_from_drive():
                     for pattern in patterns:
                         if pattern.match(file['name']):
                             valid_files.append(file)
-                            print(f"✅ Archivo válido encontrado: {file['name']}")
+                            #print(f"✅ Archivo válido encontrado: {file['name']}")
                             break
             
             if valid_files:
@@ -867,7 +867,7 @@ def get_all_results_files_from_drive():
                     'display_name': f"{file_name} ({modified_time_chile})"
                 }
                 results_files.append(file_info)
-                print(f"✅ Archivo de resultados encontrado: {file['name']}")
+                #print(f"✅ Archivo de resultados encontrado: {file['name']}")
             except Exception as e:
                 print(f"❌ Error procesando archivo {file.get('name', 'unknown')}: {e}")
         

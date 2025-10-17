@@ -16,10 +16,11 @@ import numpy as np
 from src.core.qa_pipeline import answer_question_documents_only, answer_question_with_rag
 from src.services.auth.clients import initialize_clients
 from src.services.local_models import preload_tinyllama_model
-from src.apps.data_analysis_page import show_data_analysis_page
+from src.apps.data_analysis_page_real import show_data_analysis_page
 from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_page
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.apps.cumulative_metrics_results_matplotlib import show_cumulative_metrics_results_page as show_cumulative_metrics_results_matplotlib_page
+from src.apps.sankey_relevance_flow import show_sankey_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -115,6 +116,7 @@ page = st.sidebar.radio(
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📊 Resultados Métricas Acumulativas",
+        "🔄 Diagrama Sankey - Flujo de Relevancia",
     ],
     index=0
 )
@@ -1144,6 +1146,8 @@ elif page == "⚙️ Configuración Métricas Acumulativas":
     show_cumulative_metrics_create_page()
 elif page == "📊 Resultados Métricas Acumulativas":
     show_cumulative_metrics_results_page()
+elif page == "🔄 Diagrama Sankey - Flujo de Relevancia":
+    show_sankey_page()
 elif page == "📊 Resultados Matplotlib":
     show_cumulative_metrics_results_matplotlib_page()
 

@@ -1171,50 +1171,61 @@ def _parse_llm_response(full_response_content: str) -> Dict[str, str]:
 
 def _generate_with_deepseek(deepseek_client, formatted_metrics: str) -> Dict[str, str]:
     """Generate analysis using DeepSeek model"""
+    # Usar el mismo prompt mejorado que Claude
     system_prompt = (
-        "You are a senior researcher specializing in information retrieval and RAG systems evaluation. "
-        "Provide a rigorous academic analysis of the experimental results. "
-        
-        "EXPERIMENTAL CONTEXT: "
-        "- Domain: Microsoft Learn technical documentation retrieval system "
-        "- Dataset: ~2,000 technical queries with ground-truth document links "
-        "- Corpus: 187,000 document chunks indexed at document level "
-        "- Evaluation: Standard IR metrics + semantic similarity assessment "
-        "- Reranking: CrossEncoder-based neural reranking applied "
-        
-        "EXPECTED BASELINES FOR TECHNICAL DOCUMENTATION: "
-        "- Precision@5 > 0.60 indicates good relevance "
-        "- NDCG@10 > 0.70 suggests effective ranking "
-        "- MRR > 0.50 shows users find answers quickly "
-        "- CrossEncoder should improve NDCG/MRR by >10% relative "
-        "- RAGAS/BERTScore > 0.80 indicates high semantic quality "
-        
-        "ANALYSIS REQUIREMENTS: "
-        "1. STATISTICAL SIGNIFICANCE: Focus on improvements >5% relative change "
-        "2. MODEL RANKING: Identify best/worst embeddings with quantitative justification "
-        "3. RERANKING ANALYSIS: Quantify CrossEncoder impact on ranking metrics "
-        "4. SEMANTIC ASSESSMENT: Interpret RAGAS/BERTScore values if available "
-        "5. ACADEMIC RIGOR: All claims must be supported by specific metrics "
-        
-        "MANDATORY OUTPUT FORMAT IN SPANISH: "
+        "Eres un investigador senior especializado en evaluación de sistemas de recuperación de información y RAG. "
+        "Tu tarea es proporcionar un análisis académico riguroso y MUY DETALLADO de los resultados experimentales. "
+
+        "CONTEXTO EXPERIMENTAL: "
+        "- Dominio: Sistema de recuperación de documentación técnica de Microsoft Learn "
+        "- Dataset: ~2,000 consultas técnicas con enlaces ground-truth validados "
+        "- Corpus: 187,000 chunks de documentos indexados a nivel de documento "
+        "- Evaluación: Métricas IR estándar + métricas RAG (RAGAS) + BERTScore "
+        "- Reranking: CrossEncoder neural (ms-marco-MiniLM-L-6-v2) con normalización Min-Max "
+        "- Optimizaciones: Cache OpenAI, modelo semantic similarity global, gpt-3.5-turbo-0125 "
+
+        "BASELINES ESPERADOS (incluye rangos de interpretación): "
+        "- Precision@5: >0.60=buena | 0.40-0.60=moderada | <0.40=baja "
+        "- Recall@5: >0.50=buena | 0.30-0.50=moderada | <0.30=baja "
+        "- F1@5: >0.50=bueno | 0.35-0.50=moderado | <0.35=bajo "
+        "- NDCG@10: >0.70=efectivo | 0.50-0.70=aceptable | <0.50=deficiente "
+        "- MRR: >0.50=rápido | 0.30-0.50=aceptable | <0.30=lento "
+        "- MAP@5: >0.50=buena | 0.35-0.50=moderada | <0.35=baja "
+        "- RAGAS Faithfulness: >0.80=alta | 0.60-0.80=aceptable | <0.60=preocupante "
+        "- RAGAS Answer Relevancy: >0.75=alta | 0.55-0.75=moderada | <0.55=baja "
+        "- RAGAS Answer Correctness: >0.70=correcta | 0.50-0.70=parcial | <0.50=incorrecta "
+        "- RAGAS Context Precision: >0.70=relevante | 0.50-0.70=ruido moderado | <0.50=mucho ruido "
+        "- RAGAS Context Recall: >0.70=buena | 0.50-0.70=parcial | <0.50=incompleta "
+        "- Semantic Similarity: >0.75=muy similar | 0.60-0.75=moderada | <0.60=diferente "
+        "- BERTScore F1: >0.80=alta | 0.65-0.80=buena | <0.65=necesita mejoras "
+
+        "REQUISITOS MANDATORY: "
+        "1. ANÁLISIS POR MÉTRICA INDIVIDUAL: Cada métrica debe tener valor exacto, clasificación vs baseline, interpretación práctica, y comparación entre modelos "
+        "2. COMPARACIÓN ENTRE MODELOS: Rankear modelos, cuantificar diferencias (X% más que Y), identificar mejor modelo "
+        "3. IMPACTO CROSSENCODER: Calcular mejora relativa ((after-before)/before)*100%, explicar POR QUÉ mejora/empeora "
+        "4. ANÁLISIS RAGAS/BERTSCORE: Evaluar cada métrica vs baseline, determinar si calidad es aceptable "
+        "5. TRADE-OFFS Y PATRONES: Identificar trade-offs, comportamiento por K, anomalías "
+        "6. RIGOR: Números exactos, cálculos de mejora, comparaciones cuantitativas "
+
+        "FORMATO EN ESPAÑOL: "
         "## Conclusiones "
-        "• [Modelo X logra Y rendimiento, significando Z de forma clara y práctica] "
-        "• [CrossEncoder mejora/empeora métrica M en N%, explicando por qué ocurre esto] "
-        "• [Comparación de embeddings con números específicos y interpretación simple] "
-        "• [Calidad semántica usando RAGAS/BERT explicado en términos entendibles] "
-        
+        "### 📊 Métricas IR "
+        "[Analizar Precision, Recall, F1, NDCG, MAP, MRR con valores exactos, clasificación, interpretación, comparación modelos, impacto CrossEncoder] "
+        "### 🤖 Métricas RAG "
+        "[Analizar Faithfulness, Answer Relevancy, Correctness, Context Precision/Recall, Semantic Similarity, BERTScore con valores y clasificaciones] "
+        "### 🏆 Ranking Modelos "
+        "[Tabla con ranking y justificación numérica] "
+        "### 🔄 Impacto CrossEncoder "
+        "[Mejoras before/after con porcentajes] "
+        "### ⚠️ Problemas "
+        "[Métricas bajo baseline, trade-offs, anomalías] "
+        ""
         "## 💡 Mejoras Prioritarias "
-        "1. [Acción específica y práctica - explicar QUÉ hacer exactamente y POR QUÉ] "
-        "2. [Segunda mejora con pasos concretos - evitar jerga técnica compleja] "
-        "3. [Mejora a largo plazo explicada de forma simple y clara] "
-        
-        "IMPORTANTE: "
-        "- Usa un lenguaje CLARO y DIRECTO, evita jerga técnica innecesaria "
-        "- Explica QUÉ significa cada número en términos prácticos "
-        "- Las mejoras deben ser ESPECÍFICAS y ACCIONABLES "
-        "- Si mencionas conceptos técnicos, explica brevemente qué significan "
-        
-        "Write in Spanish with academic precision but clear explanations. Focus on actionable insights supported by data."
+        "### 1. [Problema crítico] "
+        "**Evidencia:** [Métrica con valor]. **Impacto:** [Consecuencia]. **Acción:** [Paso técnico]. **Resultado:** [Mejora esperada]. "
+        "### 2-4. [Otros problemas con mismo formato] "
+        ""
+        "CRÍTICO: Números exactos, porcentajes de mejora, comparaciones cuantitativas, interpretaciones prácticas, exhaustividad. "
     )
     
     user_prompt = (
@@ -1239,52 +1250,235 @@ def _generate_with_deepseek(deepseek_client, formatted_metrics: str) -> Dict[str
     result['full_prompt'] = f"{system_prompt}\n\nDatos experimentales:\n{formatted_metrics}\n\n{user_prompt}"
     return result
 
+def _generate_with_claude(claude_client, formatted_metrics: str) -> Dict[str, str]:
+    """Generate analysis using Claude model via OpenRouter"""
+    system_prompt = (
+        "Eres un investigador senior especializado en evaluación de sistemas de recuperación de información y RAG. "
+        "Tu tarea es proporcionar un análisis académico riguroso y MUY DETALLADO de los resultados experimentales. "
+
+        "CONTEXTO EXPERIMENTAL: "
+        "- Dominio: Sistema de recuperación de documentación técnica de Microsoft Learn "
+        "- Dataset: ~2,000 consultas técnicas con enlaces ground-truth validados "
+        "- Corpus: 187,000 chunks de documentos indexados a nivel de documento "
+        "- Evaluación: Métricas IR estándar + métricas RAG (RAGAS) + BERTScore "
+        "- Reranking: CrossEncoder neural (ms-marco-MiniLM-L-6-v2) con normalización Min-Max "
+        "- Optimizaciones: Cache OpenAI, modelo semantic similarity global, gpt-3.5-turbo-0125 "
+
+        "BASELINES ESPERADOS PARA DOCUMENTACIÓN TÉCNICA: "
+        "- Precision@5 > 0.60 = buena relevancia | 0.40-0.60 = moderada | < 0.40 = necesita mejoras "
+        "- Recall@5 > 0.50 = buena cobertura | 0.30-0.50 = moderada | < 0.30 = baja cobertura "
+        "- F1@5 > 0.50 = buen balance | 0.35-0.50 = moderado | < 0.35 = necesita ajustes "
+        "- NDCG@10 > 0.70 = ranking efectivo | 0.50-0.70 = aceptable | < 0.50 = ranking deficiente "
+        "- MRR > 0.50 = usuarios encuentran respuestas rápido | 0.30-0.50 = aceptable | < 0.30 = lento "
+        "- MAP@5 > 0.50 = buena precisión promedio | 0.35-0.50 = moderada | < 0.35 = baja "
+        "- CrossEncoder debería mejorar NDCG/MRR en >10% relativo "
+        "- RAGAS Faithfulness > 0.80 = alta fidelidad | 0.60-0.80 = aceptable | < 0.60 = preocupante "
+        "- RAGAS Answer Relevancy > 0.75 = muy relevante | 0.55-0.75 = moderada | < 0.55 = irrelevante "
+        "- RAGAS Answer Correctness > 0.70 = correcta | 0.50-0.70 = parcial | < 0.50 = incorrecta "
+        "- RAGAS Context Precision > 0.70 = contexto relevante | 0.50-0.70 = algo ruido | < 0.50 = mucho ruido "
+        "- RAGAS Context Recall > 0.70 = buena cobertura | 0.50-0.70 = parcial | < 0.50 = incompleta "
+        "- Semantic Similarity > 0.75 = muy similar | 0.60-0.75 = moderada | < 0.60 = diferente "
+        "- BERTScore F1 > 0.80 = alta calidad | 0.65-0.80 = buena | < 0.65 = necesita mejoras "
+
+        "REQUISITOS DE ANÁLISIS (MANDATORY - DEBES CUMPLIRLOS TODOS): "
+        "1. ANÁLISIS POR MÉTRICA INDIVIDUAL: Para CADA métrica (Precision, Recall, F1, NDCG, MAP, MRR, Faithfulness, "
+        "   Answer Relevancy, Context Precision, etc.), proporciona: "
+        "   a) Valor numérico exacto encontrado "
+        "   b) Clasificación según baselines (excelente/bueno/moderado/bajo) "
+        "   c) Interpretación práctica (¿qué significa ese número para el usuario final?) "
+        "   d) Comparación con baseline esperado "
+        "   e) Si hay before/after, calcular mejora relativa: ((after-before)/before)*100% "
+
+        "2. COMPARACIÓN ENTRE MODELOS: Si hay múltiples modelos (ada, mpnet, e5-large, minilm): "
+        "   a) Rankear modelos por cada métrica importante (top-3 al menos) "
+        "   b) Cuantificar diferencias: \"Modelo X supera a Y en Z% en métrica M\" "
+        "   c) Identificar el mejor modelo general y justificar por qué "
+        "   d) Identificar debilidades específicas de cada modelo "
+
+        "3. IMPACTO DE CROSSENCODER: Analizar mejora/deterioro por reranking: "
+        "   a) Para métricas de ranking (NDCG, MRR, MAP): calcular mejora relativa "
+        "   b) Para métricas de relevancia (Precision, Recall): evaluar impacto "
+        "   c) Determinar si CrossEncoder es estadísticamente significativo (>5% mejora) "
+        "   d) Explicar POR QUÉ el CrossEncoder mejora/empeora ciertas métricas "
+
+        "4. ANÁLISIS DE CALIDAD SEMÁNTICA: Para métricas RAGAS y BERTScore: "
+        "   a) Evaluar cada métrica RAGAS individualmente vs baseline "
+        "   b) Identificar si hay problemas de faithfulness, relevancia o correctness "
+        "   c) Analizar BERTScore (precision, recall, F1) y semantic similarity "
+        "   d) Determinar si la calidad de respuestas es aceptable para producción "
+
+        "5. ANÁLISIS DE TRADE-OFFS Y PATRONES: "
+        "   a) Identificar trade-offs (ej: alta precision pero bajo recall) "
+        "   b) Analizar comportamiento a diferentes valores de K (K=1,5,10,20,50) "
+        "   c) Detectar patrones inesperados o anomalías en los datos "
+        "   d) Evaluar consistencia entre métricas relacionadas "
+
+        "6. RIGOR ACADÉMICO: TODOS los hallazgos deben tener: "
+        "   a) Números exactos de las métricas "
+        "   b) Cálculos de mejora relativa cuando aplique "
+        "   c) Comparaciones cuantitativas entre modelos/métodos "
+        "   d) Ninguna afirmación sin soporte numérico "
+
+        "FORMATO DE SALIDA OBLIGATORIO EN ESPAÑOL: "
+        "## Conclusiones "
+        ""
+        "### 📊 Análisis de Métricas de Recuperación (IR) "
+        "**Precision@K:** [Valor exacto]. [Clasificación vs baseline]. [Interpretación práctica]. [Comparación entre modelos con números]. [Impacto CrossEncoder con %]. "
+        ""
+        "**Recall@K:** [Valor exacto]. [Clasificación vs baseline]. [Interpretación práctica]. [Análisis de cobertura]. [Comparación entre modelos]. "
+        ""
+        "**F1@K:** [Valor exacto]. [Balance precision-recall]. [¿Es aceptable? ¿Por qué?]. [Mejores/peores modelos]. "
+        ""
+        "**NDCG@K:** [Valor exacto]. [Calidad del ranking]. [Impacto CrossEncoder: +X%]. [Comparación entre modelos]. "
+        ""
+        "**MAP@K:** [Valor exacto]. [Precisión promedio]. [Interpretación]. [Modelo ganador]. "
+        ""
+        "**MRR:** [Valor exacto]. [Velocidad encontrar primer relevante]. [¿Usuarios satisfechos?]. [CrossEncoder mejora: +X%]. "
+        ""
+        "### 🤖 Análisis de Métricas RAG (RAGAS + BERTScore) "
+        "**Faithfulness:** [Valor]. [¿Respuestas fieles al contexto?]. [¿Hay alucinaciones?]. [Comparación modelos]. "
+        ""
+        "**Answer Relevancy:** [Valor]. [¿Respuestas relevantes?]. [Clasificación vs baseline]. [Análisis por modelo]. "
+        ""
+        "**Answer Correctness:** [Valor]. [¿Respuestas correctas?]. [Nivel de exactitud]. [Modelos más/menos correctos]. "
+        ""
+        "**Context Precision:** [Valor]. [¿Contexto recuperado relevante?]. [¿Hay ruido?]. [Impacto en calidad]. "
+        ""
+        "**Context Recall:** [Valor]. [¿Contexto cubre información necesaria?]. [¿Información faltante?]. "
+        ""
+        "**Semantic Similarity:** [Valor]. [Similitud respuesta-ground truth]. [Interpretación]. "
+        ""
+        "**BERTScore (P/R/F1):** [Valores]. [Calidad token-level]. [Comparación vs baselines]. "
+        ""
+        "### 🏆 Ranking de Modelos "
+        "[Tabla o lista con ranking por métrica clave]. [Justificación numérica del mejor modelo]. [Análisis de fortalezas/debilidades]. "
+        ""
+        "### 🔄 Impacto del CrossEncoder "
+        "[Tabla con mejoras before/after]. [Métricas que más mejoran]. [Métricas que empeoran (si aplica)]. [¿Vale la pena el costo computacional?]. "
+        ""
+        "### ⚠️ Problemas Identificados "
+        "[Listar métricas por debajo de baseline]. [Trade-offs problemáticos]. [Anomalías detectadas]. [Métricas inconsistentes]. "
+        ""
+        "## 💡 Mejoras Prioritarias "
+        ""
+        "### 1. [Problema más crítico identificado] "
+        "**Evidencia:** [Métrica específica con valor]. "
+        "**Impacto:** [Consecuencia práctica para usuarios]. "
+        "**Acción:** [Paso específico y técnico]. "
+        "**Resultado Esperado:** [Mejora cuantificable esperada]. "
+        ""
+        "### 2. [Segundo problema en prioridad] "
+        "[Mismo formato detallado]. "
+        ""
+        "### 3. [Optimización a largo plazo] "
+        "[Mismo formato detallado]. "
+        ""
+        "### 4. [Mejora de eficiencia/costos] "
+        "[Análisis costo-beneficio]. "
+        ""
+        "INSTRUCCIONES FINALES CRÍTICAS: "
+        "- USA NÚMEROS EXACTOS EN TODO MOMENTO "
+        "- CALCULA PORCENTAJES DE MEJORA/DETERIORO "
+        "- COMPARA MODELOS CUANTITATIVAMENTE "
+        "- INTERPRETA CADA MÉTRICA DE FORMA PRÁCTICA "
+        "- SÉ EXHAUSTIVO - CUBRE TODAS LAS MÉTRICAS "
+        "- ESCRIBE EN ESPAÑOL CLARO Y TÉCNICO "
+        "- NO OMITAS NINGUNA MÉTRICA DISPONIBLE EN LOS DATOS "
+    )
+    
+    user_prompt = f"""
+Analiza los siguientes resultados experimentales de evaluación de modelos de embedding para documentación técnica de Microsoft Azure:
+
+{formatted_metrics}
+
+Proporciona conclusiones académicas rigurosas en español basadas únicamente en estos datos, siguiendo el formato especificado.
+"""
+
+    try:
+        response = claude_client.client.chat.completions.create(
+            model="anthropic/claude-3.5-sonnet:beta",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.3,
+            max_tokens=2000,
+            extra_headers={
+                "HTTP-Referer": "https://azure-qa-support.app",
+                "X-Title": "Azure Q&A Support System",
+            }
+        )
+        
+        full_response = response.choices[0].message.content
+        
+        # Parse the response to extract conclusions and improvements
+        result = _parse_llm_response(full_response)
+        result['model_used'] = 'Claude 3.5 Sonnet'
+        result['full_prompt'] = f"{system_prompt}\n\nDatos experimentales:\n{formatted_metrics}\n\n{user_prompt}"
+        return result
+        
+    except Exception as e:
+        st.error(f"❌ Error generando análisis con Claude: {str(e)}")
+        return None
+
+
 def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, str]:
     """Generate analysis using Gemini model"""
+    # Usar el mismo prompt mejorado que Claude y DeepSeek
     system_prompt = (
-        "You are a senior researcher specializing in information retrieval and RAG systems evaluation. "
-        "Provide a rigorous academic analysis of the experimental results. "
-        
-        "EXPERIMENTAL CONTEXT: "
-        "- Domain: Microsoft Learn technical documentation retrieval system "
-        "- Dataset: ~2,000 technical queries with ground-truth document links "
-        "- Corpus: 187,000 document chunks indexed at document level "
-        "- Evaluation: Standard IR metrics + semantic similarity assessment "
-        "- Reranking: CrossEncoder-based neural reranking applied "
-        
-        "EXPECTED BASELINES FOR TECHNICAL DOCUMENTATION: "
-        "- Precision@5 > 0.60 indicates good relevance "
-        "- NDCG@10 > 0.70 suggests effective ranking "
-        "- MRR > 0.50 shows users find answers quickly "
-        "- CrossEncoder should improve NDCG/MRR by >10% relative "
-        "- RAGAS/BERTScore > 0.80 indicates high semantic quality "
-        
-        "ANALYSIS REQUIREMENTS: "
-        "1. STATISTICAL SIGNIFICANCE: Focus on improvements >5% relative change "
-        "2. MODEL RANKING: Identify best/worst embeddings with quantitative justification "
-        "3. RERANKING ANALYSIS: Quantify CrossEncoder impact on ranking metrics "
-        "4. SEMANTIC ASSESSMENT: Interpret RAGAS/BERTScore values if available "
-        "5. ACADEMIC RIGOR: All claims must be supported by specific metrics "
-        
-        "MANDATORY OUTPUT FORMAT IN SPANISH: "
+        "Eres un investigador senior especializado en evaluación de sistemas de recuperación de información y RAG. "
+        "Tu tarea es proporcionar un análisis académico riguroso y MUY DETALLADO de los resultados experimentales. "
+
+        "CONTEXTO EXPERIMENTAL: "
+        "- Dominio: Sistema de recuperación de documentación técnica de Microsoft Learn "
+        "- Dataset: ~2,000 consultas técnicas con enlaces ground-truth validados "
+        "- Corpus: 187,000 chunks de documentos indexados a nivel de documento "
+        "- Evaluación: Métricas IR estándar + métricas RAG (RAGAS) + BERTScore "
+        "- Reranking: CrossEncoder neural (ms-marco-MiniLM-L-6-v2) con normalización Min-Max "
+        "- Optimizaciones: Cache OpenAI, modelo semantic similarity global, gpt-3.5-turbo-0125 "
+
+        "BASELINES ESPERADOS (incluye rangos de interpretación): "
+        "- Precision@5: >0.60=buena | 0.40-0.60=moderada | <0.40=baja "
+        "- Recall@5: >0.50=buena | 0.30-0.50=moderada | <0.30=baja "
+        "- F1@5: >0.50=bueno | 0.35-0.50=moderado | <0.35=bajo "
+        "- NDCG@10: >0.70=efectivo | 0.50-0.70=aceptable | <0.50=deficiente "
+        "- MRR: >0.50=rápido | 0.30-0.50=aceptable | <0.30=lento "
+        "- MAP@5: >0.50=buena | 0.35-0.50=moderada | <0.35=baja "
+        "- RAGAS Faithfulness: >0.80=alta | 0.60-0.80=aceptable | <0.60=preocupante "
+        "- RAGAS Answer Relevancy: >0.75=alta | 0.55-0.75=moderada | <0.55=baja "
+        "- RAGAS Answer Correctness: >0.70=correcta | 0.50-0.70=parcial | <0.50=incorrecta "
+        "- RAGAS Context Precision: >0.70=relevante | 0.50-0.70=ruido moderado | <0.50=mucho ruido "
+        "- RAGAS Context Recall: >0.70=buena | 0.50-0.70=parcial | <0.50=incompleta "
+        "- Semantic Similarity: >0.75=muy similar | 0.60-0.75=moderada | <0.60=diferente "
+        "- BERTScore F1: >0.80=alta | 0.65-0.80=buena | <0.65=necesita mejoras "
+
+        "REQUISITOS MANDATORY: "
+        "1. ANÁLISIS POR MÉTRICA INDIVIDUAL: Cada métrica debe tener valor exacto, clasificación vs baseline, interpretación práctica, y comparación entre modelos "
+        "2. COMPARACIÓN ENTRE MODELOS: Rankear modelos, cuantificar diferencias (X% más que Y), identificar mejor modelo "
+        "3. IMPACTO CROSSENCODER: Calcular mejora relativa ((after-before)/before)*100%, explicar POR QUÉ mejora/empeora "
+        "4. ANÁLISIS RAGAS/BERTSCORE: Evaluar cada métrica vs baseline, determinar si calidad es aceptable "
+        "5. TRADE-OFFS Y PATRONES: Identificar trade-offs, comportamiento por K, anomalías "
+        "6. RIGOR: Números exactos, cálculos de mejora, comparaciones cuantitativas "
+
+        "FORMATO EN ESPAÑOL: "
         "## Conclusiones "
-        "• [Modelo X logra Y rendimiento, significando Z de forma clara y práctica] "
-        "• [CrossEncoder mejora/empeora métrica M en N%, explicando por qué ocurre esto] "
-        "• [Comparación de embeddings con números específicos y interpretación simple] "
-        "• [Calidad semántica usando RAGAS/BERT explicado en términos entendibles] "
-        
+        "### 📊 Métricas IR "
+        "[Analizar Precision, Recall, F1, NDCG, MAP, MRR con valores exactos, clasificación, interpretación, comparación modelos, impacto CrossEncoder] "
+        "### 🤖 Métricas RAG "
+        "[Analizar Faithfulness, Answer Relevancy, Correctness, Context Precision/Recall, Semantic Similarity, BERTScore con valores y clasificaciones] "
+        "### 🏆 Ranking Modelos "
+        "[Tabla con ranking y justificación numérica] "
+        "### 🔄 Impacto CrossEncoder "
+        "[Mejoras before/after con porcentajes] "
+        "### ⚠️ Problemas "
+        "[Métricas bajo baseline, trade-offs, anomalías] "
+        ""
         "## 💡 Mejoras Prioritarias "
-        "1. [Acción específica y práctica - explicar QUÉ hacer exactamente y POR QUÉ] "
-        "2. [Segunda mejora con pasos concretos - evitar jerga técnica compleja] "
-        "3. [Mejora a largo plazo explicada de forma simple y clara] "
-        
-        "IMPORTANTE: "
-        "- Usa un lenguaje CLARO y DIRECTO, evita jerga técnica innecesaria "
-        "- Explica QUÉ significa cada número en términos prácticos "
-        "- Las mejoras deben ser ESPECÍFICAS y ACCIONABLES "
-        "- Si mencionas conceptos técnicos, explica brevemente qué significan "
-        
-        "Write in Spanish with academic precision but clear explanations. Focus on actionable insights supported by data."
+        "### 1. [Problema crítico] "
+        "**Evidencia:** [Métrica con valor]. **Impacto:** [Consecuencia]. **Acción:** [Paso técnico]. **Resultado:** [Mejora esperada]. "
+        "### 2-4. [Otros problemas con mismo formato] "
+        ""
+        "CRÍTICO: Números exactos, porcentajes de mejora, comparaciones cuantitativas, interpretaciones prácticas, exhaustividad. "
     )
     
     combined_prompt = (
@@ -1309,13 +1503,13 @@ def _generate_with_gemini(gemini_client, formatted_metrics: str) -> Dict[str, st
 def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_name: str) -> Dict[str, str]:
     """
     Generates conclusions and improvements using an LLM based on evaluation results.
-    Only uses DeepSeek and Gemini models for scientific analysis.
+    Uses Claude, DeepSeek and Gemini models for scientific analysis.
     Returns a dictionary with 'conclusions' and 'improvements'.
     """
     
     # Validate supported models
-    if generative_model_name not in ['deepseek-v3-chat', 'gemini-1.5-flash']:
-        st.error(f"❌ Modelo {generative_model_name} no soportado. Solo se admiten: deepseek-v3-chat, gemini-1.5-flash")
+    if generative_model_name not in ['claude-3.5-sonnet', 'deepseek-v3-chat', 'gemini-1.5-flash']:
+        st.error(f"❌ Modelo {generative_model_name} no soportado. Solo se admiten: claude-3.5-sonnet, deepseek-v3-chat, gemini-1.5-flash")
         return None
 
     # Extract scientific metrics for analysis
@@ -1336,7 +1530,20 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
         # Try with the selected model first
         first_error = None
         
-        if generative_model_name == "deepseek-v3-chat":
+        if generative_model_name == "claude-3.5-sonnet":
+            try:
+                # Use Claude via OpenRouter
+                from src.services.auth.openrouter_client import OpenRouterClient
+                claude_client = OpenRouterClient()
+                if claude_client:
+                    return _generate_with_claude(claude_client, formatted_metrics)
+                else:
+                    raise Exception("Cliente Claude no disponible - verificar API key de OpenRouter")
+            except Exception as e:
+                first_error = f"Claude: {str(e)}"
+                st.warning(f"⚠️ Claude falló: {str(e)}. Intentando con Gemini...")
+                
+        elif generative_model_name == "deepseek-v3-chat":
             try:
                 # Use DeepSeek via OpenRouter
                 deepseek_client = get_cached_deepseek_openrouter_client()
@@ -1360,8 +1567,20 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                 first_error = f"Gemini: {str(e)}"
                 st.warning(f"⚠️ Gemini falló: {str(e)}. Intentando con DeepSeek...")
         
-        # If the primary model failed, try the other one
-        if generative_model_name == "deepseek-v3-chat" and config.gemini_api_key:
+        # If the primary model failed, try the fallback models
+        if generative_model_name == "claude-3.5-sonnet" and config.gemini_api_key:
+            # Claude failed, try Gemini
+            try:
+                genai.configure(api_key=config.gemini_api_key)
+                gemini_client = genai.GenerativeModel('gemini-1.5-flash')
+                return _generate_with_gemini(gemini_client, formatted_metrics)
+            except Exception as e:
+                st.error(f"❌ Ambos modelos fallaron.")
+                st.error(f"- {first_error}")
+                st.error(f"- Gemini: {str(e)}")
+                return None
+                
+        elif generative_model_name == "deepseek-v3-chat" and config.gemini_api_key:
             # DeepSeek failed, try Gemini
             try:
                 genai.configure(api_key=config.gemini_api_key)
@@ -1374,18 +1593,25 @@ def generate_analysis_with_llm(results_data: Dict[str, Any], generative_model_na
                 return None
                 
         elif generative_model_name == "gemini-1.5-flash":
-            # Gemini failed, try DeepSeek
+            # Gemini failed, try Claude first, then DeepSeek
             try:
-                deepseek_client = get_cached_deepseek_openrouter_client()
-                if deepseek_client:
-                        return _generate_with_deepseek(deepseek_client, formatted_metrics)
-                else:
-                    raise Exception("Cliente DeepSeek no disponible")
+                from src.services.auth.openrouter_client import OpenRouterClient
+                claude_client = OpenRouterClient()
+                return _generate_with_claude(claude_client, formatted_metrics)
             except Exception as e:
-                st.error(f"❌ Ambos modelos fallaron.")
-                st.error(f"- {first_error}")
-                st.error(f"- DeepSeek: {str(e)}")
-                return None
+                # Claude failed, try DeepSeek
+                try:
+                    deepseek_client = get_cached_deepseek_openrouter_client()
+                    if deepseek_client:
+                        return _generate_with_deepseek(deepseek_client, formatted_metrics)
+                    else:
+                        raise Exception("Cliente DeepSeek no disponible")
+                except Exception as e2:
+                    st.error(f"❌ Todos los modelos fallaron.")
+                    st.error(f"- {first_error}")
+                    st.error(f"- Claude: {str(e)}")
+                    st.error(f"- DeepSeek: {str(e2)}")
+                    return None
         
         # If we get here, both models failed
         st.error("❌ No se pudo generar el análisis con ningún modelo disponible.")
@@ -2163,24 +2389,29 @@ def display_methodology_section():
     with st.expander("🔬 Metodología de Evaluación", expanded=False):
         st.markdown("""
         ## 📋 Metodología Completa del Sistema de Evaluación RAG
-        
+
         > **Nota Importante**: Este sistema evalúa un motor de búsqueda semántica sobre la documentación oficial de Microsoft Learn.
         > No utilizamos Stack Overflow ni otras fuentes externas. El objetivo es encontrar la documentación técnica más relevante
         > directamente desde las fuentes oficiales de Microsoft Azure.
-        
+
         ### 🎯 1. Obtención de Scores de Recuperación (Pre y Post Reranking)
-        
+
         **Sistema de Recuperación de Información (Implementación Real del Colab):**
         - **Fuente de Datos**: Documentación oficial de Microsoft Learn sobre Azure (187,031 documentos)
         - **Embeddings Reales**: Se generan embeddings verdaderos usando cada modelo específico:
           - **Ada**: OpenAI API `text-embedding-ada-002` (1536D)
-          - **E5-Large**: `intfloat/e5-large-v2` (1024D) 
+          - **E5-Large**: `intfloat/e5-large-v2` (1024D)
           - **MPNet**: `sentence-transformers/all-mpnet-base-v2` (768D) con prefijo "query:"
           - **MiniLM**: `sentence-transformers/all-MiniLM-L6-v2` (384D)
         - **Búsqueda por Similitud**: Similitud coseno entre embedding de pregunta y embeddings de documentos pre-calculados
         - **Ground Truth con Enlaces**: Utiliza enlaces validados del ground truth para cálculo de métricas de recuperación tradicionales
         - **Normalización URL**: Implementa `normalize_url()` que elimina parámetros de consulta (?query) y fragmentos (#anchor)
         - **Evaluación Acumulativa**: Cada pregunta se evalúa individualmente y se promedian resultados finales
+        - **💾 Sistema de Cache OpenAI**: Cache persistente en Google Drive para almacenar respuestas de OpenAI API y evitar re-procesamiento
+          - Cache basado en hash MD5 de pregunta + contexto + tipo de prompt
+          - Estadísticas de hits/misses para monitoreo de eficiencia
+          - Ahorro de costos: ~$0.05 por consulta cacheada (6-7 llamadas por pregunta)
+          - Guardado incremental cada 50 preguntas para prevenir pérdida de datos
         
         ### 🤖 2. Estrategia de Reranking con CrossEncoder
         
@@ -2223,16 +2454,29 @@ def display_methodology_section():
         - **Sentence Transformers**: Para generación de embeddings de consultas
         
         **Proceso de Evaluación Real del Colab:**
-        1. **Carga de Datos**: Archivos Parquet con embeddings pre-calculados (187,031 documentos por modelo)
+        1. **Inicialización**:
+           - Carga de archivos Parquet con embeddings pre-calculados (187,031 documentos por modelo)
+           - Inicialización del cache de OpenAI (carga entradas previas si existen)
+           - Carga única del modelo semantic similarity (`all-mpnet-base-v2`) para BERTScore
         2. **Generación de Query Embedding**: Embedding real de la pregunta usando el modelo específico (Ada/E5/MPNet/MiniLM)
         3. **Recuperación por Similitud Coseno**: `cosine_similarity(query_embedding, document_embeddings)` para encontrar top-k documentos
         4. **Cálculo de Métricas Pre-Reranking**: Métricas tradicionales IR usando ground truth links validados
         5. **Reranking CrossEncoder**: Reordenamiento opcional usando scores normalizados Min-Max
         6. **Cálculo de Métricas Post-Reranking**: Métricas IR recalculadas después del reordenamiento
-        7. **Generación RAG**: Respuesta con GPT-3.5-turbo usando contexto de top-3 documentos (800 chars/doc)
-        8. **Evaluación RAGAS Completa**: 6 métricas usando OpenAI API para evaluación (3000 chars/doc)
-        9. **Evaluación BERTScore**: 3 métricas usando `distiluse-base-multilingual-cased-v2` sin límite de contenido
-        10. **Agregación de Resultados**: Promedios y resultados individuales guardados en JSON compatible con Streamlit
+        7. **Generación RAG con Cache**:
+           - Verifica cache OpenAI antes de llamar API
+           - Respuesta con GPT-3.5-turbo-0125 (50% más barato) usando contexto de top-3 documentos (800 chars/doc)
+           - Guarda respuesta en cache para futuras ejecuciones
+        8. **Evaluación RAGAS Completa con Cache**:
+           - Verifica cache OpenAI para métricas RAGAS completas
+           - 6 métricas usando GPT-3.5-turbo-0125 para evaluación (3000 chars/doc)
+           - Guarda métricas en cache (cacheando ~$0.30 por pregunta en llamadas API)
+        9. **Evaluación BERTScore Optimizada**:
+           - 3 métricas usando `microsoft/deberta-base-mnli` sin límite de contenido
+           - Usa modelo semantic similarity global (cargado una sola vez, no 2067 veces)
+           - Limpieza de memoria GPU después de BERTScore
+        10. **Checkpoint Incremental**: Guarda cache cada 50 preguntas para prevención de pérdida de datos
+        11. **Agregación de Resultados**: Promedios y resultados individuales guardados en JSON compatible con Streamlit
         
         ### 📊 4. Cálculo de Métricas Específicas (Implementación Real del Colab)
         
@@ -2245,18 +2489,21 @@ def display_methodology_section():
         - **MRR@k**: `1 / rank_primer_relevante` o 0 si no hay relevantes en top-k
         - **MRR global**: MRR sin límite de k
         
-        **Métricas RAGAS (Usando OpenAI GPT-3.5-turbo):**
+        **Métricas RAGAS (Usando OpenAI GPT-3.5-turbo-0125):**
         - **Faithfulness**: Escala 1-5 normalizada a [0,1] - evalúa si respuesta contradice contexto
         - **Answer Relevancy**: Escala 1-5 normalizada a [0,1] - evalúa relevancia respuesta-pregunta
         - **Answer Correctness**: Escala 1-5 normalizada a [0,1] - compara exactitud vs ground truth
         - **Context Precision**: Escala 1-5 normalizada a [0,1] - evalúa relevancia del contexto recuperado
         - **Context Recall**: Escala 1-5 normalizada a [0,1] - evalúa cobertura de información necesaria
-        - **Semantic Similarity**: Similitud coseno entre embeddings de respuesta generada y ground truth
-        
-        **Métricas BERTScore (Usando DistilUSE Multilingual):**
-        - **BERT Precision**: Similitud semántica usada como aproximación de precisión
-        - **BERT Recall**: Similitud semántica usada como aproximación de recall  
-        - **BERT F1**: Similitud semántica usada como aproximación de F1 (versión simplificada)
+        - **Semantic Similarity**: Similitud coseno entre embeddings `all-mpnet-base-v2` de respuesta y ground truth
+        - **Modelo LLM**: `gpt-3.5-turbo-0125` (50% más económico que `gpt-3.5-turbo` estándar)
+        - **Costo Optimizado**: ~6 llamadas API por pregunta, cacheables para ejecuciones futuras
+
+        **Métricas BERTScore (Usando microsoft/deberta-base-mnli):**
+        - **BERT Precision**: Token-level semantic similarity (precision)
+        - **BERT Recall**: Token-level semantic similarity (recall)
+        - **BERT F1**: Media armónica de BERT Precision y Recall
+        - **Semantic Similarity (separada)**: Cosine similarity usando `all-mpnet-base-v2` global (optimizado)
         
         ### 🔄 5. Diagrama de Proceso Real del Colab (1 Modelo, 1 Pregunta)
         
@@ -2301,31 +2548,61 @@ def display_methodology_section():
         🔁 REPETIR PARA 15 PREGUNTAS → PROMEDIAR RESULTADOS → GUARDAR JSON
         ```
         
-        ### 🎯 6. Garantías de Calidad Científica (Implementación Real del Colab)
-        
+        ### 💰 6. Optimizaciones de Costo y Rendimiento
+
+        **Sistema de Cache OpenAI (Reducción de Costos):**
+        - **Implementación**: Clase `OpenAICache` con almacenamiento persistente en Google Drive
+        - **Hash de Consultas**: MD5(pregunta + contexto + tipo_prompt) para identificación única
+        - **Ahorro Primera Ejecución**: ~50% por uso de gpt-3.5-turbo-0125 vs gpt-3.5-turbo
+        - **Ahorro Re-ejecuciones**: ~100% (0% nuevas llamadas API si cache completo)
+        - **Costo Estimado**:
+          - Sin optimizaciones: ~$200-250 por evaluación completa (2067 preguntas)
+          - Con gpt-3.5-turbo-0125: ~$100-125 por primera ejecución
+          - Con cache completo: ~$0 por re-ejecuciones (solo infraestructura GPU)
+        - **Estadísticas en Tiempo Real**: Hit rate, cache hits/misses cada 50 preguntas
+
+        **Optimización de Memoria GPU:**
+        - **Problema Original**: Modelo semantic similarity cargado 2067 veces → GPU OOM ~16% progreso
+        - **Solución**: Variable global `semantic_similarity_model` cargada una sola vez al inicio
+        - **Impacto**: Reduce uso de GPU de ~11.90 GiB acumulado a ~2-3 GiB estable
+        - **Limpieza Proactiva**: `torch.cuda.empty_cache()` después de BERTScore y cada 100 preguntas
+        - **Variables Eliminadas**: `del P, R, F1` después de cálculo BERTScore
+
+        **Checkpoints Incrementales:**
+        - **Frecuencia**: Cache guardado cada 50 preguntas procesadas
+        - **Protección**: Previene pérdida total en caso de error CUDA OOM o interrupción
+        - **Reanudación**: Re-ejecuciones aprovechan cache existente automáticamente
+        - **Metadata**: Timestamp, hits/misses, hit_rate en archivo JSON de cache
+
+        ### 🎯 7. Garantías de Calidad Científica (Implementación Real del Colab)
+
         **Datos Reales y Verificables:**
         - **Embeddings Reales**: Sin simulación - usa APIs y modelos reales para generar embeddings
         - **Ground Truth Validado**: URLs del ground truth verificadas contra colección de documentos
         - **Métricas No Aleatorias**: Todos los valores calculados usando algoritmos determinísticos
         - **Verificación de Datos**: `data_verification.is_real_data = True` en resultados JSON
-        
+        - **Cache Verificable**: Cada entrada de cache incluye timestamp y metadata de generación
+
         **Reproducibilidad Completa:**
         - **CrossEncoder Determinístico**: Sin temperatura, mismos scores para mismas entradas
         - **Normalización Consistente**: Min-Max aplicada uniformemente: `(scores - min) / (max - min)`
         - **Datasets Fijos**: Mismos archivos Parquet de embeddings para todas las evaluaciones
         - **URLs Normalizadas**: Función `normalize_url()` consistente elimina parámetros y fragmentos
-        
+        - **Cache Determinístico**: Mismo hash MD5 para mismas entradas garantiza respuestas idénticas
+
         **Validación Técnica:**
         - **Framework RAGAS Oficial**: Uso de biblioteca científicamente validada
-        - **BERTScore Estándar**: Implementación usando modelo multilingual reconocido
+        - **BERTScore Estándar**: Implementación usando modelos reconocidos (deberta-base-mnli, all-mpnet-base-v2)
         - **Logging Completo**: Errores y excepciones registrados para debugging
         - **Estructura JSON Validada**: Formato compatible con visualización Streamlit
-        
-        **Metodología Científica:**  
+        - **Optimización Verificable**: Logs de cache hits/misses y memoria GPU disponibles
+
+        **Metodología Científica:**
         - **Evaluación Individual**: Cada pregunta evaluada independientemente, luego promediada
         - **Métricas Before/After**: Comparación pre y post reranking para medir impacto
         - **Contexto Controlado**: Límites de caracteres definidos y consistentes por tipo de evaluación
         - **Múltiples Métricas**: IR tradicionales + RAGAS + BERTScore para evaluación comprehensiva
+        - **Eficiencia Energética**: Cache reduce consumo GPU y API calls en 50-100% para re-ejecuciones
         """)
 
 def display_rag_metrics_explanation():

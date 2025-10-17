@@ -206,11 +206,11 @@ def show_available_results_section():
         
         # Opción para generar conclusiones con LLM
         generate_llm = st.checkbox(
-            "🤖 Generar conclusiones con LLM (DeepSeek/Gemini)",
+            "🤖 Generar conclusiones con LLM (Claude/Gemini)",
             value=False,
             key="generate_llm_analysis",
             help="Si se marca, se generarán automáticamente las conclusiones y"
-                 " posibles mejoras usando DeepSeek R1 o Gemini 1.5 Flash"
+                 " posibles mejoras usando Claude 3.5 Sonnet o Gemini 1.5 Flash"
         )
 
         # Botón para mostrar resultados
@@ -302,13 +302,13 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
             # Generar conclusiones con LLM si se solicitó
             if generate_llm_analysis:
                 generative_model_name = results_data.get('config', {}).get(
-                    'generative_model_name', 'deepseek-v3-chat'  # Changed default to DeepSeek
+                    'generative_model_name', 'claude-3.5-sonnet'  # Changed default to Claude
                 )
                 
                 # Ensure only supported models are used
-                if generative_model_name not in ['deepseek-v3-chat', 'gemini-1.5-flash']:
-                    st.warning(f"⚠️ Modelo {generative_model_name} no soportado. Usando DeepSeek por defecto.")
-                    generative_model_name = 'deepseek-v3-chat'
+                if generative_model_name not in ['claude-3.5-sonnet', 'gemini-1.5-flash']:
+                    st.warning(f"⚠️ Modelo {generative_model_name} no soportado. Usando Claude por defecto.")
+                    generative_model_name = 'claude-3.5-sonnet'
                 llm_analysis = generate_analysis_with_llm(
                     results_data, generative_model_name
                 )
@@ -323,7 +323,7 @@ def show_selected_results(selected_file: Dict, generate_llm_analysis: bool) -> N
                 else:
                     st.error("❌ No se pudo generar análisis con ningún modelo LLM disponible.")
                     st.session_state.llm_conclusions = "Error: No se pudo generar análisis automático."
-                    st.session_state.llm_improvements = "Verifica la configuración de API keys (DeepSeek vía OpenRouter o Gemini)."
+                    st.session_state.llm_improvements = "Verifica la configuración de API keys (Claude vía OpenRouter o Gemini)."
                     st.session_state.llm_model_used = None
             else:
                 st.session_state.llm_conclusions = ""
@@ -636,7 +636,7 @@ Write in Spanish with academic precision but clear explanations. Focus on action
             st.markdown("**💡 Tip:** También puedes usar este prompt en ChatGPT, Claude, o cualquier otro LLM para generar análisis similares con tus propios datos.")
     else:
         # Mostrar mensaje informativo cuando las conclusiones están ocultas
-        st.info("💡 **Sugerencia:** Marca el checkbox '🤖 Generar conclusiones con LLM (DeepSeek/Gemini)' para ver las secciones de conclusiones y próximos pasos.")
+        st.info("💡 **Sugerencia:** Marca el checkbox '🤖 Generar conclusiones con LLM (Claude/Gemini)' para ver las secciones de conclusiones y próximos pasos.")
 
     # Sección de descarga (moved to the end)
     st.markdown("---")

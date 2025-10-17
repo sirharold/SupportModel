@@ -16,7 +16,8 @@ GENERATIVE_MODELS = {
     "gpt-4": "gpt-4",
     "gemini-1.5-flash": "gemini-1.5-flash",
     "tinyllama-1.1b": "tinyllama-1.1b",
-    "deepseek-v3-chat": "deepseek/deepseek-r1:free"
+    "deepseek-v3-chat": "deepseek/deepseek-r1:free",
+    "claude-3.5-sonnet": "anthropic/claude-3.5-sonnet:beta"
 }
 
 DEFAULT_GENERATIVE_MODEL = "llama-3.3-70b"  # Free OpenRouter model - most reliable
@@ -103,6 +104,12 @@ GENERATIVE_MODEL_DESCRIPTIONS = {
         "provider": "Google",
         "cost": "Gratuito",
         "requirements": "API key de Google requerida"
+    },
+    "claude-3.5-sonnet": {
+        "description": "Claude 3.5 Sonnet de Anthropic vía OpenRouter. Modelo avanzado con excelente capacidad de análisis y razonamiento.",
+        "provider": "Anthropic (OpenRouter)",
+        "cost": "Pagado",
+        "requirements": "API key de OpenRouter requerida"
     }
 }
 
