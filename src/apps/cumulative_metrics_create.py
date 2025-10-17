@@ -65,6 +65,33 @@ def show_cumulative_metrics_create_page():
             step=1,
             help="Número de preguntas a procesar por lote (afecta uso de memoria)"
         )
+
+        # Filtro de año/semestre
+        year_filter = st.selectbox(
+            "📅 Filtro Temporal:",
+            options=["all", "2024", "2023.1", "2023.2", "2022", "2020"],
+            index=0,  # "all" por defecto
+            format_func=lambda x: {
+                "all": "🌐 Todas las preguntas (sin filtro)",
+                "2024": "📅 2024 completo",
+                "2023.1": "📅 2023 - Primer semestre (Ene-Jun)",
+                "2023.2": "📅 2023 - Segundo semestre (Jul-Dic)",
+                "2022": "📅 2022 completo",
+                "2020": "📅 2020 completo"
+            }[x],
+            help="Filtra preguntas por año o semestre de creación según análisis temporal"
+        )
+
+        # Mostrar información sobre el filtro seleccionado
+        if year_filter != "all":
+            expected_questions = {
+                "2024": 666,      # 32.2% del ground truth
+                "2023.1": 553,    # 26.8% del ground truth (Enero-Junio 2023)
+                "2023.2": 720,    # 34.8% del ground truth (Julio-Diciembre 2023)
+                "2022": 119,      # 5.8% del ground truth
+                "2020": 9         # 0.4% del ground truth
+            }
+            st.info(f"📊 Preguntas disponibles en ground truth para {year_filter}: ~{expected_questions.get(year_filter, 0)}")
         
     with col2:
         st.subheader("🤖 Configuración de Modelos")
@@ -156,6 +183,7 @@ def show_cumulative_metrics_create_page():
             # Mostrar detalles de configuración
             st.markdown("**⚙️ Configuración:**")
             st.write(f"• Preguntas: {num_questions:,}")
+            st.write(f"• Filtro temporal: {year_filter}")
             st.write(f"• Top-K: {top_k}")
             st.write(f"• Reranking: {reranking_method}")
             st.write(f"• Métricas RAG: {'✅' if generate_rag_metrics else '❌'}")
@@ -189,6 +217,7 @@ def show_cumulative_metrics_create_page():
         # Preparar configuración de evaluación
         evaluation_config = {
             'num_questions': num_questions,
+            'year_filter': year_filter,  # Filtro temporal
             'selected_models': selected_models,
             'generative_model_name': generative_model_name,
             'top_k': top_k,
@@ -211,6 +240,7 @@ def show_cumulative_metrics_create_page():
             st.markdown("**📊 Resumen de Configuración:**")
             st.json({
                 'num_questions': num_questions,
+                'year_filter': year_filter,
                 'selected_models': selected_models,
                 'generative_model': generative_model_name,
                 'top_k': top_k,
@@ -248,9 +278,117 @@ def show_cumulative_metrics_create_page():
         st.warning("⚠️ Por favor selecciona al menos un modelo para continuar")
 
 
+def filter_questions_by_year(questions: List[Dict], year_filter: str) -> List[Dict]:
+    """
+    Filtra preguntas por año o semestre según la fecha de creación.
+
+    Args:
+        questions: Lista de preguntas de ChromaDB
+        year_filter: Filtro temporal ('all', '2024', '2023.1', '2023.2', '2022', '2020')
+
+    Returns:
+        Lista de preguntas filtradas
+    """
+    if year_filter == "all" or not questions:
+        return questions
+
+    import json
+    from datetime import datetime
+
+    st.info(f"🔍 Aplicando filtro temporal: {year_filter}")
+
+    # Cargar archivo original con fechas (usando el análisis temporal que ya hicimos)
+    original_questions_path = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/ScrappingMozilla/Logs al 20250602/questions_data.json"
+
+    if not os.path.exists(original_questions_path):
+        st.warning(f"⚠️ No se encontró archivo de fechas: {original_questions_path}")
+        st.warning("⚠️ Devolviendo preguntas sin filtrar")
+        return questions
+
+    # Crear mapping URL -> fecha
+    url_to_date = {}
+    try:
+        with open(original_questions_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        q = json.loads(line)
+                        url = q.get('url', '')
+                        date_str = q.get('date', '')
+                        if url and date_str:
+                            url_to_date[url] = date_str
+                    except json.JSONDecodeError:
+                        continue
+
+        st.write(f"✅ Cargadas {len(url_to_date):,} fechas del archivo original")
+    except Exception as e:
+        st.error(f"❌ Error cargando fechas: {e}")
+        return questions
+
+    # Filtrar preguntas
+    filtered_questions = []
+    skipped_no_date = 0
+    skipped_parse_error = 0
+
+    for q in questions:
+        url = q.get('url', '')
+        date_str = url_to_date.get(url)
+
+        if not date_str:
+            skipped_no_date += 1
+            continue
+
+        # Parse fecha
+        try:
+            # Manejar diferentes formatos de fecha ISO
+            date_str_clean = date_str.replace('Z', '+00:00')
+            if '+' in date_str_clean:
+                date_str_clean = date_str_clean.split('+')[0]
+
+            date_obj = datetime.fromisoformat(date_str_clean)
+            year = date_obj.year
+            month = date_obj.month
+
+            # Aplicar filtro
+            should_include = False
+
+            if year_filter == "2024" and year == 2024:
+                should_include = True
+            elif year_filter == "2023.1" and year == 2023 and month <= 6:
+                should_include = True
+            elif year_filter == "2023.2" and year == 2023 and month > 6:
+                should_include = True
+            elif year_filter == "2022" and year == 2022:
+                should_include = True
+            elif year_filter == "2020" and year == 2020:
+                should_include = True
+
+            if should_include:
+                filtered_questions.append(q)
+
+        except Exception as e:
+            skipped_parse_error += 1
+            continue
+
+    # Estadísticas de filtrado
+    st.success(f"✅ Filtradas {len(filtered_questions)} preguntas para periodo: {year_filter}")
+
+    if skipped_no_date > 0 or skipped_parse_error > 0:
+        st.info(f"📊 Omitidas: {skipped_no_date} sin fecha, {skipped_parse_error} error parsing")
+
+    # Validar que tenemos suficientes preguntas
+    if len(filtered_questions) == 0:
+        st.error(f"❌ No se encontraron preguntas para el periodo {year_filter}")
+        st.warning("⚠️ Devolviendo preguntas sin filtrar")
+        return questions
+
+    return filtered_questions
+
+
 def create_config_and_send_to_drive(evaluation_config: Dict):
     """Crea y envía configuración a Google Drive real - Compatible con cumulative metrics y N questions"""
-    
+
     st.info("📤 Creando configuración y enviando a Google Drive...")
     
     try:
@@ -291,16 +429,33 @@ def create_config_and_send_to_drive(evaluation_config: Dict):
                             num_questions=num_questions,
                             embedding_model_name=first_model
                         )
-                        
+
                         if questions:
                             # Mostrar estadísticas de las preguntas obtenidas
                             total_links = sum(q.get('total_links', 0) for q in questions)
                             total_valid_links = sum(q.get('valid_links', 0) for q in questions)
                             avg_success_rate = sum(q.get('validation_success_rate', 0) for q in questions) / len(questions) * 100
-                            
+
                             st.write(f"✅ Obtenidas {len(questions)} preguntas optimizadas")
                             st.write(f"📊 Total de links: {total_links}, Links válidos: {total_valid_links}")
                             st.write(f"🎯 Tasa promedio de validación: {avg_success_rate:.1f}%")
+
+                            # Aplicar filtro temporal si está configurado
+                            year_filter = evaluation_config.get('year_filter', 'all')
+                            if year_filter != 'all':
+                                st.markdown("---")
+                                st.subheader("📅 Aplicando Filtro Temporal")
+                                questions = filter_questions_by_year(questions, year_filter)
+
+                                # Actualizar estadísticas después del filtrado
+                                if questions:
+                                    total_links = sum(q.get('total_links', 0) for q in questions)
+                                    total_valid_links = sum(q.get('valid_links', 0) for q in questions)
+                                    avg_success_rate = sum(q.get('validation_success_rate', 0) for q in questions) / len(questions) * 100
+
+                                    st.write(f"📊 Después del filtrado: {len(questions)} preguntas")
+                                    st.write(f"🔗 Links: {total_links} total, {total_valid_links} válidos")
+                                    st.write(f"🎯 Tasa de validación: {avg_success_rate:.1f}%")
                         else:
                             st.warning("⚠️ No se pudieron obtener preguntas de la colección optimizada")
                     
@@ -316,6 +471,16 @@ def create_config_and_send_to_drive(evaluation_config: Dict):
                     evaluation_config['questions_data'] = None
         else:
             st.info("📝 Usando preguntas ya incluidas en la configuración")
+
+            # Aplicar filtro temporal también a preguntas pre-cargadas
+            year_filter = evaluation_config.get('year_filter', 'all')
+            if year_filter != 'all' and evaluation_config.get('questions_data'):
+                st.markdown("---")
+                st.subheader("📅 Aplicando Filtro Temporal a Preguntas Pre-cargadas")
+                evaluation_config['questions_data'] = filter_questions_by_year(
+                    evaluation_config['questions_data'],
+                    year_filter
+                )
         
         # Enviar a Google Drive real
         with st.spinner("☁️ Enviando configuración a Google Drive..."):
