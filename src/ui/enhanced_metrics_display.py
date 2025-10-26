@@ -42,11 +42,15 @@ def display_enhanced_cumulative_metrics(results: Dict[str, Any], model_name: str
     
     st.success(f"✅ Evaluación completada para {num_questions} preguntas con modelo {model_name}")
     
+    # Extract individual metrics for downstream usage
+    individual_before = results.get('individual_before_metrics', [])
+    individual_after = results.get('individual_after_metrics', [])
+
     # Main metrics overview
     display_main_metrics_overview(avg_before, avg_after, use_llm_reranker, reranking_method)
-    
+
     # NEW: Enhanced scoring methodology display
-    display_enhanced_scoring_section(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+    display_enhanced_scoring_section(avg_before, avg_after, use_llm_reranker, model_name, reranking_method, individual_before, individual_after)
     
     # Before/After reranking comparison section
     if use_llm_reranker and avg_after:
@@ -763,8 +767,8 @@ def extract_scientific_metrics(results_data: Dict[str, Any]) -> Dict[str, Any]:
                     "after": round(rag_metrics.get('avg_faithfulness_after', rag_metrics.get('avg_faithfulness', 0)), 2)
                 },
                 "ragas_answer_relevance": {
-                    "before": round(rag_metrics.get('avg_answer_relevance', 0), 2),
-                    "after": round(rag_metrics.get('avg_answer_relevance_after', rag_metrics.get('avg_answer_relevance', 0)), 2)
+                    "before": round(rag_metrics.get('avg_answer_relevancy', rag_metrics.get('avg_answer_relevance', 0)), 2),
+                    "after": round(rag_metrics.get('avg_answer_relevancy_after', rag_metrics.get('avg_answer_relevance_after', rag_metrics.get('avg_answer_relevancy', rag_metrics.get('avg_answer_relevance', 0)))), 2)
                 },
                 "bert_f1": {
                     "before": round(rag_metrics.get('avg_bert_f1', 0), 2),
@@ -1764,10 +1768,14 @@ def display_rag_metrics_summary(results: Dict[str, Dict[str, Any]], use_llm_rera
         # NEW: Extract from rag_metrics section (our new format)
         if rag_metrics_section:
             # RAG metrics are stored as 'avg_faithfulness', 'avg_answer_relevance', etc.
+            # COMPATIBILITY: Handle both 'avg_answer_relevancy' (correct) and 'avg_answer_relevance' (legacy)
             for key in rag_metric_keys:
                 avg_key = f'avg_{key}'
                 if avg_key in rag_metrics_section:
                     before_metrics[key] = rag_metrics_section[avg_key]
+                elif key == 'answer_relevancy' and 'avg_answer_relevance' in rag_metrics_section:
+                    # Fallback for legacy data files that use 'avg_answer_relevance' (without 'y')
+                    before_metrics[key] = rag_metrics_section['avg_answer_relevance']
             
             # BERTScore metrics are stored as 'avg_bert_precision', 'avg_bert_recall', etc.
             for key in bertscore_metric_keys:
@@ -2642,19 +2650,19 @@ def display_rag_metrics_explanation():
 # 🆕 ENHANCED SCORING METHODOLOGY DISPLAY FUNCTIONS
 # =============================================================================
 
-def display_enhanced_scoring_section(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard'):
+def display_enhanced_scoring_section(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str = 'standard', individual_before: List[Dict] = None, individual_after: List[Dict] = None):
     """Display enhanced scoring methodology information matching individual search page"""
-    
+
     st.subheader("🎯 Metodología de Scoring Enhanced")
-    
+
     # Explain scoring methodology alignment
     with st.expander("📖 Metodología de Scoring (Alineada con Búsqueda Individual)", expanded=False):
         st.markdown("""
         ### 🔄 Pipeline de Scoring Implementado
-        
-        El sistema de scoring implementado en este análisis **replica exactamente** la metodología 
+
+        El sistema de scoring implementado en este análisis **replica exactamente** la metodología
         utilizada en la página de búsqueda individual para garantizar consistencia:
-        
+
         #### 1. **Cosine Similarity Score (Inicial)**
         ```python
         score = max(0, min(1, 1 - distance))
@@ -2662,32 +2670,32 @@ def display_enhanced_scoring_section(avg_before: Dict, avg_after: Dict, use_llm_
         - **Fuente**: Similitud coseno entre query embedding y document embedding
         - **Rango**: [0, 1] donde 1 = máxima similitud
         - **Uso**: Score base antes de reranking
-        
+
         #### 2. **CrossEncoder Reranking**
         - **Modelo**: `cross-encoder/ms-marco-MiniLM-L-6-v2`
         - **Input**: Pares [query, document_content]
         - **Output**: Logits raw del modelo
-        
+
         #### 3. **Sigmoid Normalization**
         ```python
         final_score = 1 / (1 + exp(-raw_logits))
         ```
         - **Propósito**: Mapear logits a probabilidades [0, 1]
         - **Beneficio**: Scores comparables entre diferentes embeddings
-        
+
         #### 4. **Multi-Level Score Preservation**
         - **📄 Document Level**: Scores individuales por documento
         - **❓ Question Level**: Estadísticas por pregunta (avg, max, min)
         - **🏷️ Model Level**: Agregaciones a nivel de modelo
         """)
-    
+
     # Display model-level score statistics if available
-    display_model_level_score_stats(avg_before, avg_after, use_llm_reranker, model_name, reranking_method)
+    display_model_level_score_stats(avg_before, avg_after, use_llm_reranker, model_name, reranking_method, individual_before, individual_after)
 
 
-def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str):
+def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_reranker: bool, model_name: str, reranking_method: str, individual_before: List[Dict] = None, individual_after: List[Dict] = None):
     """Display model-level score statistics from enhanced Colab results"""
-    
+
     st.markdown("#### 📊 Estadísticas de Scores a Nivel de Modelo")
     
     # Check for model-level score metrics
@@ -2752,6 +2760,186 @@ def display_model_level_score_stats(avg_before: Dict, avg_after: Dict, use_llm_r
                     st.info("ℹ️ CrossEncoder no se utilizó en esta evaluación")
     else:
         st.info("ℹ️ Las estadísticas de scores a nivel de modelo no están disponibles en este resultado. Esto indica que se usó una versión anterior del notebook de evaluación.")
+
+    # NEW: Display box plots side by side after score statistics (independent of model-level stats)
+    # Debug: Check what we have
+    has_individual_before = individual_before is not None and len(individual_before) > 0
+    has_individual_after = individual_after is not None and len(individual_after) > 0
+
+    st.write(f"DEBUG - individual_before: {len(individual_before) if individual_before else 0} elementos")
+    st.write(f"DEBUG - individual_after: {len(individual_after) if individual_after else 0} elementos")
+
+    if has_individual_before or has_individual_after:
+        display_score_boxplots_side_by_side(individual_before, individual_after, use_llm_reranker, reranking_method)
+    else:
+        st.info("ℹ️ No hay datos individuales (document_scores) disponibles para mostrar los box plots. Esto puede ocurrir si se usó una versión anterior del notebook de evaluación.")
+
+
+def display_score_boxplots_side_by_side(individual_before: List[Dict], individual_after: List[Dict], use_llm_reranker: bool, reranking_method: str):
+    """
+    Muestra dos gráficos de caja (box plots) lado a lado:
+    - Izquierda: Distribución de scores ANTES del CrossEncoder (Cosine Similarity)
+    - Derecha: Distribución de scores DESPUÉS del CrossEncoder
+    """
+    import plotly.graph_objects as go
+    import pandas as pd
+
+    # Safety check for None values
+    if individual_before is None:
+        individual_before = []
+    if individual_after is None:
+        individual_after = []
+
+    st.markdown("---")
+    st.markdown("#### 📊 Análisis de Distribución de Scores")
+
+    # Extraer todos los scores de documentos ANTES del reranking
+    cosine_scores = []
+    for question_metrics in individual_before:
+        if 'document_scores' in question_metrics:
+            doc_scores = question_metrics['document_scores']
+            cosine_scores.extend([doc['cosine_similarity'] for doc in doc_scores if 'cosine_similarity' in doc])
+
+    # Extraer todos los scores de documentos DESPUÉS del reranking
+    crossencoder_scores = []
+    if use_llm_reranker and individual_after:
+        for question_metrics in individual_after:
+            if 'document_scores' in question_metrics:
+                doc_scores = question_metrics['document_scores']
+                ce_scores = [doc.get('crossencoder_score') for doc in doc_scores if doc.get('crossencoder_score') is not None]
+                crossencoder_scores.extend(ce_scores)
+
+    # Verificar que tenemos datos
+    has_cosine = len(cosine_scores) > 0
+    has_ce = len(crossencoder_scores) > 0
+
+    if not has_cosine and not has_ce:
+        st.info("ℹ️ No se encontraron datos de scores por documento para crear los gráficos de distribución")
+        return
+
+    # Crear dos columnas para los gráficos
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("##### 🔍 Scores Antes del Reranking")
+        if has_cosine:
+            # Crear box plot para cosine similarity
+            fig_before = go.Figure()
+
+            fig_before.add_trace(go.Box(
+                y=cosine_scores,
+                name='Cosine Similarity',
+                marker_color='#2E86AB',
+                boxmean='sd',  # Mostrar media y desviación estándar
+                boxpoints='outliers',  # Mostrar solo outliers
+                jitter=0.3,
+                pointpos=-1.8
+            ))
+
+            fig_before.update_layout(
+                title={
+                    'text': "Distribución de Cosine Similarity",
+                    'x': 0.5,
+                    'xanchor': 'center'
+                },
+                yaxis_title="Score",
+                height=400,
+                showlegend=False,
+                yaxis=dict(range=[0, 1])
+            )
+
+            st.plotly_chart(fig_before, use_container_width=True)
+
+            # Estadísticas descriptivas
+            df_cosine = pd.DataFrame({'score': cosine_scores})
+            st.markdown("**📈 Estadísticas:**")
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("Media", f"{df_cosine['score'].mean():.3f}")
+                st.metric("Mín", f"{df_cosine['score'].min():.3f}")
+            with col_b:
+                st.metric("Mediana", f"{df_cosine['score'].median():.3f}")
+                st.metric("Q1", f"{df_cosine['score'].quantile(0.25):.3f}")
+            with col_c:
+                st.metric("Desv. Est.", f"{df_cosine['score'].std():.3f}")
+                st.metric("Q3", f"{df_cosine['score'].quantile(0.75):.3f}")
+        else:
+            st.info("ℹ️ No hay datos de Cosine Similarity disponibles")
+
+    with col2:
+        st.markdown(f"##### 🧠 Scores Después del Reranking")
+        if has_ce:
+            # Crear box plot para CrossEncoder
+            fig_after = go.Figure()
+
+            fig_after.add_trace(go.Box(
+                y=crossencoder_scores,
+                name='CrossEncoder Score',
+                marker_color='#F18F01',
+                boxmean='sd',  # Mostrar media y desviación estándar
+                boxpoints='outliers',  # Mostrar solo outliers
+                jitter=0.3,
+                pointpos=-1.8
+            ))
+
+            fig_after.update_layout(
+                title={
+                    'text': f"Distribución de {reranking_method.upper()} Score",
+                    'x': 0.5,
+                    'xanchor': 'center'
+                },
+                yaxis_title="Score",
+                height=400,
+                showlegend=False,
+                yaxis=dict(range=[0, 1])
+            )
+
+            st.plotly_chart(fig_after, use_container_width=True)
+
+            # Estadísticas descriptivas
+            df_ce = pd.DataFrame({'score': crossencoder_scores})
+            st.markdown("**📈 Estadísticas:**")
+            col_a, col_b, col_c = st.columns(3)
+            with col_a:
+                st.metric("Media", f"{df_ce['score'].mean():.3f}")
+                st.metric("Mín", f"{df_ce['score'].min():.3f}")
+            with col_b:
+                st.metric("Mediana", f"{df_ce['score'].median():.3f}")
+                st.metric("Q1", f"{df_ce['score'].quantile(0.25):.3f}")
+            with col_c:
+                st.metric("Desv. Est.", f"{df_ce['score'].std():.3f}")
+                st.metric("Q3", f"{df_ce['score'].quantile(0.75):.3f}")
+        else:
+            if use_llm_reranker:
+                st.info("ℹ️ No hay datos de CrossEncoder disponibles")
+            else:
+                st.info("ℹ️ CrossEncoder no se utilizó en esta evaluación")
+
+    # Explicación
+    with st.expander("📖 Interpretación de los Gráficos de Caja"):
+        st.markdown("""
+        **Componentes del Box Plot:**
+
+        - **Caja central**: Contiene el 50% central de los datos (entre Q1 y Q3)
+        - **Línea horizontal en la caja**: Mediana (Q2)
+        - **Línea punteada en la caja**: Media
+        - **Bigotes (whiskers)**: Se extienden hasta 1.5× el rango intercuartílico (IQR)
+        - **Puntos individuales**: Outliers (valores atípicos)
+
+        **Interpretación:**
+
+        - **Caja ancha**: Mayor variabilidad en los scores
+        - **Caja estrecha**: Scores más consistentes
+        - **Mediana alta**: La mayoría de documentos tienen scores altos
+        - **Muchos outliers abajo**: Hay documentos con scores anormalmente bajos
+
+        **Comparación Antes vs Después:**
+
+        Compare las dos distribuciones para evaluar el impacto del reranking:
+        - ¿Aumentó la mediana después del reranking?
+        - ¿Se redujo la variabilidad (caja más estrecha)?
+        - ¿Cambiaron los outliers?
+        """)
 
 
 def display_document_score_analysis(results: Dict[str, Any], use_llm_reranker: bool, model_name: str, reranking_method: str):
