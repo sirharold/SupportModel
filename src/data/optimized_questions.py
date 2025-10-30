@@ -96,29 +96,30 @@ def get_optimized_questions_batch(
     embedding_model_name: str = 'ada'
 ) -> List[Dict]:
     """
-    Obtiene un lote de preguntas de la colección optimizada questions_withlinks.
-    
+    Obtiene un lote de preguntas de la colección questions_withlinks.
+    Esta colección contiene 2,067 preguntas con links ya validados.
+
     Args:
         chromadb_wrapper: Cliente de ChromaDB
         num_questions: Número de preguntas a obtener
         embedding_model_name: Modelo para logging
-        
+
     Returns:
         Lista de preguntas pre-validadas
     """
-    print(f"🚀 Obteniendo {num_questions} preguntas optimizadas...")
-    
+    print(f"📥 Cargando {num_questions} preguntas desde questions_withlinks...")
+
     try:
-        # Conectar a la colección optimizada
+        # Conectar a la colección questions_withlinks (2,067 preguntas validadas)
         client = chromadb_wrapper.client
         collection = client.get_collection(name="questions_withlinks")
-        
+
         # Obtener el conteo total
         total_count = collection.count()
-        print(f"📊 Colección optimizada tiene {total_count:,} preguntas disponibles")
-        
+        print(f"📊 Colección questions_withlinks: {total_count:,} preguntas validadas disponibles")
+
         if total_count == 0:
-            print("❌ Colección optimizada está vacía")
+            print("❌ Colección questions_withlinks está vacía")
             return []
         
         # Obtener preguntas (limitado por lo disponible)
@@ -159,13 +160,14 @@ def get_optimized_questions_batch(
             
             processed_questions.append(question)
         
-        print(f"✅ Obtenidas {len(processed_questions)} preguntas optimizadas")
-        print(f"📊 Promedio de links válidos por pregunta: {sum(q.get('valid_links', 0) for q in processed_questions) / len(processed_questions):.1f}")
-        
+        print(f"✅ Cargadas {len(processed_questions)} preguntas validadas")
+        avg_valid = sum(q.get('valid_links', 0) for q in processed_questions) / len(processed_questions)
+        print(f"📊 Promedio de links válidos: {avg_valid:.1f} por pregunta")
+
         return processed_questions
-        
+
     except Exception as e:
-        print(f"❌ Error obteniendo lote optimizado: {e}")
+        print(f"❌ Error cargando preguntas: {e}")
         return []
 
 

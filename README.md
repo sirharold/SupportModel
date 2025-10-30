@@ -104,11 +104,34 @@ HUGGINGFACE_API_KEY=your_huggingface_token
 ```
 
 ### 4. Launch Application
+
+#### Option 1: With Virtual Environment Activation
 ```bash
-PYTHONPATH=. streamlit run src/apps/main_qa_app.py
+# Navigate to project directory
+cd /path/to/SupportModel
+
+# Activate virtual environment
+source stable_env/bin/activate  # On Windows: stable_env\Scripts\activate
+
+# Run application with correct Python path
+PYTHONPATH=$(pwd) streamlit run src/apps/main_qa_app.py
 ```
 
-Access the application at `http://localhost:8501`
+#### Option 2: Direct Execution (Recommended)
+```bash
+# Navigate to project directory
+cd /path/to/SupportModel
+
+# Run with full paths to ensure virtual environment is used
+PYTHONPATH=/path/to/SupportModel /path/to/SupportModel/stable_env/bin/streamlit run src/apps/main_qa_app.py
+```
+
+#### Example for Current Setup:
+```bash
+PYTHONPATH=/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel /Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/stable_env/bin/streamlit run src/apps/main_qa_app.py
+```
+
+Access the application at `http://localhost:8501` (or the port shown in terminal output)
 
 ## ⚙️ Configuration
 
@@ -377,6 +400,34 @@ pre-commit install
 ## 🔧 Troubleshooting
 
 ### Common Issues
+
+**ChromaDB Module Not Found Error**
+```bash
+# Problem: ModuleNotFoundError: No module named 'chromadb'
+# Solution: Ensure virtual environment is activated and use full paths
+
+# Check if virtual environment is active
+which python
+which streamlit
+
+# If not using virtual environment, activate it:
+source stable_env/bin/activate
+
+# Or use full path to streamlit executable:
+PYTHONPATH=/path/to/SupportModel /path/to/SupportModel/stable_env/bin/streamlit run src/apps/main_qa_app.py
+```
+
+**Python Module Import Errors**
+```bash
+# Problem: ModuleNotFoundError: No module named 'src'
+# Solution: Set PYTHONPATH to project root directory
+
+# Ensure PYTHONPATH includes project root
+export PYTHONPATH=/path/to/SupportModel:$PYTHONPATH
+
+# Or run with explicit PYTHONPATH
+PYTHONPATH=/path/to/SupportModel streamlit run src/apps/main_qa_app.py
+```
 
 **Model Download Failures**
 ```bash

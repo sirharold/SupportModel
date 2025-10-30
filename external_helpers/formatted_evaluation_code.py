@@ -493,7 +493,6 @@ def calculate_rag_metrics_real(question: str, context_docs: list, generated_answ
                 bert_precision = semantic_similarity
                 bert_recall = semantic_similarity
                 bert_f1 = semantic_similarity  # Simplified F1 = (precision + recall) / 2 when precision ≈ recall
-
         except:
             bert_precision = 0.0
             bert_recall = 0.0
