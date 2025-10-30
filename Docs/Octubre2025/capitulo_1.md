@@ -2,27 +2,35 @@
 
 ## 1.1 Formulación del Problema
 
-Los equipos de soporte técnico en plataformas complejas como Microsoft Azure enfrentan un reto diario: atender miles de consultas que requieren conocimiento especializado distribuido en vastas bases documentales. Esta realidad genera tres desafíos críticos que motivaron esta investigación.
+Los sistemas de soporte técnico para productos tecnológicos complejos enfrentan desafíos fundamentales en la gestión del conocimiento especializado. Esta investigación aborda el problema de recuperación semántica de información técnica utilizando Microsoft Azure como caso de estudio representativo de plataformas enterprise modernas.
 
-**El conocimiento existe, pero no se encuentra.** Durante la fase de recopilación de datos, se extrajeron 62,417 documentos únicos de Microsoft Learn relacionados con Azure, segmentados en 187,031 chunks para su procesamiento. Sin embargo, los agentes de soporte suelen depender de su memoria y experiencia personal para resolver tickets, lo que resulta en respuestas inconsistentes y tiempos de resolución prolongados. La información está disponible, pero su accesibilidad efectiva es limitada.
+### 1.1.1 El conocimiento existe, pero no se encuentra
 
-**Los esfuerzos se duplican constantemente.** Un análisis de cobertura sobre más de 3,000 preguntas del dataset reveló que 2,067 de estas consultas (67%) ya tenían respuestas documentadas en Microsoft Learn. A pesar de esta alta disponibilidad, cada ticket continúa tratándose como un caso único, lo que representa un desperdicio considerable de recursos humanos y tiempo.
+La documentación técnica oficial constituye la fuente primaria de información para resolver consultas de soporte. Sin embargo, la recuperación efectiva de esta información presenta dificultades inherentes a la complejidad y especialización del dominio. Para emular este escenario genérico, se construyó un corpus completo de documentación técnica basado en Microsoft Azure, representativo de las características presentes en otros productos tecnológicos enterprise: alta especialización terminológica, arquitecturas multinivel, y documentación distribuida en múltiples formatos y niveles de abstracción.
 
-**La búsqueda léxica tradicional no funciona en dominios técnicos.** Los usuarios formulan sus consultas en lenguaje natural usando terminología variada que raramente coincide con los términos exactos de la documentación oficial. Esta brecha semántica limita severamente la efectividad de los motores de búsqueda convencionales basados en palabras clave.
+La brecha entre disponibilidad y accesibilidad del conocimiento motiva la necesidad de sistemas de recuperación semántica que superen las limitaciones de la búsqueda léxica tradicional.
 
-Ante estos desafíos, esta investigación propone desarrollar un sistema de recuperación semántica que integre técnicas avanzadas de procesamiento de lenguaje natural para vincular automáticamente tickets de soporte con documentación técnica relevante, mejorando así la eficiencia y consistencia en la resolución de consultas.
+### 1.1.2 Patrones recurrentes en consultas de soporte técnico
+
+El análisis de preguntas de soporte técnico revela patrones característicos: un subconjunto relativamente pequeño de documentos responde a la mayoría de consultas frecuentes, mientras que casos específicos requieren documentación especializada que raramente se consulta de forma proactiva. Esta distribución irregular del conocimiento dificulta la localización de información relevante, particularmente cuando usuarios formulan consultas usando terminología que no coincide exactamente con la documentación oficial.
+
+Para investigar este fenómeno, se recolectó un dataset de consultas reales de usuarios en foros técnicos especializados, permitiendo caracterizar los patrones de correspondencia entre preguntas naturales y documentación técnica formal. Este dataset proporciona ground truth verificable para evaluación sistemática de técnicas de recuperación.
+
+### 1.1.3 Búsqueda léxica versus recuperación semántica
+
+Los sistemas de búsqueda tradicionales basados en coincidencia de palabras clave presentan limitaciones significativas en dominios técnicos especializados. La terminología técnica admite múltiples formas de expresión (sinónimos, acrónimos, variantes regionales), y las consultas en lenguaje natural raramente replican la estructura formal de la documentación oficial.
+
+Esta investigación propone desarrollar y evaluar un sistema de recuperación semántica basado en representaciones vectoriales densas (embeddings) que capture similitud conceptual más allá de coincidencia léxica superficial. El sistema integra técnicas de Retrieval-Augmented Generation (RAG) para vincular automáticamente consultas con documentación relevante mediante comprensión semántica del contenido técnico.
 
 ## 1.2 Alcances
 
 ### 1.2.1 Alcance Temático
 
-Esta investigación se sitúa en la intersección de tres dominios: procesamiento de lenguaje natural aplicado a contenido técnico especializado, sistemas de recuperación de información basados en semántica vectorial, y gestión automatizada de conocimiento para soporte técnico.
-
-El trabajo abarca el diseño, implementación y evaluación de un sistema RAG (Retrieval-Augmented Generation) completo. El sistema procesa el corpus completo de documentación Azure (62,417 documentos segmentados en 187,031 chunks) e implementa una comparación sistemática de cuatro modelos de embeddings: Ada, MPNet, MiniLM y E5-Large. Además, desarrolla arquitecturas de búsqueda híbrida que combinan recuperación vectorial con reranking semántico, y evalúa el rendimiento mediante métricas específicas de recuperación de información.
+El trabajo abarca el diseño, implementación y evaluación de un sistema RAG (Retrieval-Augmented Generation) completo aplicado a documentación técnica. El sistema implementa comparación sistemática de cuatro modelos de embeddings (Ada, MPNet, MiniLM, E5-Large), desarrolla arquitecturas de búsqueda híbrida que combinan recuperación vectorial con reranking semántico, y evalúa el rendimiento mediante métricas específicas de recuperación de información en etapas pre y post reranking.
 
 ### 1.2.2 Alcance Temporal
 
-El desarrollo se ejecutó durante el período académico 2024-2025, con una fase de implementación intensiva de 16 semanas. La recolección de datos (documentación técnica y preguntas) se realizó en marzo de 2025, creando una imagen estática del conocimiento disponible en Microsoft Learn y Microsoft Q&A. Esta decisión permite una evaluación consistente y reproducible sin variaciones temporales en el corpus.
+El desarrollo se ejecutó durante el período académico 2024-2025. La recolección de datos establece un corpus estático del conocimiento disponible en Microsoft Learn y Microsoft Q&A, permitiendo una evaluación consistente y reproducible sin variaciones temporales.
 
 ## 1.3 Delimitaciones
 
@@ -32,35 +40,31 @@ Aunque el sistema está diseñado para operar sin restricciones geográficas, la
 
 ### 1.3.2 Delimitación de Dominio
 
-La investigación se delimita estrictamente al ecosistema de Microsoft Azure, excluyendo otros productos de Microsoft o plataformas cloud competidoras. Esta delimitación no es arbitraria: permite una especialización profunda en la terminología, arquitectura y patrones de consulta específicos de Azure, lo que mejora significativamente la precisión del sistema.
+La investigación se delimita al ecosistema de Microsoft Azure, excluyendo otros productos de Microsoft o plataformas cloud competidoras. Esta delimitación permite especialización profunda en la terminología, arquitectura y patrones de consulta específicos del dominio Azure.
 
 ### 1.3.3 Delimitación Funcional
 
-Este es un proyecto académico centrado en la evaluación de técnicas de recuperación de información, no en el desarrollo de un producto comercial. Aunque se implementa una arquitectura RAG completa, el énfasis está en la medición y análisis de métricas de recuperación (Precision@k, Recall@k, MRR, NDCG) más que en la utilización práctica de las respuestas generadas. El sistema se diseñó específicamente para identificar, rankear y evaluar documentos relevantes.
+El proyecto se centra en la evaluación de técnicas de recuperación de información mediante métricas específicas (Precision@k, Recall@k, MRR, NDCG) en etapas pre y post reranking, más que en la implementación de un sistema de producción completo.
 
 ## 1.4 Limitaciones
 
 ### 1.4.1 Limitaciones de Datos
 
-Por consideraciones de privacidad y confidencialidad empresarial, se utilizaron exclusivamente datos públicos. No se tuvo acceso a tickets reales de soporte empresarial, lo que impide validar el sistema con casos de uso industriales confidenciales.
-
-Las 13,436 preguntas del dataset provienen de Microsoft Q&A (foros públicos), de las cuales solo 2,067 contienen enlaces validados a documentación oficial que pudieron usarse como ground truth. Esta fracción relativamente pequeña (15.4%) puede no representar completamente la complejidad y diversidad de tickets corporativos internos.
+Se utilizaron exclusivamente datos públicos de foros técnicos especializados, sin acceso a tickets corporativos internos. El dataset de evaluación comprende un subconjunto de preguntas con enlaces validados a documentación oficial que sirven como ground truth verificable, lo cual representa un escenario de evaluación más estricto que casos reales donde múltiples documentos pueden ser igualmente relevantes.
 
 ### 1.4.2 Limitaciones Técnicas
 
-El procesamiento se limita a contenido textual, excluyendo elementos multimedia como imágenes, diagramas arquitectónicos y videos instructivos que forman parte significativa de la documentación técnica moderna. Esta limitación es relevante considerando que muchos conceptos técnicos se explican mejor visualmente.
-
-Los modelos de embeddings tienen restricciones de contexto variables: MiniLM maneja 256 tokens, MPNet 384 tokens, E5-Large 512 tokens, mientras que OpenAI Ada puede procesar hasta 8,191 tokens. Estas limitaciones requirieron estrategias de segmentación que potencialmente pierden información contextual importante al dividir documentos largos.
+El procesamiento se limita a contenido textual, excluyendo elementos multimedia (imágenes, diagramas, videos) presentes en la documentación técnica moderna. Los modelos de embeddings tienen restricciones de contexto que requieren segmentación de documentos extensos, potencialmente perdiendo información contextual al dividir el contenido.
 
 ### 1.4.3 Limitaciones de Evaluación
 
-La validación se basa en enlaces explícitos entre preguntas y documentos identificados en respuestas aceptadas por la comunidad. Este criterio, aunque objetivo y verificable, es más estricto que escenarios reales donde múltiples documentos pueden ser igualmente válidos para resolver una consulta. Un documento podría ser relevante incluso si no fue específicamente citado en la respuesta aceptada.
+La validación se basa en enlaces explícitos entre preguntas y documentos en respuestas validadas por la comunidad. Este criterio, aunque objetivo y reproducible, puede subestimar la relevancia de documentos alternativos igualmente válidos que no fueron citados en la respuesta aceptada.
 
 ## 1.5 Objetivos
 
 ### 1.5.1 Objetivo General
 
-Desarrollar y evaluar un sistema de recuperación semántica de información basado en técnicas avanzadas de procesamiento de lenguaje natural, utilizando la documentación de Microsoft Azure como caso de estudio, con el fin de medir y comparar la efectividad de diferentes modelos de embeddings y arquitecturas de recuperación en la identificación precisa de documentos relevantes para consultas técnicas especializadas.
+Desarrollar y evaluar un sistema de recuperación semántica de información basado en técnicas de procesamiento de lenguaje natural, utilizando documentación técnica de Microsoft Azure como caso de estudio. El objetivo es medir y comparar la efectividad de diferentes modelos de embeddings y arquitecturas de recuperación en la identificación de documentos relevantes para consultas técnicas especializadas.
 
 ### 1.5.2 Objetivos Específicos
 
@@ -73,13 +77,3 @@ Desarrollar y evaluar un sistema de recuperación semántica de información bas
 4. **Evaluar sistemáticamente el rendimiento del sistema** mediante un framework de métricas que incluye medidas tradicionales de recuperación (Precision@k, Recall@k, MRR, NDCG) en etapas pre y post reranking, métricas específicas para sistemas RAG (Answer Relevancy, Context Precision, Faithfulness), y validación semántica utilizando RAGAS y BERTScore.
 
 5. **Establecer una metodología reproducible y extensible**, documentando el proceso de implementación, creando pipelines automatizados de evaluación con métricas verificables, y desarrollando herramientas auxiliares (incluyendo una interfaz Streamlit) que faciliten la ejecución de pruebas y la visualización de resultados para futuras investigaciones.
-
-## 1.6 Referencias del Capítulo
-
-Microsoft. (2025). *Microsoft Learn Documentation*. https://learn.microsoft.com/
-
-Microsoft. (2025). *Microsoft Q&A*. https://learn.microsoft.com/en-us/answers/
-
-Hugging Face. (2025). *Sentence Transformers: Model documentation and specifications*. https://huggingface.co/sentence-transformers/
-
-OpenAI. (2025). *Embeddings API documentation*. https://platform.openai.com/docs/guides/embeddings

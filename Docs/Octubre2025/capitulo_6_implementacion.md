@@ -159,15 +159,3 @@ El desarrollo siguió el flujo natural desde la extracción inicial de datos, pa
 ## 6.9 Nota sobre Implementación
 
 El código completo de todos los componentes descritos en este capítulo está disponible en el repositorio público del proyecto en los directorios `src/` y `colab_data/`. La implementación incluye módulos de extracción de datos, generación de embeddings, búsqueda vectorial, reranking, generación de respuestas, evaluación de métricas, y la aplicación Streamlit completa.
-
-## 6.10 Referencias del Capítulo
-
-ChromaDB Team. (2024). *ChromaDB: The AI-native open-source embedding database*. https://www.trychroma.com/
-
-McConnell, S. (2004). *Code Complete: A Practical Handbook of Software Construction* (2nd ed.). Microsoft Press.
-
-Microsoft Corporation. (2024). *Microsoft Learn Terms of Use*. https://learn.microsoft.com/en-us/legal/
-
-Streamlit Team. (2023). *Streamlit: The fastest way to build and share data apps*. https://streamlit.io/
-
-Van Rossum, G., & Drake, F. L. (2009). *Python 3 Reference Manual*. CreateSpace Independent Publishing Platform.

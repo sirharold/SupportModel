@@ -44,7 +44,7 @@ def show_cumulative_metrics_create_page():
         st.subheader("📊 Configuración de Datos")
         
         # Información sobre la fuente de datos
-        st.info("🚀 Las preguntas se extraen desde la colección optimizada 'questions_withlinks' que contiene solo preguntas PRE-VALIDADAS con enlaces de Microsoft Learn que existen en la collection de documentos. Esto garantiza máxima velocidad y precisión.")
+        st.info("📚 Las preguntas se cargan desde la colección 'questions_withlinks' que contiene **2,067 preguntas validadas** con enlaces de Microsoft Learn que existen en la colección de documentos.")
         
         # Número de preguntas
         num_questions = st.number_input(
@@ -91,7 +91,9 @@ def show_cumulative_metrics_create_page():
                 "2022": 119,      # 5.8% del ground truth
                 "2020": 9         # 0.4% del ground truth
             }
-            st.info(f"📊 Preguntas disponibles en ground truth para {year_filter}: ~{expected_questions.get(year_filter, 0)}")
+            available = expected_questions.get(year_filter, 0)
+            st.info(f"📊 Preguntas disponibles para {year_filter}: **{available}** preguntas")
+            st.success(f"✅ El sistema cargará las 2,067 preguntas, las filtrará por período, y luego limitará al número solicitado")
         
     with col2:
         st.subheader("🤖 Configuración de Modelos")
@@ -420,48 +422,51 @@ def create_config_and_send_to_drive(evaluation_config: Dict):
                         generative_model_name=generative_model
                     )
                     
-                    # Obtener preguntas optimizadas de la colección pre-validada
-                    with st.spinner(f"🚀 Obteniendo {num_questions} preguntas optimizadas..."):
+                    # Obtener preguntas de la colección questions_withlinks
+                    # Estas 2,067 preguntas YA están validadas (tienen links que existen en los documentos)
+                    year_filter = evaluation_config.get('year_filter', 'all')
+
+                    if year_filter != 'all':
+                        # Obtener TODAS las 2,067 preguntas para luego filtrar por período
+                        fetch_count = 2067  # Total disponible en questions_withlinks
+                        st.info(f"🔍 Filtro temporal activo: cargando las 2,067 preguntas validadas para filtrar por período {year_filter}...")
+                    else:
+                        # Sin filtro, obtener solo las necesarias
+                        fetch_count = min(num_questions, 2067)
+
+                    with st.spinner(f"📥 Cargando {fetch_count} preguntas validadas desde questions_withlinks..."):
                         from src.data.optimized_questions import get_optimized_questions_batch
-                        
+
                         questions = get_optimized_questions_batch(
                             chromadb_wrapper=chromadb_wrapper,
-                            num_questions=num_questions,
+                            num_questions=fetch_count,
                             embedding_model_name=first_model
                         )
 
                         if questions:
-                            # Mostrar estadísticas de las preguntas obtenidas
-                            total_links = sum(q.get('total_links', 0) for q in questions)
-                            total_valid_links = sum(q.get('valid_links', 0) for q in questions)
-                            avg_success_rate = sum(q.get('validation_success_rate', 0) for q in questions) / len(questions) * 100
-
-                            st.write(f"✅ Obtenidas {len(questions)} preguntas optimizadas")
-                            st.write(f"📊 Total de links: {total_links}, Links válidos: {total_valid_links}")
-                            st.write(f"🎯 Tasa promedio de validación: {avg_success_rate:.1f}%")
+                            st.write(f"✅ Cargadas {len(questions)} preguntas (con links ya validados)")
 
                             # Aplicar filtro temporal si está configurado
-                            year_filter = evaluation_config.get('year_filter', 'all')
                             if year_filter != 'all':
                                 st.markdown("---")
-                                st.subheader("📅 Aplicando Filtro Temporal")
+                                st.subheader("📅 Filtrando por Período")
                                 questions = filter_questions_by_year(questions, year_filter)
 
-                                # Actualizar estadísticas después del filtrado
+                                # Mostrar resultado del filtrado
                                 if questions:
-                                    total_links = sum(q.get('total_links', 0) for q in questions)
-                                    total_valid_links = sum(q.get('valid_links', 0) for q in questions)
-                                    avg_success_rate = sum(q.get('validation_success_rate', 0) for q in questions) / len(questions) * 100
+                                    st.success(f"✅ Encontradas {len(questions)} preguntas para el período {year_filter}")
 
-                                    st.write(f"📊 Después del filtrado: {len(questions)} preguntas")
-                                    st.write(f"🔗 Links: {total_links} total, {total_valid_links} válidos")
-                                    st.write(f"🎯 Tasa de validación: {avg_success_rate:.1f}%")
+                                    # Limitar al número solicitado si hay más disponibles
+                                    if len(questions) > num_questions:
+                                        st.info(f"✂️ Limitando a {num_questions} preguntas (de las {len(questions)} disponibles)")
+                                        questions = questions[:num_questions]
+                                        st.write(f"📊 Conjunto final: {len(questions)} preguntas")
                         else:
-                            st.warning("⚠️ No se pudieron obtener preguntas de la colección optimizada")
+                            st.warning("⚠️ No se pudieron cargar preguntas de la colección questions_withlinks")
                     
                     if questions:
                         evaluation_config['questions_data'] = questions
-                        st.success(f"✅ Obtenidas {len(questions)} preguntas con enlaces MS Learn")
+                        st.success(f"✅ Listas {len(questions)} preguntas validadas para evaluación")
                     else:
                         st.warning("⚠️ No se encontraron preguntas, usando configuración sin datos")
                         evaluation_config['questions_data'] = None

@@ -4,7 +4,7 @@
 
 Este capítulo establece los fundamentos teóricos que sustentan el sistema RAG desarrollado en este proyecto. La convergencia de múltiples dominios tecnológicos ha habilitado avances significativos en la última década: recuperación de información semántica, modelos de embeddings densos, arquitecturas de Retrieval-Augmented Generation, y bases de datos vectoriales optimizadas. Esta convergencia permite desarrollar sistemas de soporte técnico automatizado que superan las limitaciones de los enfoques tradicionales basados en coincidencia léxica.
 
-La naturaleza técnica y especializada del dominio de Microsoft Azure presenta desafíos únicos que requieren una comprensión profunda de los fundamentos teóricos que sustentan las tecnologías empleadas. Los conceptos presentados proporcionan los cimientos conceptuales necesarios para comprender la arquitectura, implementación y evaluación del sistema RAG, analizando cada componente tecnológico y su contribución al objetivo general de automatización inteligente del soporte técnico.
+La documentación técnica de productos tecnológicos complejos presenta desafíos únicos que requieren una comprensión profunda de los fundamentos teóricos que sustentan las tecnologías de recuperación y generación de información. Los conceptos presentados proporcionan los cimientos conceptuales necesarios para comprender la arquitectura, implementación y evaluación del sistema RAG, analizando cada componente tecnológico y su contribución al objetivo general de automatización inteligente del soporte técnico. Si bien este trabajo utiliza la documentación de Microsoft Azure como caso de estudio, los principios y metodologías son aplicables a cualquier corpus de documentación técnica especializada.
 
 ## 3.2 Fundamentos de Recuperación de Información
 
@@ -48,7 +48,7 @@ E5-Large (Embeddings from bidirectional Encoder representations) implementa una 
 
 E5-Large ha demostrado rendimiento superior en el benchmark MTEB (Massive Text Embedding Benchmark), particularmente en tareas de recuperación semántica y clasificación de similaridad textual (Muennighoff et al., 2023). Su arquitectura optimizada para recuperación lo posiciona como una alternativa competitiva a modelos propietarios en aplicaciones especializadas.
 
-Las evaluaciones del proyecto revelaron que E5-Large presentó desafíos en el dominio de Microsoft Azure, mostrando métricas de recuperación de 0.0 en todas las categorías (Precision@5, Recall@5, NDCG@5), indicando dificultades para recuperar documentos relevantes en los primeros 10 resultados. Sin embargo, mostró el mejor rendimiento en métricas de generación RAG como faithfulness (0.5909), sugiriendo que sus representaciones vectoriales, aunque problemáticas para recuperación, mantienen calidad semántica para tareas de generación de respuestas.
+Su diseño multilingüe y arquitectura optimizada para recuperación lo posicionan como una alternativa relevante en aplicaciones que requieren capacidades de búsqueda semántica robusta en múltiples idiomas. La especialización del modelo en tareas de recuperación mediante preentrenamiento contrastivo representa un enfoque metodológico diferente al de modelos generalistas, ofreciendo potencial para dominios técnicos especializados donde la precisión de recuperación es crítica.
 
 ## 3.4 Arquitecturas RAG (Retrieval-Augmented Generation)
 
@@ -110,44 +110,6 @@ El sistema implementa una arquitectura de almacenamiento que mantiene coleccione
 
 La selección de base de datos vectorial debe considerar múltiples factores incluyendo latencia de consulta, throughput, consumo de memoria, y capacidades de actualización incremental. Para corpus de tamaño moderado (aproximadamente 200,000 vectores), soluciones embebidas como ChromaDB ofrecen ventajas en simplicidad operacional y rendimiento de consulta. Para aplicaciones de producción con corpus de mayor escala (más de 1 millón de vectores), bases de datos distribuidas como Weaviate, Pinecone, o Milvus se vuelven necesarias para mantener latencias aceptables y capacidades de escalamiento horizontal.
 
-El proyecto demostró características de rendimiento notables en múltiples dimensiones. El procesamiento de evaluación total alcanzó 774.78 segundos (12.9 minutos) para evaluación multi-modelo de 4 modelos de embedding contra 187,031 documentos. El throughput de procesamiento alcanzó aproximadamente 241 documentos por segundo para generación de embeddings. El procesamiento de consultas mantuvo 0.057 consultas por segundo durante la evaluación. Los requerimientos de almacenamiento variaron según dimensionalidad del modelo: desde 1.05 GB para MiniLM (384 dimensiones) hasta 2.23 GB para Ada (1,536 dimensiones), totalizando 6.48 GB para todos los modelos.
+El rendimiento de bases de datos vectoriales depende críticamente de la infraestructura computacional utilizada. La aceleración GPU proporciona mejoras significativas (típicamente 10-50x) comparado con procesamiento CPU, especialmente para operaciones de generación de embeddings y búsquedas vectoriales masivas. Plataformas cloud con GPU (Google Colab, AWS SageMaker, Azure ML) ofrecen alternativas costo-efectivas para investigación y desarrollo, proporcionando acceso a hardware especializado sin inversión en infraestructura local.
 
-La aceleración GPU proporcionó mejoras de rendimiento de 10-50x cuando estuvo disponible. El sistema utilizó exitosamente hardware Google Colab T4 para operaciones intensivas. La escalabilidad se demostró manejando operaciones vectoriales de gran escala sobre colecciones de más de 187,000 documentos, manteniendo rendimiento consistente mediante operaciones ChromaDB optimizadas y formatos de almacenamiento basados en Parquet eficientes.
-
-## 3.7 Conclusiones del Marco Teórico
-
-Los fundamentos teóricos presentados establecen las bases científicas y técnicas que sustentan la arquitectura RAG desarrollada. La convergencia de modelos de embeddings especializados, arquitecturas de reranking neural, y bases de datos vectoriales optimizadas habilita sistemas de recuperación semántica que superan las capacidades de enfoques tradicionales basados en coincidencia léxica.
-
-La selección de componentes (Ada, MPNet, MiniLM, E5-Large para embeddings; ms-marco-MiniLM-L-6-v2 para reranking; ChromaDB para almacenamiento vectorial) se fundamenta en criterios teóricos relacionados con optimización de rendimiento, eficiencia computacional, y especialización de dominio. Esta arquitectura proporciona una base robusta para evaluación empírica de diferentes aproximaciones a la recuperación de información técnica especializada.
-
-Los principios establecidos en este capítulo guían tanto la implementación técnica como la metodología de evaluación presentadas en capítulos posteriores, asegurando que el desarrollo del sistema se fundamenta en conocimiento científico validado y mejores prácticas de la industria.
-
-## 3.8 Referencias del Capítulo
-
-Chen, X., He, B., Sun, L., & Sun, Y. (2022). Towards better text understanding and retrieval through kernel-based neural models. *Information Sciences*, 588, 70-84.
-
-Jiang, Z., Xu, F. F., Gao, L., Sun, Z., Liu, Q., Dwivedi-Yu, J., ... & Neubig, G. (2023). Active retrieval augmented generation. *arXiv preprint arXiv:2305.06983*.
-
-Karpukhin, V., Oguz, B., Min, S., Lewis, P., Wu, L., Edunov, S., ... & Yih, W. T. (2020). Dense passage retrieval for open-domain question answering. *arXiv preprint arXiv:2004.04906*.
-
-Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. *Advances in Neural Information Processing Systems*, 33, 9459-9474.
-
-Malkov, Y. A., & Yashunin, D. A. (2018). Efficient and robust approximate nearest neighbor search using hierarchical navigable small world graphs. *IEEE Transactions on Pattern Analysis and Machine Intelligence*, 42(4), 824-836.
-
-Muennighoff, N., Tazi, N., Magne, L., & Reimers, N. (2023). MTEB: Massive text embedding benchmark. *arXiv preprint arXiv:2210.07316*.
-
-Nogueira, R., & Cho, K. (2019). Passage re-ranking with BERT. *arXiv preprint arXiv:1901.04085*.
-
-OpenAI. (2023). *Embeddings API documentation*. https://platform.openai.com/docs/guides/embeddings
-
-Qu, Y., Ding, Y., Liu, J., Liu, K., Ren, R., Zhao, W. X., ... & Wen, J. R. (2021). RocketQA: An optimized training approach to dense passage retrieval for open-domain question answering. *arXiv preprint arXiv:2010.08191*.
-
-Reimers, N., & Gurevych, I. (2019). Sentence-BERT: Sentence embeddings using siamese BERT-networks. *arXiv preprint arXiv:1908.10084*.
-
-Salton, G., Wong, A., & Yang, C. S. (1975). A vector space model for automatic indexing. *Communications of the ACM*, 18(11), 613-620.
-
-Song, K., Tan, X., Qin, T., Lu, J., & Liu, T. Y. (2020). MPNet: Masked and permuted pre-training for language understanding. *Advances in Neural Information Processing Systems*, 33, 16857-16867.
-
-Wang, L., Yang, N., Huang, J., Chang, M. W., & Wang, W. (2022). Text embeddings by weakly-supervised contrastive pre-training. *arXiv preprint arXiv:2212.03533*.
-
-Wang, W., Wei, F., Dong, L., Bao, H., Yang, N., & Zhou, M. (2020). MiniLM: Deep self-attention distillation for task-agnostic compression of pre-trained transformers. *Advances in Neural Information Processing Systems*, 33, 5776-5788.
+Los requerimientos de almacenamiento escalan linealmente con la dimensionalidad de los embeddings y el tamaño del corpus. Modelos de menor dimensionalidad (384D) requieren aproximadamente 50% menos espacio que modelos de alta dimensionalidad (1536D) para el mismo corpus. Formatos de almacenamiento eficientes como Parquet permiten compresión adicional manteniendo tiempos de acceso aceptables. La gestión de memoria se vuelve crítica en corpus de gran escala, requiriendo estrategias de carga selectiva y caching inteligente para mantener rendimiento consistente.
