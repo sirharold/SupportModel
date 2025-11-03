@@ -4,7 +4,7 @@
 
 Este proyecto se fundamenta en el proceso estándar CRISP-DM (Cross-Industry Standard Process for Data Mining), adaptado para el desarrollo y evaluación de sistemas de recuperación de información semántica (Chapman et al., 2000; Shearer, 2000). El diseño metodológico se orienta hacia la construcción, implementación y evaluación rigurosa de un sistema RAG (Retrieval-Augmented Generation) especializado en documentación técnica de Microsoft Azure.
 
-La aproximación metodológica integra seis fases principales que abarcan desde la comprensión y definición del problema hasta el análisis comparativo y validación estadística final. La primera fase establece los fundamentos conceptuales mediante revisión de literatura y diseño arquitectónico. La segunda fase ejecuta la recolección y preparación exhaustiva de datos, procesando 62,417 documentos únicos y 13,436 preguntas técnicas reales. La tercera fase implementa cuatro arquitecturas de embeddings complementarias (Ada, MPNet, MiniLM, E5-Large) para capturar diversas estrategias de representación vectorial. La cuarta fase desarrolla mecanismos de recuperación y reranking mediante CrossEncoder especializado. La quinta fase construye un framework de evaluación integral combinando métricas tradicionales de recuperación, métricas especializadas RAG, y evaluación semántica mediante BERTScore. La sexta fase ejecuta análisis comparativo y validación estadística mediante tests no paramétricos.
+La aproximación metodológica integra seis fases principales que abarcan desde la comprensión y definición del problema hasta el análisis comparativo y validación estadística final. La Fase 1 (Conceptualización) establece los fundamentos mediante identificación del problema, definición de objetivos, revisión de literatura y diseño arquitectónico del sistema RAG. La Fase 2 (Recolección de Datos) ejecuta web scraping de Microsoft Learn, extracción de preguntas de Microsoft Q&A, procesamiento y validación de ground truth, obteniendo 62,417 documentos únicos y 13,436 preguntas técnicas reales. La Fase 3 (Creación de Embeddings) genera vectores para los cuatro modelos seleccionados (Ada, MPNet, MiniLM, E5-Large) procesando 187,031 chunks en paralelo. La Fase 4 (Pipeline de Pruebas) desarrolla la infraestructura de evaluación mediante implementación de Streamlit para visualización interactiva y Google Colab para ejecución de experimentos, culminando con sistemas de visualización de resultados. La Fase 5 (Evaluación) ejecuta mediciones sistemáticas mediante framework RAGAS, métricas tradicionales de recuperación y evaluación semántica con BERTScore. La Fase 6 (Análisis Final) realiza análisis estadístico mediante tests no paramétricos, validación de resultados y documentación técnica completa.
 
 El proyecto adopta un paradigma de investigación cuantitativa, enfocándose en la medición objetiva del rendimiento de diferentes arquitecturas mediante métricas validadas y procedimientos estadísticos rigurosos (Creswell & Creswell, 2017). La metodología incorpora elementos de investigación experimental controlada, manipulando sistemáticamente las variables independientes (modelos de embeddings, estrategias de reranking) para evaluar su impacto en las variables dependientes (métricas de recuperación y calidad de respuestas). Esta estructura metodológica garantiza la reproducibilidad, trazabilidad y validez científica de los resultados obtenidos.
 
@@ -15,74 +15,57 @@ El proyecto adopta un paradigma de investigación cuantitativa, enfocándose en 
 El siguiente diagrama presenta una vista integral del flujo metodológico empleado en este proyecto, mostrando las fases principales, sus interrelaciones y los entregables clave de cada etapa:
 
 ```mermaid
-flowchart TB
-    %% Estilos
-    classDef phaseStyle fill:#e1f5fe,stroke:#0288d1,stroke-width:2px,color:#01579b
-    classDef processStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#e65100
-    classDef outputStyle fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#1b5e20
-    classDef decisionStyle fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#880e4f
+gantt
+    title Cronograma del Proyecto
+    dateFormat YYYY-MM-DD
 
-    %% Fase 1: Conceptualización
-    A[FASE 1: CONCEPTUALIZACIÓN Y DISEÑO<br/>Semanas 1-3]:::phaseStyle
-    A --> A1[Identificación del Problema]:::processStyle
-    A --> A2[Revisión de Literatura]:::processStyle
-    A --> A3[Definición de Objetivos]:::processStyle
-    A1 & A2 & A3 --> A4[Diseño de Arquitectura RAG]:::outputStyle
+    section Fase 1
+    Identificacion del Problema :done, f1a, 2024-01-01, 7d
+    Definicion de Objetivos :done, f1b, after f1a, 7d
+    Revision de Literatura :done, f1c, after f1b, 7d
+    Diseño de Arquitectura :done, f1d, after f1c, 7d
 
-    %% Fase 2: Recolección de Datos
-    A4 --> B[FASE 2: RECOLECCIÓN Y PREPARACIÓN DE DATOS<br/>Semanas 4-8]:::phaseStyle
-    B --> B1[Web Scraping Microsoft Learn<br/>62,417 documentos]:::processStyle
-    B --> B2[Extracción Microsoft Q&A<br/>13,436 preguntas]:::processStyle
-    B1 & B2 --> B3[Procesamiento y Normalización]:::processStyle
-    B3 --> B4[Validación Ground Truth<br/>2,067 pares validados]:::outputStyle
+    section Fase 2
+    Web Scraping :done, f2a, after f1d, 14d
+    Extraccion Q&A :done, f2b, after f1d, 14d
+    Procesamiento :done, f2c, after f2a, 7d
+    Validacion Ground Truth :done, f2d, after f2c, 7d
 
-    %% Fase 3: Implementación de Embeddings
-    B4 --> C[FASE 3: IMPLEMENTACIÓN DE EMBEDDINGS<br/>Semanas 9-12]:::phaseStyle
-    C --> C1{Selección de Modelos}:::decisionStyle
-    C1 --> C2[Ada<br/>1,536 dim]:::processStyle
-    C1 --> C3[MPNet<br/>768 dim]:::processStyle
-    C1 --> C4[MiniLM<br/>384 dim]:::processStyle
-    C1 --> C5[E5-Large<br/>1,024 dim]:::processStyle
-    C2 & C3 & C4 & C5 --> C6[Generación Masiva de Embeddings<br/>187,031 chunks]:::outputStyle
+    section Fase 3
+    Embeddings Ada :done, f3a, after f2d, 14d
+    Embeddings MPNet :done, f3b, after f2d, 14d
+    Embeddings MiniLM :done, f3c, after f2d, 14d
+    Embeddings E5-Large :done, f3d, after f2d, 14d
 
-    %% Fase 4: Desarrollo de Reranking
-    C6 --> D[FASE 4: MECANISMOS DE RERANKING<br/>Semanas 13-15]:::phaseStyle
-    D --> D1[Implementación CrossEncoder<br/>ms-marco-MiniLM-L-6-v2]:::processStyle
-    D --> D2[Normalización Min-Max]:::processStyle
-    D1 & D2 --> D3[Pipeline Multi-Etapa Optimizado]:::outputStyle
+    section Fase 4
+    Streamlit :done, f4a, after f3a, 14d
+    Colab Pipeline :done, f4b, after f3a, 14d
+    Visualizacion :done, f4c, after f4a, 7d
 
-    %% Fase 5: Evaluación
-    D3 --> E[FASE 5: EVALUACIÓN EXPERIMENTAL<br/>Semanas 16-18]:::phaseStyle
-    E --> E1[Framework RAGAS]:::processStyle
-    E --> E2[Métricas Tradicionales<br/>Precision, Recall, F1, MRR, nDCG]:::processStyle
-    E --> E3[Métricas Semánticas<br/>BERTScore]:::processStyle
-    E1 & E2 & E3 --> E4{Configuraciones<br/>Experimentales}:::decisionStyle
-    E4 --> E5[40 Configuraciones<br/>4 modelos × 2 reranking × 5 k-values]:::outputStyle
+    section Fase 5
+    Framework RAGAS :done, f5a, after f4c, 7d
+    Metricas Tradicionales :done, f5b, after f5a, 7d
+    Metricas Semanticas :done, f5c, after f5a, 7d
 
-    %% Fase 6: Análisis
-    E5 --> F[FASE 6: ANÁLISIS Y DOCUMENTACIÓN<br/>Semanas 19-20]:::phaseStyle
-    F --> F1[Análisis Estadístico<br/>Test de Wilcoxon]:::processStyle
-    F --> F2[Validación de Resultados]:::processStyle
-    F1 & F2 --> F3[Documentación Final<br/>y Artefactos Reproducibles]:::outputStyle
-
-    %% Iteraciones y Feedback
-    E5 -.->|Feedback| C
-    F2 -.->|Refinamiento| D
+    section Fase 6
+    Analisis Estadistico :done, f6a, after f5b, 7d
+    Validacion Resultados :done, f6b, after f6a, 7d
+    Documentacion Final :done, f6c, after f6b, 7d
 ```
 
 ### 5.2.2 Descripción de las Fases Metodológicas
 
-El flujo metodológico ilustrado representa un proceso sistemático que garantiza la calidad científica del proyecto. La Fase 1 de Conceptualización y Diseño (Semanas 1-3) parte de la problemática identificada en sistemas de soporte técnico, ejecuta un análisis exhaustivo de literatura especializada, define objetivos SMART, y produce como salida una arquitectura RAG completa con especificaciones técnicas detalladas.
+El flujo metodológico ilustrado representa un proceso sistemático que garantiza la calidad científica del proyecto. La Fase 1 de Conceptualización (Semanas 1-4) ejecuta de manera secuencial la identificación del problema en sistemas de soporte técnico Azure, la definición de objetivos SMART de investigación, la revisión exhaustiva de literatura especializada en sistemas RAG y recuperación semántica, y finalmente el diseño detallado de la arquitectura del sistema incluyendo selección preliminar de componentes técnicos.
 
-La Fase 2 de Recolección y Preparación de Datos (Semanas 4-8) toma las especificaciones de datos requeridos, ejecuta web scraping ético con normalización de URLs y validación manual, y genera como salida un corpus validado de 62,417 documentos junto con 2,067 pares pregunta-documento con ground truth verificado.
+La Fase 2 de Recolección de Datos (Semanas 5-8) ejecuta en paralelo el web scraping de Microsoft Learn y la extracción de preguntas de Microsoft Q&A, seguido del procesamiento y normalización de datos textuales, culminando con la validación de ground truth que establece 2,067 pares pregunta-documento verificados del total de 62,417 documentos y 13,436 preguntas recolectadas.
 
-La Fase 3 de Implementación de Embeddings (Semanas 9-12) procesa el corpus preparado aplicando cuatro arquitecturas de embeddings seleccionadas, ejecutando la generación paralela de vectores para maximizar eficiencia computacional, y almacenando 187,031 vectores por modelo en ChromaDB para consulta eficiente.
+La Fase 3 de Creación de Embeddings (Semanas 9-10) genera en paralelo los vectores de representación semántica para los cuatro modelos seleccionados (Ada con 1,536 dimensiones, MPNet con 768 dimensiones, MiniLM con 384 dimensiones, y E5-Large con 1,024 dimensiones), procesando 187,031 chunks por modelo y almacenándolos en ChromaDB para consulta eficiente.
 
-La Fase 4 de Desarrollo de Reranking (Semanas 13-15) parte del sistema de recuperación vectorial base, implementa un CrossEncoder especializado con normalización Min-Max de scores, y produce un pipeline optimizado de recuperación en dos etapas que balancea eficiencia y precisión.
+La Fase 4 de Pipeline de Pruebas (Semanas 11-13) desarrolla en paralelo la aplicación Streamlit para visualización interactiva de resultados y los notebooks de Google Colab para ejecución automatizada del pipeline de evaluación, finalizando con la implementación de sistemas de visualización que incluyen métricas comparativas, gráficos de rendimiento y análisis estadísticos. **[INFERENCIA: Esta fase incluye la implementación del CrossEncoder para reranking como parte del pipeline de evaluación, aunque no aparece explícitamente en el diagrama Gantt]**
 
-La Fase 5 de Evaluación Experimental (Semanas 16-18) toma el sistema completo y el conjunto de evaluación validado, ejecuta sistemáticamente 40 configuraciones experimentales variando modelo de embedding, aplicación de reranking, y valores de k, y genera métricas exhaustivas para análisis comparativo riguroso.
+La Fase 5 de Evaluación (Semanas 14-15) implementa el framework RAGAS para métricas especializadas RAG, seguido de la ejecución en paralelo de evaluaciones con métricas tradicionales de recuperación (Precision, Recall, F1, MRR, nDCG) y métricas semánticas mediante BERTScore, procesando sistemáticamente las 2,067 consultas con ground truth validado.
 
-La Fase 6 de Análisis y Documentación (Semanas 19-20) procesa los resultados experimentales completos, aplica validación estadística mediante tests no paramétricos, desarrolla documentación técnica detallada, y produce artefactos reproducibles junto con conclusiones validadas estadísticamente.
+La Fase 6 de Análisis Final (Semanas 16-18) ejecuta secuencialmente el análisis estadístico mediante tests no paramétricos de Wilcoxon con corrección Bonferroni, la validación rigurosa de resultados identificando patrones de rendimiento entre modelos, y la documentación técnica completa incluyendo metodología detallada, hallazgos principales y artefactos reproducibles.
 
 ### 5.2.3 Enfoque Metodológico General
 
