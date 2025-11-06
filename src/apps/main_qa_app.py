@@ -21,6 +21,8 @@ from src.apps.cumulative_metrics_create import show_cumulative_metrics_create_pa
 from src.apps.cumulative_metrics_results import show_cumulative_metrics_results_page
 from src.apps.cumulative_metrics_results_matplotlib import show_cumulative_metrics_results_page as show_cumulative_metrics_results_matplotlib_page
 from src.apps.sankey_relevance_flow import show_sankey_page
+from src.apps.interactive_search_single import show_interactive_search_single_page
+from src.apps.batch_search_analysis import show_batch_search_analysis_page
 from src.config.config import EMBEDDING_MODELS, DEFAULT_EMBEDDING_MODEL, CHROMADB_COLLECTION_CONFIG, GENERATIVE_MODELS, DEFAULT_GENERATIVE_MODEL, GENERATIVE_MODEL_DESCRIPTIONS
 
 def _sanitize_json_string(json_string: str) -> str:
@@ -113,6 +115,8 @@ page = st.sidebar.radio(
     "Selecciona una página:",
     [
         "🔍 Búsqueda Individual",
+        "🔬 Análisis Interactivo - Pregunta Individual",
+        "📊 Análisis por Lotes - Rangos",
         "📈 Análisis de Datos",
         "⚙️ Configuración Métricas Acumulativas",
         "📊 Resultados Métricas Acumulativas",
@@ -1138,6 +1142,12 @@ elif page == "📊 Visualizaciones Capítulo 4":
 
 elif page == "📊 Figuras Capítulo 7":
     show_chapter_7_figures()
+
+elif page == "🔬 Análisis Interactivo - Pregunta Individual":
+    show_interactive_search_single_page()
+
+elif page == "📊 Análisis por Lotes - Rangos":
+    show_batch_search_analysis_page()
 
 elif page == "📈 Análisis de Datos":
     show_data_analysis_page()

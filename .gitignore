@@ -38,6 +38,7 @@ src/config/gdrive_config.json
 # ===============================
 # Claude AI development files
 CLAUDE.md
+.claude/
 
 # Logs
 *.log
