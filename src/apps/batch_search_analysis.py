@@ -66,11 +66,11 @@ def show_batch_search_analysis_page():
     if use_multistage:
         retrieval_k = st.sidebar.slider(
             "Candidatos a recuperar:",
-            min_value=20,
+            min_value=15,
             max_value=100,
-            value=50,
-            step=10,
-            help="Número de documentos a recuperar antes de reranking"
+            value=15,
+            step=5,
+            help="Número de documentos a recuperar antes de reranking (15=reranking simple, 30-50=multi-stage para mayor recall)"
         )
     else:
         retrieval_k = 15

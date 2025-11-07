@@ -63,11 +63,11 @@ def show_interactive_search_single_page():
     if use_multistage:
         retrieval_k = st.sidebar.slider(
             "Candidatos a recuperar:",
-            min_value=20,
+            min_value=15,
             max_value=100,
-            value=50,
-            step=10,
-            help="Número de documentos a recuperar antes de reranking"
+            value=15,
+            step=5,
+            help="Número de documentos a recuperar antes de reranking (15=reranking simple, 30-50=multi-stage para mayor recall)"
         )
     else:
         retrieval_k = 15
@@ -375,6 +375,341 @@ def show_interactive_search_single_page():
             plt.close(fig_combined)
         else:
             st.warning("⚠️ Ranx no disponible - mostrando solo métricas manuales")
+
+        # Ejemplos de cálculo de métricas para k=10
+        st.header("5️⃣ Ejemplo Detallado: Cálculo de Métricas para k=10")
+        st.markdown("""
+        Esta sección muestra **cómo se calculan las métricas** usando los datos reales de esta búsqueda para k=10.
+        """)
+
+        # Usar datos después del CrossEncoder para el ejemplo
+        example_k = 10
+
+        # Preparar datos para el ejemplo
+        gt_normalized = {normalize_url(link) for link in validated_links if link}
+
+        # Ordenar y dedupilicar documentos (igual que en calculate_retrieval_metrics)
+        sorted_docs = sorted(
+            reranked_docs,
+            key=lambda x: (-x.get('crossencoder_score', 0.0), x.get('link', ''))
+        )
+
+        seen_urls = set()
+        dedup_docs = []
+        for doc in sorted_docs:
+            norm_url = normalize_url(doc.get('link', ''))
+            if norm_url and norm_url not in seen_urls:
+                seen_urls.add(norm_url)
+                dedup_docs.append(doc)
+
+        # Top-10 documentos únicos
+        top_10_docs = dedup_docs[:example_k]
+        top_10_links = [normalize_url(doc.get('link', '')) for doc in top_10_docs]
+
+        # Identificar relevantes
+        relevant_in_top10 = [link in gt_normalized for link in top_10_links]
+        tp = sum(relevant_in_top10)
+
+        st.subheader("📊 Datos para k=10")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Ground Truth (Documentos Relevantes):**")
+            st.code(f"Total relevantes: {len(gt_normalized)}")
+            with st.expander("Ver URLs relevantes"):
+                for i, link in enumerate(gt_normalized, 1):
+                    st.text(f"{i}. {link[:70]}...")
+
+        with col2:
+            st.markdown("**Top-10 Documentos Recuperados:**")
+            st.code(f"Documentos únicos recuperados: {len(top_10_docs)}")
+
+            # Mostrar top-10 con marcadores de relevancia
+            top10_display = []
+            for i, (doc, is_rel) in enumerate(zip(top_10_docs, relevant_in_top10), 1):
+                score = doc.get('crossencoder_score', 0.0)
+                link = normalize_url(doc.get('link', ''))
+                top10_display.append({
+                    'Pos': i,
+                    'Relevante': '✅' if is_rel else '❌',
+                    'Score': f"{score:.4f}",
+                    'URL': link[:50] + '...' if len(link) > 50 else link
+                })
+
+            df_top10 = pd.DataFrame(top10_display)
+            st.dataframe(df_top10, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        st.subheader("🧮 Cálculo Manual de Métricas (k=10)")
+
+        # Calcular métricas paso a paso
+        import numpy as np
+
+        # 1. Precision@10
+        st.markdown("### 1️⃣ Precision@10")
+        st.latex(r"\text{Precision@k} = \frac{\text{TP}}{k} = \frac{\text{documentos relevantes en top-k}}{k}")
+        st.code(f"""
+Cálculo:
+  - TP (True Positives) = {tp} documentos relevantes encontrados en top-10
+  - k = {example_k}
+
+  Precision@10 = {tp} / {example_k} = {tp / example_k:.4f}
+        """)
+        precision_10 = tp / example_k
+        st.success(f"**Resultado: Precision@10 = {precision_10:.4f}**")
+
+        # 2. Recall@10
+        st.markdown("### 2️⃣ Recall@10")
+        st.latex(r"\text{Recall@k} = \frac{\text{TP}}{\text{Total Relevantes}} = \frac{\text{documentos relevantes en top-k}}{\text{total de documentos relevantes}}")
+        st.code(f"""
+Cálculo:
+  - TP (True Positives) = {tp} documentos relevantes encontrados en top-10
+  - Total Relevantes = {len(gt_normalized)} documentos en ground truth
+
+  Recall@10 = {tp} / {len(gt_normalized)} = {tp / len(gt_normalized):.4f}
+        """)
+        recall_10 = tp / len(gt_normalized) if len(gt_normalized) > 0 else 0.0
+        st.success(f"**Resultado: Recall@10 = {recall_10:.4f}**")
+
+        # 3. F1@10
+        st.markdown("### 3️⃣ F1@10")
+        st.latex(r"\text{F1@k} = 2 \times \frac{\text{Precision@k} \times \text{Recall@k}}{\text{Precision@k} + \text{Recall@k}}")
+        f1_10 = (2 * precision_10 * recall_10) / (precision_10 + recall_10) if (precision_10 + recall_10) > 0 else 0.0
+        st.code(f"""
+Cálculo:
+  - Precision@10 = {precision_10:.4f}
+  - Recall@10 = {recall_10:.4f}
+
+  F1@10 = 2 × ({precision_10:.4f} × {recall_10:.4f}) / ({precision_10:.4f} + {recall_10:.4f})
+        = 2 × {precision_10 * recall_10:.4f} / {precision_10 + recall_10:.4f}
+        = {f1_10:.4f}
+        """)
+        st.success(f"**Resultado: F1@10 = {f1_10:.4f}**")
+
+        # 4. NDCG@10
+        st.markdown("### 4️⃣ NDCG@10 (Normalized Discounted Cumulative Gain)")
+        st.latex(r"\text{DCG@k} = \sum_{i=1}^{k} \frac{\text{rel}_i}{\log_2(i + 1)}")
+        st.latex(r"\text{NDCG@k} = \frac{\text{DCG@k}}{\text{IDCG@k}}")
+
+        # Calcular DCG
+        dcg_parts = []
+        dcg = 0.0
+        for i, is_rel in enumerate(relevant_in_top10, 1):
+            rel = 1.0 if is_rel else 0.0
+            gain = rel / np.log2(i + 1)
+            dcg += gain
+            if is_rel:
+                dcg_parts.append(f"  Posición {i}: 1 / log2({i}+1) = 1 / {np.log2(i + 1):.3f} = {gain:.4f}")
+
+        # Calcular IDCG (ideal: todos los relevantes al principio)
+        idcg = 0.0
+        for i in range(1, min(example_k, len(gt_normalized)) + 1):
+            idcg += 1.0 / np.log2(i + 1)
+
+        ndcg_10 = dcg / idcg if idcg > 0 else 0.0
+
+        st.code(f"""
+Cálculo DCG (Discounted Cumulative Gain):
+{chr(10).join(dcg_parts) if dcg_parts else "  (No hay documentos relevantes en top-10)"}
+
+  DCG@10 = {dcg:.4f}
+
+Cálculo IDCG (Ideal DCG - todos los relevantes al inicio):
+  Número de relevantes = {len(gt_normalized)}
+  IDCG@10 = suma de 1/log2(i+1) para i=1 hasta min(10, {len(gt_normalized)})
+  IDCG@10 = {idcg:.4f}
+
+  NDCG@10 = DCG / IDCG = {dcg:.4f} / {idcg:.4f} = {ndcg_10:.4f}
+        """)
+        st.success(f"**Resultado: NDCG@10 = {ndcg_10:.4f}**")
+
+        # 5. MAP@10
+        st.markdown("### 5️⃣ MAP@10 (Mean Average Precision)")
+        st.latex(r"\text{MAP@k} = \frac{1}{\min(k, |\text{Relevantes}|)} \sum_{i=1}^{k} \text{Precision@i} \times \text{rel}_i")
+
+        map_parts = []
+        sum_precisions = 0.0
+        relevant_count = 0
+        for i, is_rel in enumerate(relevant_in_top10, 1):
+            if is_rel:
+                relevant_count += 1
+                precision_at_i = relevant_count / i
+                sum_precisions += precision_at_i
+                map_parts.append(f"  Posición {i}: Precision@{i} = {relevant_count}/{i} = {precision_at_i:.4f}")
+
+        map_10 = sum_precisions / len(gt_normalized) if len(gt_normalized) > 0 else 0.0
+
+        st.code(f"""
+Cálculo (se suma Precision@i solo cuando el doc en posición i es relevante):
+{chr(10).join(map_parts) if map_parts else "  (No hay documentos relevantes en top-10)"}
+
+  Suma de Precisiones = {sum_precisions:.4f}
+  Total Relevantes = {len(gt_normalized)}
+
+  MAP@10 = {sum_precisions:.4f} / {len(gt_normalized)} = {map_10:.4f}
+        """)
+        st.success(f"**Resultado: MAP@10 = {map_10:.4f}**")
+
+        # 6. MRR (Mean Reciprocal Rank)
+        st.markdown("### 6️⃣ MRR (Mean Reciprocal Rank)")
+        st.latex(r"\text{MRR} = \frac{1}{\text{rank del primer relevante}}")
+
+        first_relevant_pos = None
+        for i, is_rel in enumerate(relevant_in_top10, 1):
+            if is_rel:
+                first_relevant_pos = i
+                break
+
+        mrr = 1.0 / first_relevant_pos if first_relevant_pos else 0.0
+
+        if first_relevant_pos:
+            st.code(f"""
+Cálculo:
+  - Primer documento relevante encontrado en posición: {first_relevant_pos}
+
+  MRR = 1 / {first_relevant_pos} = {mrr:.4f}
+            """)
+        else:
+            st.code("""
+Cálculo:
+  - No se encontró ningún documento relevante en top-10
+
+  MRR = 0.0
+            """)
+        st.success(f"**Resultado: MRR = {mrr:.4f}**")
+
+        # Comparación con valores calculados
+        st.markdown("---")
+        st.subheader("✅ Verificación con Valores Calculados")
+
+        verification_data = {
+            'Métrica': ['Precision@10', 'Recall@10', 'F1@10', 'NDCG@10', 'MAP@10', 'MRR'],
+            'Valor Manual (Mostrado)': [
+                f"{precision_10:.4f}",
+                f"{recall_10:.4f}",
+                f"{f1_10:.4f}",
+                f"{ndcg_10:.4f}",
+                f"{map_10:.4f}",
+                f"{mrr:.4f}"
+            ],
+            'Valor Calculado (Función)': [
+                f"{metrics_after_full.get('precision@10', 0):.4f}",
+                f"{metrics_after_full.get('recall@10', 0):.4f}",
+                f"{metrics_after_full.get('f1@10', 0):.4f}",
+                f"{metrics_after_full.get('ndcg@10', 0):.4f}",
+                f"{metrics_after_full.get('map@10', 0):.4f}",
+                f"{metrics_after_full.get('mrr', 0):.4f}"
+            ]
+        }
+
+        df_verification = pd.DataFrame(verification_data)
+        st.dataframe(df_verification, use_container_width=True, hide_index=True)
+
+        # Sección Ranx
+        if RANX_AVAILABLE and ranx_metrics_after_full:
+            st.markdown("---")
+            st.subheader("📦 Cálculo con Ranx (Librería de IR)")
+
+            st.markdown("""
+            **Ranx** es una librería de Python para métricas de Information Retrieval. Requiere:
+            1. Un `Qrels` (Query Relevance) con los documentos relevantes
+            2. Un `Run` con los documentos recuperados y sus scores
+            """)
+
+            # Mostrar estructura de datos para Ranx
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**1. Qrels (Ground Truth):**")
+                qrels_example = {
+                    "q1": {}
+                }
+                for link in list(gt_normalized)[:3]:
+                    qrels_example["q1"][link[:40] + "..."] = 1
+                if len(gt_normalized) > 3:
+                    qrels_example["q1"]["..."] = f"({len(gt_normalized) - 3} más)"
+
+                st.code(f"""
+from ranx import Qrels
+
+qrels_dict = {{
+  "q1": {{
+    {chr(10).join([f'    "{link[:40]}...": 1,' for link in list(gt_normalized)[:3]])}
+    ... ({len(gt_normalized)} docs relevantes total)
+  }}
+}}
+
+qrels = Qrels(qrels_dict)
+                """, language="python")
+
+            with col2:
+                st.markdown("**2. Run (Documentos Recuperados):**")
+                run_example = []
+                for i, doc in enumerate(top_10_docs[:3], 1):
+                    link = normalize_url(doc.get('link', ''))
+                    score = doc.get('crossencoder_score', 0.0)
+                    run_example.append(f'    "{link[:40]}...": {score:.4f},')
+
+                st.code(f"""
+from ranx import Run
+
+run_dict = {{
+  "q1": {{
+{chr(10).join(run_example)}
+    ... ({len(top_10_docs)} docs total)
+  }}
+}}
+
+run = Run(run_dict)
+                """, language="python")
+
+            st.markdown("**3. Calcular Métricas:**")
+            st.code("""
+from ranx import evaluate
+
+metrics = evaluate(
+    qrels,
+    run,
+    ["precision@10", "recall@10", "f1@10",
+     "ndcg@10", "map@10", "mrr"]
+)
+            """, language="python")
+
+            st.markdown("**4. Resultados de Ranx (k=10):**")
+
+            ranx_results = {
+                'Métrica': ['Precision@10', 'Recall@10', 'F1@10', 'NDCG@10', 'MAP@10', 'MRR'],
+                'Valor Ranx': [
+                    f"{ranx_metrics_after_full.get('precision@10', 0):.4f}",
+                    f"{ranx_metrics_after_full.get('recall@10', 0):.4f}",
+                    f"{ranx_metrics_after_full.get('f1@10', 0):.4f}",
+                    f"{ranx_metrics_after_full.get('ndcg@10', 0):.4f}",
+                    f"{ranx_metrics_after_full.get('map@10', 0):.4f}",
+                    f"{ranx_metrics_after_full.get('mrr', 0):.4f}"
+                ],
+                'Valor Manual': [
+                    f"{precision_10:.4f}",
+                    f"{recall_10:.4f}",
+                    f"{f1_10:.4f}",
+                    f"{ndcg_10:.4f}",
+                    f"{map_10:.4f}",
+                    f"{mrr:.4f}"
+                ],
+                'Diferencia': [
+                    f"{abs(ranx_metrics_after_full.get('precision@10', 0) - precision_10):.6f}",
+                    f"{abs(ranx_metrics_after_full.get('recall@10', 0) - recall_10):.6f}",
+                    f"{abs(ranx_metrics_after_full.get('f1@10', 0) - f1_10):.6f}",
+                    f"{abs(ranx_metrics_after_full.get('ndcg@10', 0) - ndcg_10):.6f}",
+                    f"{abs(ranx_metrics_after_full.get('map@10', 0) - map_10):.6f}",
+                    f"{abs(ranx_metrics_after_full.get('mrr', 0) - mrr):.6f}"
+                ]
+            }
+
+            df_ranx = pd.DataFrame(ranx_results)
+            st.dataframe(df_ranx, use_container_width=True, hide_index=True)
+
+            st.info("ℹ️ Las pequeñas diferencias (< 0.0001) son normales debido a precisión de punto flotante. Los valores deben ser prácticamente idénticos.")
 
 
 if __name__ == "__main__":

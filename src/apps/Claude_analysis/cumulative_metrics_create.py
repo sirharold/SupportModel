@@ -17,7 +17,7 @@ from src.services.storage.real_gdrive_integration import (
     check_evaluation_status_in_drive, show_gdrive_authentication_instructions, 
     show_gdrive_debug_info
 )
-from src.apps.cumulative_metrics_page import display_current_colab_status
+from src.apps.Claude_analysis.cumulative_metrics_page import display_current_colab_status
 
 
 def show_cumulative_metrics_create_page():

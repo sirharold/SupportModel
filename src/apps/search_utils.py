@@ -271,6 +271,11 @@ def calculate_retrieval_metrics(ground_truth_links: List[str], retrieved_docs: L
         import streamlit as st
         st.write(f"**DEBUG Manual - score_key:** {score_key}")
         st.write(f"**DEBUG Manual - Original docs:** {len(sorted_docs)}, After dedup: {len(dedup_docs)}")
+
+        # Warning if very few unique docs
+        if len(dedup_docs) < 10:
+            st.warning(f"⚠️ Solo {len(dedup_docs)} documentos únicos después de deduplicación. Esto puede afectar métricas para k > {len(dedup_docs)}")
+
         st.write(f"**DEBUG Manual - Top 5 docs after dedup:**")
         for i, doc in enumerate(dedup_docs[:5], 1):
             link = normalize_url(doc.get('link', ''))
@@ -278,18 +283,33 @@ def calculate_retrieval_metrics(ground_truth_links: List[str], retrieved_docs: L
             is_rel = link in gt_normalized
             st.write(f"  {i}. {link[:50]}... score={score:.4f} relevant={is_rel}")
 
+        # Show duplicate info
+        num_duplicates = len(sorted_docs) - len(dedup_docs)
+        if num_duplicates > 0:
+            st.info(f"ℹ️ Se encontraron {num_duplicates} URLs duplicadas (después de normalización)")
+
     # Extract retrieved links from deduplicated documents
     retrieved_links = [normalize_url(doc.get('link', '')) for doc in dedup_docs]
+
+    # Verificar si tenemos suficientes documentos únicos
+    num_unique_docs = len(retrieved_links)
+    if debug and k_values and num_unique_docs < max(k_values):
+        import streamlit as st
+        st.warning(f"⚠️ **ADVERTENCIA**: Solo hay {num_unique_docs} documentos únicos, pero el k máximo solicitado es {max(k_values)}. "
+                   f"Las métricas para k > {num_unique_docs} se calcularán solo sobre {num_unique_docs} documentos.")
 
     metrics = {}
 
     for k in k_values:
         top_k_links = set(retrieved_links[:k])
+        actual_k = len(top_k_links)  # Número real de documentos únicos considerados
 
         # True positives
         tp = len(top_k_links & gt_normalized)
 
         # Precision@k
+        # Note: If we have fewer than k unique documents, precision is calculated as tp/k
+        # This means precision will be lower, which is correct: we asked for k docs but couldn't provide k unique ones
         precision = tp / k if k > 0 else 0.0
 
         # Recall@k
@@ -297,6 +317,11 @@ def calculate_retrieval_metrics(ground_truth_links: List[str], retrieved_docs: L
 
         # F1@k
         f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
+
+        # Debug info for this k
+        if debug and actual_k < k:
+            import streamlit as st
+            st.write(f"  ⚠️ k={k}: solo {actual_k} docs únicos disponibles (tp={tp}, P={precision:.4f}, R={recall:.4f})")
 
         metrics[f'precision@{k}'] = precision
         metrics[f'recall@{k}'] = recall

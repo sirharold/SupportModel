@@ -18,7 +18,7 @@ from src.services.storage.real_gdrive_integration import (
     show_gdrive_authentication_instructions, show_gdrive_debug_info,
     get_all_results_files_from_drive, get_specific_results_file_from_drive
 )
-from src.apps.cumulative_metrics_page import display_current_colab_status
+from src.apps.Claude_analysis.cumulative_metrics_page import display_current_colab_status
 
 
 def get_local_results_files():
