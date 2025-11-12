@@ -12,44 +12,9 @@ Este proyecto adopta un enfoque cuantitativo que permite evaluar de manera objet
 
 El siguiente diagrama presenta una vista integral del flujo metodológico empleado en este proyecto, mostrando las fases principales, sus interrelaciones y los entregables clave de cada etapa:
 
-```mermaid
-gantt
-    title Cronograma DSR del Proyecto
-    dateFormat YYYY-MM-DD
+<img src="img/Capitulo5FlujoMetodologico.png" alt="Cronograma DSR del Proyecto" width="900">
 
-    section DSR 1 Problem Identification
-    Identificacion del Problema :done, f1a, 2024-01-01, 7d
-
-    section DSR 2 Objectives Definition
-    Definicion de Objetivos :done, f2a, after f1a, 7d
-
-    section DSR 3 Design and Development
-    Revision de Literatura :done, f3a, after f2a, 7d
-    Diseño de Arquitectura RAG :done, f3b, after f3a, 7d
-    Web Scraping Microsoft Learn :done, f3c, after f3b, 14d
-    Extraccion Q&A :done, f3d, after f3b, 14d
-    Procesamiento :done, f3e, after f3c, 7d
-    Validacion Ground Truth :done, f3f, after f3e, 7d
-    Embeddings Ada :done, f3g, after f3f, 14d
-    Embeddings MPNet :done, f3h, after f3f, 14d
-    Embeddings MiniLM :done, f3i, after f3f, 14d
-    Embeddings E5-Large :done, f3j, after f3f, 14d
-
-    section DSR 4 Demonstration
-    Streamlit Visualizacion :done, f4a, after f3g, 14d
-    Colab Pipeline :done, f4b, after f3g, 14d
-    Sistema Visualizacion :done, f4c, after f4a, 7d
-
-    section DSR 5 Evaluation
-    Framework RAGAS :done, f5a, after f4c, 7d
-    Metricas Tradicionales :done, f5b, after f5a, 7d
-    Metricas Semanticas :done, f5c, after f5a, 7d
-
-    section DSR 6 Communication
-    Analisis Estadistico :done, f6a, after f5b, 7d
-    Validacion Resultados :done, f6b, after f6a, 7d
-    Documentacion Final :done, f6c, after f6b, 7d
-```
+**Figura 5.1:** Cronograma y flujo metodológico del proyecto siguiendo las seis fases del proceso DSR (Design Science Research)
 
 ### 5.2.2 Descripción de las Fases DSR
 

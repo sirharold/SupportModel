@@ -144,7 +144,7 @@ Las fórmulas matemáticas de estas métricas de similitud semántica se present
 
 | Métrica | Fórmula | Descripción de Variables |
 |---------|---------|--------------------------|
-| **Similitud Coseno** | $\text{sim}(a, b) = \frac{a \cdot b}{\\|a\\| \\|b\\|} = \frac{\sum_{i=1}^{n} a_i b_i}{\sqrt{\sum_{i=1}^{n} a_i^2} \sqrt{\sum_{i=1}^{n} b_i^2}}$ | $a, b$ = vectores de embeddings, $n$ = dimensionalidad |
+| **Similitud Coseno** | $\text{sim}(a, b) = \frac{a \cdot b}{\|a\| \|b\|} = \frac{\sum_{i=1}^{n} a_i b_i}{\sqrt{\sum_{i=1}^{n} a_i^2} \sqrt{\sum_{i=1}^{n} b_i^2}}$ | $a, b$ = vectores de embeddings, $n$ = dimensionalidad |
 | **BERTScore Precision** | $P_{\text{BERT}} = \frac{1}{\|x^{ref}\|} \sum_{x_j \in x^{ref}} \max_{x_i \in x^{cand}} \mathbf{x}_i^T \mathbf{x}_j$ | $x^{ref}$ = tokens de referencia, $x^{cand}$ = tokens candidatos, $\mathbf{x}_i$ = embedding contextual del token $i$ |
 | **BERTScore Recall** | $R_{\text{BERT}} = \frac{1}{\|x^{cand}\|} \sum_{x_i \in x^{cand}} \max_{x_j \in x^{ref}} \mathbf{x}_i^T \mathbf{x}_j$ | $x^{cand}$ = tokens candidatos, $x^{ref}$ = tokens de referencia |
 | **BERTScore F1** | $F_{\text{BERT}} = 2 \cdot \frac{P_{\text{BERT}} \cdot R_{\text{BERT}}}{P_{\text{BERT}} + R_{\text{BERT}}}$ | Media armónica de Precision y Recall de BERTScore |

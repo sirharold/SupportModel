@@ -27,6 +27,16 @@ OUTPUT_DIR = DOCS_DIR / "Words"
 # Capítulos a convertir (en orden)
 CHAPTERS = [
     {
+        'input': 'capitulo_0_resumen_espanol.md',
+        'output': 'Capitulo_0_Resumen.docx',
+        'title': 'Resumen'
+    },
+    {
+        'input': 'capitulo_0_abstract_ingles.md',
+        'output': 'Capitulo_0_Abstract.docx',
+        'title': 'Abstract'
+    },
+    {
         'input': 'capitulo_1.md',
         'output': 'Capitulo_1_Introduccion.docx',
         'title': 'Capítulo 1: Introducción'
@@ -87,6 +97,7 @@ def convert_markdown_to_docx(md_file: Path, docx_file: Path, title: str) -> bool
 
     try:
         # Comando pandoc con opciones para mejor formato
+        # NO incluye --toc para evitar tabla de contenidos en cada capítulo
         cmd = [
             'pandoc',
             str(md_file),
@@ -94,15 +105,11 @@ def convert_markdown_to_docx(md_file: Path, docx_file: Path, title: str) -> bool
             '--from=markdown',
             '--to=docx',
             '--standalone',
-            '--toc',  # Tabla de contenidos
-            '--toc-depth=3',  # Profundidad del TOC
             f'--metadata=title:{title}',
             '--highlight-style=tango',  # Estilo de código
-            '--reference-doc=/Applications/Microsoft Word.app/Contents/Resources/reference.docx' if Path('/Applications/Microsoft Word.app').exists() else ''
+            '--resource-path=.:img',  # Buscar imágenes en directorio actual e img/
+            '--extract-media=.'  # Extraer medios al directorio actual
         ]
-
-        # Remover argumento vacío si no hay Word instalado
-        cmd = [arg for arg in cmd if arg]
 
         result = subprocess.run(
             cmd,
