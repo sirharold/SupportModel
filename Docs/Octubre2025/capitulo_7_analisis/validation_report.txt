@@ -1,0 +1,134 @@
+REPORTE DE VALIDACIÓN - CAPÍTULO 7
+================================================================================
+
+Total de validaciones: 124
+Errores: 24
+Advertencias: 1
+
+
+ERRORES:
+--------------------------------------------------------------------------------
+
+Ada Precision@3 Antes (Tabla 7.2)
+  Esperado: 0.1040
+  Actual:   0.1113
+  Diferencia: 0.0073
+
+Ada Precision@10 Antes (Tabla 7.2)
+  Esperado: 0.0790
+  Actual:   0.0742
+  Diferencia: 0.0048
+
+Ada Precision@3 Después (Tabla 7.2)
+  Esperado: 0.0860
+  Actual:   0.0885
+  Diferencia: 0.0025
+
+Ada Precision@10 Después (Tabla 7.2)
+  Esperado: 0.0670
+  Actual:   0.0683
+  Diferencia: 0.0013
+
+Ada Precision@15 Después (Tabla 7.2)
+  Esperado: 0.0530
+  Actual:   0.0613
+  Diferencia: 0.0083
+
+Ada Recall@15 Antes
+  Esperado: 0.7020
+  Actual:   0.7288
+  Diferencia: 0.0268
+
+Ada Recall@3 Después
+  Esperado: 0.2280
+  Actual:   0.2189
+  Diferencia: 0.0091
+
+Ada Recall@10 Después
+  Esperado: 0.5390
+  Actual:   0.5461
+  Diferencia: 0.0071
+
+Ada Recall@15 Después
+  Esperado: 0.6490
+  Actual:   0.7288
+  Diferencia: 0.0798
+
+MiniLM Precision@3 Antes
+  Esperado: 0.0560
+  Actual:   0.0639
+  Diferencia: 0.0079
+
+MiniLM Precision@10 Antes
+  Esperado: 0.0460
+  Actual:   0.0419
+  Diferencia: 0.0041
+
+MiniLM Precision@15 Antes
+  Esperado: 0.0400
+  Actual:   0.0350
+  Diferencia: 0.0050
+
+MiniLM Precision@3 Después
+  Esperado: 0.0630
+  Actual:   0.0716
+  Diferencia: 0.0086
+
+MiniLM Precision@10 Después
+  Esperado: 0.0520
+  Actual:   0.0439
+  Diferencia: 0.0081
+
+MiniLM Precision@15 Después
+  Esperado: 0.0450
+  Actual:   0.0350
+  Diferencia: 0.0100
+
+E5-Large Precision@5 Después
+  Esperado: 0.0660
+  Actual:   0.0640
+  Diferencia: 0.0020
+
+E5-Large Recall@5 Después
+  Esperado: 0.2630
+  Actual:   0.2558
+  Diferencia: 0.0072
+
+E5-Large F1@5 Después
+  Esperado: 0.1010
+  Actual:   0.0988
+  Diferencia: 0.0022
+
+E5-Large NDCG@5 Antes
+  Esperado: 0.1720
+  Actual:   0.1738
+  Diferencia: 0.0018
+
+E5-Large MAP@5 Antes
+  Esperado: 0.1580
+  Actual:   0.1609
+  Diferencia: 0.0029
+
+E5-Large MAP@5 Después
+  Esperado: 0.1640
+  Actual:   0.1611
+  Diferencia: 0.0029
+
+E5-Large MRR Antes
+  Esperado: 0.1560
+  Actual:   0.1626
+  Diferencia: 0.0066
+
+E5-Large MRR Después
+  Esperado: 0.1580
+  Actual:   0.1628
+  Diferencia: 0.0048
+
+E5-Large NDCG@5
+  Esperado: 0.1720
+  Actual:   0.1738
+  Diferencia: 0.0018
+
+ADVERTENCIAS:
+--------------------------------------------------------------------------------
+- Número de preguntas: 0 (esperado: 2,067)

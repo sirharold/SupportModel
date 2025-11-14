@@ -883,22 +883,61 @@ def get_all_results_files_from_drive():
     except Exception as e:
         return {'success': False, 'error': f'Error buscando archivos de resultados: {str(e)}'}
 
+def calculate_missing_bert_f1_gdrive(data: dict) -> dict:
+    """
+    Calcula bert_f1 faltantes a partir de bert_precision y bert_recall.
+    Si bert_f1 ya existe, lo preserva.
+    """
+    if 'results' not in data:
+        return data
+
+    for model_name, model_data in data['results'].items():
+        if 'individual_rag_metrics' not in model_data:
+            continue
+
+        # Procesar cada entrada individual
+        for metric_entry in model_data['individual_rag_metrics']:
+            bert_f1 = metric_entry.get('bert_f1')
+            bert_precision = metric_entry.get('bert_precision')
+            bert_recall = metric_entry.get('bert_recall')
+
+            # Solo calcular si bert_f1 falta pero precision y recall existen
+            if bert_f1 is None and bert_precision is not None and bert_recall is not None:
+                if bert_precision + bert_recall > 0:
+                    # Calcular F1 usando harmonic mean
+                    metric_entry['bert_f1'] = 2 * (bert_precision * bert_recall) / (bert_precision + bert_recall)
+                else:
+                    metric_entry['bert_f1'] = 0.0
+
+        # Recalcular promedio de bert_f1 si existe la sección rag_metrics
+        if 'rag_metrics' in model_data and 'individual_rag_metrics' in model_data:
+            all_f1_values = [
+                m['bert_f1'] for m in model_data['individual_rag_metrics']
+                if m.get('bert_f1') is not None
+            ]
+
+            if all_f1_values:
+                model_data['rag_metrics']['avg_bert_f1'] = sum(all_f1_values) / len(all_f1_values)
+
+    return data
+
+
 def get_specific_results_file_from_drive(filename_or_id):
-    """Obtiene un archivo de resultados específico por su nombre o ID"""
-    
+    """Obtiene un archivo de resultados específico por su nombre o ID y calcula bert_f1 faltantes"""
+
     # Autenticar
     service = authenticate_gdrive()
     if not service:
         return {'success': False, 'error': 'No se pudo autenticar con Google Drive'}
-    
+
     # Obtener ID de carpeta
     folder_id = load_gdrive_config()
     if not folder_id:
         return {'success': False, 'error': 'No se pudo cargar configuración de carpetas'}
-    
+
     try:
         file_id = filename_or_id
-        
+
         # Si se pasó un nombre de archivo en lugar de un ID, buscar el archivo
         if not filename_or_id.startswith('1') or len(filename_or_id) < 20:  # Likely a filename
             find_result = find_file_in_drive(service, folder_id, filename_or_id)
@@ -907,18 +946,21 @@ def get_specific_results_file_from_drive(filename_or_id):
             if not find_result['found']:
                 return {'success': False, 'error': f'Archivo no encontrado: {filename_or_id}'}
             file_id = find_result['file_id']
-        
+
         # Descargar archivo específico
         download_result = download_json_from_drive(service, file_id)
-        
+
         if not download_result['success']:
             return download_result
-        
+
+        # Calcular bert_f1 faltantes
+        data = calculate_missing_bert_f1_gdrive(download_result['data'])
+
         return {
             'success': True,
-            'results': download_result['data']
+            'results': data
         }
-        
+
     except Exception as e:
         return {'success': False, 'error': f'Error descargando archivo específico: {str(e)}'}
 

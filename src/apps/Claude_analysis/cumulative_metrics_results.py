@@ -67,11 +67,54 @@ def get_local_results_files():
     return found_files
 
 
+def calculate_missing_bert_f1(data: Dict) -> Dict:
+    """
+    Calcula bert_f1 faltantes a partir de bert_precision y bert_recall.
+    Si bert_f1 ya existe, lo preserva.
+    """
+    if 'results' not in data:
+        return data
+
+    for model_name, model_data in data['results'].items():
+        if 'individual_rag_metrics' not in model_data:
+            continue
+
+        # Procesar cada entrada individual
+        for metric_entry in model_data['individual_rag_metrics']:
+            bert_f1 = metric_entry.get('bert_f1')
+            bert_precision = metric_entry.get('bert_precision')
+            bert_recall = metric_entry.get('bert_recall')
+
+            # Solo calcular si bert_f1 falta pero precision y recall existen
+            if bert_f1 is None and bert_precision is not None and bert_recall is not None:
+                if bert_precision + bert_recall > 0:
+                    # Calcular F1 usando harmonic mean
+                    metric_entry['bert_f1'] = 2 * (bert_precision * bert_recall) / (bert_precision + bert_recall)
+                else:
+                    metric_entry['bert_f1'] = 0.0
+
+        # Recalcular promedio de bert_f1 si existe la sección rag_metrics
+        if 'rag_metrics' in model_data and 'individual_rag_metrics' in model_data:
+            all_f1_values = [
+                m['bert_f1'] for m in model_data['individual_rag_metrics']
+                if m.get('bert_f1') is not None
+            ]
+
+            if all_f1_values:
+                model_data['rag_metrics']['avg_bert_f1'] = sum(all_f1_values) / len(all_f1_values)
+
+    return data
+
+
 def get_local_results_file_content(file_path):
-    """Lee un archivo de resultados local."""
+    """Lee un archivo de resultados local y calcula bert_f1 faltantes."""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
+        # Calcular bert_f1 faltantes
+        data = calculate_missing_bert_f1(data)
+
         return {'success': True, 'results': data}
     except Exception as e:
         return {'success': False, 'error': f'Error leyendo archivo local: {str(e)}'}
