@@ -2,35 +2,36 @@
 
 ## 7.1 Introducción
 
-Este capítulo presenta los resultados experimentales del sistema RAG desarrollado, organizando el análisis en tres etapas secuenciales que permiten evaluar el impacto progresivo de cada componente del sistema:
+En este capítulo presentamos los resultados experimentales del sistema RAG desarrollado. Comparamos el rendimiento de cuatro modelos de embeddings (Ada, MPNet, E5-Large y MiniLM) en dos escenarios: utilizando solo búsqueda vectorial y aplicando reranking neural con CrossEncoder. Esta comparación nos permite entender cómo cada componente del sistema contribuye al rendimiento final.
 
-1. **Etapa 1 - Recuperación Vectorial**: Rendimiento de los cuatro modelos de embeddings (Ada, MPNet, E5-Large, MiniLM) utilizando únicamente búsqueda por similitud coseno
-2. **Etapa 2 - Reranking Neural**: Rendimiento de los mismos modelos tras aplicar CrossEncoder para reordenar los resultados iniciales
-3. **Etapa 3 - Análisis Comparativo**: Cuantificación del impacto del reranking mediante comparación directa de las dos etapas anteriores
-
-La evaluación utilizó **2,067 pares pregunta-documento validados** como ground truth, calculando métricas de recuperación (Precision, Recall, F1, NDCG, MAP, MRR) para valores de k desde 1 hasta 15. Este diseño permite identificar qué configuración arquitectónica ofrece el mejor rendimiento para cada escenario de implementación.
+Para la evaluación utilizamos 2,067 pares pregunta-documento validados manualmente como ground truth. Calculamos las métricas de recuperación tradicionales (Precision, Recall, F1, NDCG, MAP y MRR) variando k desde 1 hasta 15 documentos. Esta granularidad nos permite identificar la configuración óptima para diferentes escenarios prácticos de implementación.
 
 ## 7.2 Configuración Experimental
 
 ### 7.2.1 Parámetros de Evaluación
 
-La evaluación experimental implementó un diseño factorial 4×2 comparando cuatro modelos de embedding bajo dos estrategias de procesamiento:
+Evaluamos cuatro modelos de embedding en dos configuraciones diferentes: recuperación vectorial directa (baseline) y recuperación con reranking neural. Los datos utilizados incluyen:
 
 **Datos de Evaluación:**
-- Ground truth: 2,067 pares pregunta-documento validados
-- Documentos indexados: 187,031 chunks de documentación Azure
-- Modelos evaluados: 4 (Ada, MPNet, E5-Large, MiniLM)
+- Ground truth: 2,067 pares pregunta-documento validados manualmente
+- Corpus: 187,031 chunks de documentación oficial de Azure
+- Modelos evaluados: Ada, MPNet, E5-Large y MiniLM
 
-**Parámetros Técnicos:**
-- Método de reranking: CrossEncoder ms-marco-MiniLM-L-6-v2 con normalización Min-Max
-- Top-k evaluado: 1-15 documentos por consulta
-- Métricas calculadas: Precision@k, Recall@k, F1@k, NDCG@k, MAP@k, MRR
-- Métrica de similitud: Similitud coseno en espacio de embeddings
-- Base de datos vectorial: ChromaDB 0.5.23
+**Configuración Técnica:**
 
-**Entorno Computacional:**
-- Plataforma: Google Colab con GPU Tesla T4
-- Ejecución: Octubre 2025
+| Componente | Especificación |
+|------------|----------------|
+| Método de reranking | CrossEncoder ms-marco-MiniLM-L-6-v2 con normalización Min-Max |
+| Top-k evaluado | 1-15 documentos por consulta |
+| Métricas de recuperación | Precision@k, Recall@k, F1@k, NDCG@k, MAP@k, MRR |
+| Métricas RAG | RAGAS (Faithfulness, Answer Relevance, Answer Correctness, Context Precision, Context Recall, Semantic Similarity) |
+| Métricas semánticas | BERTScore (Precision, Recall, F1) |
+| Métrica de similitud | Similitud coseno en espacio de embeddings |
+| Base de datos vectorial | ChromaDB 0.5.23 |
+| Plataforma | Google Colab con GPU Tesla T4 |
+| Periodo de ejecución | Noviembre de 2025 |
+
+El proceso de investigación se desarrolló en tres fases temporales claramente diferenciadas: durante diciembre de 2024 se realizó la extracción completa de los datos fuente desde Microsoft Learn y Microsoft Q&A, capturando 62,417 documentos únicos de documentación técnica y 13,436 preguntas de usuarios con sus respuestas validadas por la comunidad. Entre enero y octubre de 2025 se ejecutó el procesamiento del corpus, incluyendo la segmentación de documentos en 187,031 chunks, la generación de embeddings vectoriales para los cuatro modelos evaluados, y la construcción de las colecciones especializadas en ChromaDB. Finalmente, en noviembre de 2025 se completó la evaluación experimental sobre las 2,067 preguntas con ground truth validado, generando las métricas de recuperación y calidad de respuestas que se presentan en este capítulo.
 
 ### 7.2.2 Modelos de Embedding Evaluados
 
@@ -43,365 +44,323 @@ La evaluación experimental implementó un diseño factorial 4×2 comparando cua
 
 ### 7.2.3 Estrategias de Procesamiento
 
-**Etapa 1 - Recuperación Vectorial Directa:**
-- Búsqueda por similitud coseno en ChromaDB
-- Ordenamiento directo por score de similitud
-- Retorno de top-k documentos sin procesamiento adicional
+Comparamos dos estrategias diferentes para recuperar y ordenar documentos relevantes:
 
-**Etapa 2 - Recuperación con Reranking Neural:**
-- Búsqueda inicial por similitud coseno (top-15)
-- Reranking con CrossEncoder ms-marco-MiniLM-L-6-v2
-- Normalización Min-Max de scores
-- Reordenamiento y selección de top-k final
+**Recuperación Vectorial Directa (Baseline):**
+Esta es la configuración más simple: realizamos búsqueda por similitud coseno en ChromaDB, ordenamos los documentos según su score de similitud, y retornamos directamente los top-k resultados. No aplicamos procesamiento adicional.
 
-## 7.3 Etapa 1: Resultados Antes del Reranking
+**Recuperación con Reranking Neural:**
+En este caso agregamos una segunda etapa de refinamiento: primero recuperamos los top-15 documentos mediante similitud coseno, luego los reordenamos usando un CrossEncoder (ms-marco-MiniLM-L-6-v2) que evalúa la relevancia de cada par pregunta-documento de forma más profunda. Los scores del CrossEncoder se normalizan con Min-Max al rango [0,1] antes de seleccionar los top-k finales.
 
-Esta sección presenta el rendimiento de los cuatro modelos de embeddings utilizando únicamente búsqueda vectorial por similitud coseno, estableciendo la línea base de rendimiento antes de aplicar cualquier procesamiento adicional.
+## 7.3 Resultados de Métricas de Recuperación
 
-### 7.3.1 Rendimiento General por Modelo
+A continuación presentamos los resultados de las métricas de recuperación tradicionales. Para cada familia de métricas mostramos el rendimiento antes y después del reranking, lo que nos permite identificar qué modelos se benefician del CrossEncoder y cuáles no.
 
-La **Tabla 7.1** presenta las métricas principales para los cuatro modelos en k=5, el valor más representativo para sistemas de recuperación interactivos donde el usuario típicamente examina los primeros 5 resultados.
+### 7.3.1 Rendimiento General por Modelo (k=5)
 
-**Tabla 7.1: Rendimiento de Todos los Modelos Antes del Reranking (k=5)**
+Comenzamos con una vista panorámica del rendimiento de los cuatro modelos. La Tabla 7.1 muestra las seis métricas principales evaluadas en k=5, comparando directamente el rendimiento antes y después del reranking.
 
-| Modelo | Precision@5 | Recall@5 | F1@5 | NDCG@5 | MAP@5 | MRR |
-|--------|-------------|----------|------|--------|-------|-----|
-| Ada | 0.062 | 0.245 | 0.096 | 0.173 | 0.140 | 0.188 |
-| MPNet | 0.052 | 0.201 | 0.079 | 0.146 | 0.118 | 0.163 |
-| E5-Large | 0.045 | 0.177 | 0.069 | 0.120 | 0.094 | 0.130 |
-| MiniLM | 0.041 | 0.163 | 0.064 | 0.111 | 0.087 | 0.122 |
+**Tabla 7.1: Rendimiento de Todos los Modelos - Comparación Antes vs Después del Reranking (k=5)**
+
+| Modelo | Etapa | Precision@5 | Recall@5 | F1@5 | NDCG@5 | MAP@5 | MRR |
+|--------|-------|-------------|----------|------|--------|-------|-----|
+| **Ada** | Antes | 0.062 | 0.245 | 0.096 | 0.173 | 0.140 | 0.188 |
+|  | Después | 0.052 | 0.206 | 0.081 | 0.138 | 0.107 | 0.156 |
+|  | **Δ (%)** | **-15.6%** | **-15.9%** | **-15.5%** | **-20.5%** | **-23.4%** | **-16.9%** |
+| **MPNet** | Antes | 0.052 | 0.201 | 0.079 | 0.146 | 0.118 | 0.163 |
+|  | Después | 0.050 | 0.195 | 0.077 | 0.137 | 0.109 | 0.154 |
+|  | **Δ (%)** | **-3.4%** | **-2.9%** | **-3.0%** | **-6.0%** | **-7.6%** | **-5.9%** |
+| **E5-Large** | Antes | 0.045 | 0.177 | 0.069 | 0.120 | 0.094 | 0.130 |
+|  | Después | 0.046 | 0.182 | 0.071 | 0.129 | 0.104 | 0.142 |
+|  | **Δ (%)** | **+2.2%** | **+2.6%** | **+2.2%** | **+7.8%** | **+11.2%** | **+9.2%** |
+| **MiniLM** | Antes | 0.041 | 0.163 | 0.064 | 0.111 | 0.087 | 0.122 |
+|  | Después | 0.047 | 0.180 | 0.071 | 0.130 | 0.105 | 0.143 |
+|  | **Δ (%)** | **+13.1%** | **+10.3%** | **+12.0%** | **+17.0%** | **+20.2%** | **+17.0%** |
 
 **Observaciones Clave:**
 
-1. **Superioridad de Ada**: Con Precision@5=0.062, Ada supera a MPNet (0.052) en 19.2%, estableciendo el mejor rendimiento absoluto entre todos los modelos evaluados.
+1. **El reranking afecta de forma diferente a cada modelo**: Encontramos un patrón claro donde los modelos más débiles mejoran y los más fuertes empeoran:
+   - **MiniLM** (el más débil inicialmente): Mejoras sustanciales de +10% a +20%
+   - **E5-Large**: Mejoras moderadas de +2% a +11%
+   - **MPNet**: Degradación leve de -3% a -8%
+   - **Ada** (el más fuerte inicialmente): Degradación significativa de -16% a -23%
 
-2. **Rendimiento de Modelos Open-Source**: MPNet alcanza el mejor rendimiento entre alternativas open-source, seguido por E5-Large (0.045) y MiniLM (0.041).
+2. **El ranking inicial favorece a Ada**: Sin reranking, Ada (0.062) > MPNet (0.052) > E5-Large (0.045) > MiniLM (0.041)
 
-3. **Trade-off Dimensionalidad-Rendimiento**: No hay correlación perfecta entre dimensionalidad y rendimiento. MPNet (768 dim) supera a E5-Large (1,024 dim), sugiriendo que la especialización del modelo (Q&A para MPNet) compensa la menor capacidad dimensional.
+3. **El reranking reduce las diferencias**: Con reranking, Ada (0.052) > MPNet (0.050) > MiniLM (0.047) > E5-Large (0.046). Las diferencias entre modelos se reducen notablemente.
 
-### 7.3.2 Análisis por Métrica
+4. **MiniLM sube en el ranking**: MiniLM supera a E5-Large después del reranking, cerrando parcialmente la brecha de rendimiento.
 
-Las siguientes subsecciones analizan cada familia de métricas en detalle, mostrando la evolución del rendimiento con valores crecientes de k.
+### 7.3.2 Precision@k
 
-#### 7.3.2.1 Precision@k
+La Precision@k mide qué tan precisos somos al recuperar documentos: de los k documentos que retornamos al usuario, ¿cuántos son realmente relevantes? La Tabla 7.2 muestra cómo evoluciona la precisión al variar k entre 3, 5, 10 y 15 documentos.
 
-La Precision@k mide la proporción de documentos relevantes entre los k documentos recuperados. La **Tabla 7.2** muestra la evolución de la precisión para k={3,5,10,15}.
+**Tabla 7.2: Precision@k - Comparación Antes vs Después del Reranking**
 
-**Tabla 7.2: Precision@k para Todos los Modelos (Antes del Reranking)**
+| Modelo | Etapa | k=3 | k=5 | k=10 | k=15 |
+|--------|-------|-----|-----|------|------|
+| **Ada** | Antes | 0.075 | 0.062 | 0.047 | 0.035 |
+|  | Después | 0.056 | 0.052 | 0.046 | 0.035 |
+| **MPNet** | Antes | 0.066 | 0.052 | 0.040 | 0.031 |
+|  | Después | 0.059 | 0.050 | 0.040 | 0.031 |
+| **E5-Large** | Antes | 0.050 | 0.045 | 0.034 | 0.027 |
+|  | Después | 0.054 | 0.046 | 0.035 | 0.027 |
+| **MiniLM** | Antes | 0.046 | 0.041 | 0.033 | 0.026 |
+|  | Después | 0.057 | 0.047 | 0.034 | 0.026 |
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.075 | 0.062 | 0.047 | 0.035 |
-| MPNet | 0.066 | 0.052 | 0.040 | 0.031 |
-| E5-Large | 0.050 | 0.045 | 0.034 | 0.027 |
-| MiniLM | 0.046 | 0.041 | 0.033 | 0.026 | 
+La Figura 7.1 presenta la evolución completa de Precision@k desde k=1 hasta k=15. Las líneas sólidas representan el rendimiento sin reranking, mientras que las líneas punteadas muestran el rendimiento con CrossEncoder.
 
-La **Figura 7.1** presenta la evolución completa de Precision@k para k=1 hasta k=15.
-
-![Figura 7.1: Precision@k para todos los modelos antes del reranking](./capitulo_7_analisis/charts/precision_por_k_before.png)
-
-**Observaciones**:
-- Todas las curvas muestran decaimiento monotónico con k creciente (comportamiento esperado)
-- Ada mantiene superioridad consistente en todo el rango de k evaluado
-- La brecha entre modelos se reduce con k creciente pero persiste proporcionalmente
-
-#### 7.3.2.2 Recall@k
-
-El Recall@k mide la proporción de todos los documentos relevantes que fueron recuperados dentro del top-k. La **Tabla 7.3** muestra la evolución del recall.
-
-**Tabla 7.3: Recall@k para Todos los Modelos (Antes del Reranking)**
-
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.178 | 0.245 | 0.368 | 0.403 |
-| MPNet | 0.156 | 0.201 | 0.302 | 0.350 |
-| E5-Large | 0.119 | 0.177 | 0.262 | 0.307 |
-| MiniLM | 0.109 | 0.163 | 0.252 | 0.300 | 
-
-La **Figura 7.2** presenta la evolución completa de Recall@k.
-
-![Figura 7.2: Recall@k para todos los modelos antes del reranking](./capitulo_7_analisis/charts/recall_por_k_before.png)
+![Figura 7.1: Precision@k - Comparación antes (línea sólida) vs después (línea punteada) del reranking](./capitulo_7_analisis/charts/precision_combined_before_after.png)
 
 **Observaciones**:
-- Ada alcanza Recall@15=0.403, recuperando aproximadamente 40% de todos los documentos relevantes en el top-15
-- El recall crece más pronunciadamente en k pequeños (k=1 a k=5) y se estabiliza para k grandes
-- Todos los modelos muestran recall sustancial incluso en k=5, validando la efectividad de búsqueda vectorial
+- Ada (línea azul) experimenta una degradación sistemática cuando aplicamos reranking, especialmente para valores pequeños de k (k<10)
+- MiniLM (línea verde) muestra el patrón opuesto: mejora consistente en todo el rango evaluado
+- La brecha entre el mejor y peor modelo se reduce significativamente después del reranking
+- Como era de esperar, todas las curvas decaen a medida que aumentamos k, ya que es más difícil mantener alta precisión cuando retornamos más documentos
 
-#### 7.3.2.3 F1@k
+### 7.3.3 Recall@k
 
-**Tabla 7.4: F1@k para Todos los Modelos (Antes del Reranking)**
+Mientras que Precision pregunta "¿cuántos de los recuperados son relevantes?", Recall pregunta "¿cuántos de todos los relevantes logramos recuperar?". Esta métrica es especialmente importante cuando necesitamos asegurar que no se nos escapen documentos importantes. La Tabla 7.3 muestra los resultados de recall para diferentes valores de k.
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.101 | 0.096 | 0.082 | 0.062 |
-| MPNet | 0.089 | 0.079 | 0.068 | 0.055 |
-| E5-Large | 0.067 | 0.069 | 0.058 | 0.048 |
-| MiniLM | 0.062 | 0.064 | 0.056 | 0.047 | 
+**Tabla 7.3: Recall@k - Comparación Antes vs Después del Reranking**
 
-![Figura 7.3: F1@k para todos los modelos antes del reranking](./capitulo_7_analisis/charts/f1_por_k_before.png)
+| Modelo | Etapa | k=3 | k=5 | k=10 | k=15 |
+|--------|-------|-----|-----|------|------|
+| **Ada** | Antes | 0.178 | 0.245 | 0.368 | 0.403 |
+|  | Después | 0.136 | 0.206 | 0.359 | 0.403 |
+| **MPNet** | Antes | 0.156 | 0.201 | 0.302 | 0.350 |
+|  | Después | 0.139 | 0.195 | 0.302 | 0.350 |
+| **E5-Large** | Antes | 0.119 | 0.177 | 0.262 | 0.307 |
+|  | Después | 0.131 | 0.182 | 0.272 | 0.307 |
+| **MiniLM** | Antes | 0.109 | 0.163 | 0.252 | 0.300 |
+|  | Después | 0.133 | 0.180 | 0.261 | 0.300 |
 
-#### 7.3.2.4 NDCG@k
+![Figura 7.2: Recall@k - Comparación antes (línea sólida) vs después (línea punteada) del reranking](./capitulo_7_analisis/charts/recall_combined_before_after.png)
 
-NDCG (Normalized Discounted Cumulative Gain) penaliza documentos relevantes que aparecen en posiciones inferiores, priorizando la calidad del ranking.
+**Observaciones**:
+- El mismo patrón se mantiene: Ada degrada mientras que MiniLM mejora significativamente
+- Todas las curvas convergen en k=15, lo cual tiene sentido ya que todos los modelos parten del mismo conjunto inicial de 15 documentos antes del reranking
+- El impacto del CrossEncoder es más pronunciado cuando k es pequeño (k≤5), lo que es importante porque en aplicaciones reales típicamente mostramos pocos resultados al usuario
 
-**Tabla 7.5: NDCG@k para Todos los Modelos (Antes del Reranking)**
+### 7.3.4 F1@k
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.146 | 0.173 | 0.215 | 0.225 |
-| MPNet | 0.128 | 0.146 | 0.181 | 0.194 |
-| E5-Large | 0.095 | 0.120 | 0.149 | 0.162 |
-| MiniLM | 0.088 | 0.111 | 0.141 | 0.155 | 
+**Tabla 7.4: F1@k - Comparación Antes vs Después del Reranking**
 
-![Figura 7.4: NDCG@k para todos los modelos antes del reranking](./capitulo_7_analisis/charts/ndcg_por_k_before.png)
+| Modelo | Etapa | k=3 | k=5 | k=10 | k=15 |
+|--------|-------|-----|-----|------|------|
+| **Ada** | Antes | 0.101 | 0.096 | 0.082 | 0.062 |
+|  | Después | 0.077 | 0.081 | 0.079 | 0.062 |
+| **MPNet** | Antes | 0.089 | 0.079 | 0.068 | 0.055 |
+|  | Después | 0.079 | 0.077 | 0.068 | 0.055 |
+| **E5-Large** | Antes | 0.067 | 0.069 | 0.058 | 0.048 |
+|  | Después | 0.076 | 0.071 | 0.060 | 0.048 |
+| **MiniLM** | Antes | 0.062 | 0.064 | 0.056 | 0.047 |
+|  | Después | 0.075 | 0.071 | 0.058 | 0.047 |
 
-#### 7.3.2.5 MAP@k
+![Figura 7.3: F1@k - Comparación antes (línea sólida) vs después (línea punteada) del reranking](./capitulo_7_analisis/charts/f1_combined_before_after.png)
 
-MAP (Mean Average Precision) mide la calidad promedio del ranking de todos los documentos relevantes.
+### 7.3.5 NDCG@k
 
-**Tabla 7.6: MAP@k para Todos los Modelos (Antes del Reranking)**
+NDCG (Normalized Discounted Cumulative Gain) es una métrica más sofisticada que considera no solo qué documentos recuperamos, sino también en qué posición aparecen. Documentos relevantes que aparecen en posiciones bajas reciben menos crédito, lo que refleja mejor la experiencia real del usuario que tiende a revisar primero los resultados del tope de la lista.
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.211 | 0.263 | 0.317 | 0.344 | 
-| MPNet | 0.149 | 0.174 | 0.203 | 0.216 | 
-| E5-Large | 0.133 | 0.161 | 0.191 | 0.205 | 
-| MiniLM | 0.114 | 0.132 | 0.156 | 0.167 | 
+**Tabla 7.5: NDCG@k - Comparación Antes vs Después del Reranking**
 
-![Figura 7.5: MAP@k para todos los modelos antes del reranking](./capitulo_7_analisis/charts/map_por_k_before.png)
+| Modelo | Etapa | k=3 | k=5 | k=10 | k=15 |
+|--------|-------|-----|-----|------|------|
+| **Ada** | Antes | 0.146 | 0.173 | 0.215 | 0.225 |
+|  | Después | 0.108 | 0.138 | 0.190 | 0.202 |
+| **MPNet** | Antes | 0.128 | 0.146 | 0.181 | 0.194 |
+|  | Después | 0.113 | 0.137 | 0.174 | 0.188 |
+| **E5-Large** | Antes | 0.095 | 0.120 | 0.149 | 0.162 |
+|  | Después | 0.110 | 0.129 | 0.160 | 0.170 |
+| **MiniLM** | Antes | 0.088 | 0.111 | 0.141 | 0.155 |
+|  | Después | 0.110 | 0.130 | 0.157 | 0.168 |
 
-### 7.3.3 Ranking de Modelos (Etapa 1)
+> **Nota**: La tabla muestra valores representativos para k=3,5,10,15 por razones de legibilidad. La evaluación completa incluyó todos los valores k=1-15, cuyos resultados se presentan en la Figura 7.4.
 
-La **Tabla 7.7** presenta el ranking definitivo de modelos basado en Precision@5, la métrica más representativa para sistemas interactivos.
+![Figura 7.4: NDCG@k - Comparación antes (línea sólida) vs después (línea punteada) del reranking](./capitulo_7_analisis/charts/ndcg_combined_before_after.png)
 
-**Tabla 7.7: Ranking de Modelos por Precision@5 (Antes del Reranking)**
+### 7.3.6 MAP@k
 
-| Posición | Modelo | Precision@5 | Recall@5 | F1@5 | NDCG@5 |
-|----------|--------|-------------|----------|------|--------|
-| 1 | Ada | 0.098 | 0.398 | 0.152 | 0.234 |
-| 2 | MPNet | 0.070 | 0.277 | 0.108 | 0.193 |
-| 3 | E5-Large | 0.065 | 0.262 | 0.100 | 0.174 |
-| 4 | MiniLM | 0.053 | 0.211 | 0.082 | 0.150 |
+MAP (Mean Average Precision) calcula la precisión promedio considerando todas las posiciones donde aparecen documentos relevantes. Esta métrica penaliza especialmente los casos donde documentos relevantes quedan enterrados en posiciones bajas del ranking.
 
-## 7.4 Etapa 2: Resultados Después del Reranking
+**Tabla 7.6: MAP@k - Comparación Antes vs Después del Reranking**
 
-Esta sección presenta el rendimiento tras aplicar el componente de reranking neural (CrossEncoder) sobre los resultados iniciales de la búsqueda vectorial.
+| Modelo | Etapa | k=3 | k=5 | k=10 | k=15 |
+|--------|-------|-----|-----|------|------|
+| **Ada** | Antes | 0.124 | 0.140 | 0.158 | 0.161 |
+|  | Después | 0.090 | 0.107 | 0.129 | 0.133 |
+| **MPNet** | Antes | 0.108 | 0.118 | 0.133 | 0.137 |
+|  | Después | 0.096 | 0.109 | 0.125 | 0.129 |
+| **E5-Large** | Antes | 0.080 | 0.094 | 0.106 | 0.110 |
+|  | Después | 0.093 | 0.104 | 0.118 | 0.121 |
+| **MiniLM** | Antes | 0.075 | 0.087 | 0.100 | 0.104 |
+|  | Después | 0.093 | 0.105 | 0.116 | 0.120 |
 
-### 7.4.1 Rendimiento General por Modelo
+> **Nota**: La tabla muestra valores representativos para k=3,5,10,15 por razones de legibilidad. La evaluación completa incluyó todos los valores k=1-15, cuyos resultados se presentan en la Figura 7.5.
 
-**Tabla 7.8: Rendimiento de Todos los Modelos Después del Reranking (k=5)**
+![Figura 7.5: MAP@k - Comparación antes (línea sólida) vs después (línea punteada) del reranking](./capitulo_7_analisis/charts/map_combined_before_after.png)
 
-| Modelo | Precision@5 | Recall@5 | F1@5 | NDCG@5 | MAP@5 | MRR |
-|--------|-------------|----------|------|--------|-------|-----|
-| Ada | 0.052 | 0.206 | 0.081 | 0.138 | 0.107 | 0.156 |
-| MPNet | 0.050 | 0.195 | 0.077 | 0.137 | 0.109 | 0.154 |
-| E5-Large | 0.046 | 0.182 | 0.071 | 0.129 | 0.104 | 0.142 |
-| MiniLM | 0.047 | 0.180 | 0.071 | 0.130 | 0.105 | 0.143 |
+**Observación Crítica**: De todas las métricas evaluadas, MAP es la más sensible al efecto del reranking. Ada experimenta su mayor degradación aquí (-23.4% en MAP@5), mientras que MiniLM alcanza su mayor mejora (+20.2%). Esto sugiere que el CrossEncoder reordena significativamente los documentos, beneficiando a modelos con rankings iniciales débiles pero perjudicando a aquellos que ya tenían buenos rankings.
 
-**Cambios Observados:**
+### 7.3.7 Resumen del Impacto del Reranking
 
-- **Ada**: 0.062 → 0.052 (-0.010, -15.6%) 📉
-- **MPNet**: 0.052 → 0.050 (-0.002, -3.4%) 📉
-- **E5-Large**: 0.045 → 0.046 (+0.001, +2.2%) 📈
-- **MiniLM**: 0.041 → 0.047 (+0.005, +13.1%) 📈
+Cuando observamos el efecto del reranking de forma global, encontramos que cada modelo responde de manera completamente diferente. La Tabla 7.7 resume el impacto promedio en todas las métricas, revelando cuatro patrones claramente diferenciados:
 
-### 7.4.2 Análisis por Métrica (Después del Reranking)
+**Tabla 7.7: Impacto Promedio del Reranking por Modelo (Todas las Métricas, k=5)**
 
-#### 7.4.2.1 Precision@k
+| Modelo | Precision | Recall | F1 | NDCG | MAP | MRR | **Promedio** | Categoría |
+|--------|-----------|--------|----|----|-----|-----|--------------|-----------|
+| MiniLM | +13.1% | +10.3% | +12.0% | +17.0% | +20.2% | +17.0% | **+14.9%** | 📈 Mejora sustancial |
+| E5-Large | +2.2% | +2.6% | +2.2% | +7.8% | +11.2% | +9.2% | **+5.9%** | 📈 Mejora moderada |
+| MPNet | -3.4% | -2.9% | -3.0% | -6.0% | -7.6% | -5.9% | **-4.8%** | 📉 Degradación leve |
+| Ada | -15.6% | -15.9% | -15.5% | -20.5% | -23.4% | -16.9% | **-18.0%** | 📉 Degradación significativa |
 
-**Tabla 7.9: Precision@k Después del Reranking**
+**Interpretación**: Los resultados sugieren que el patrón que emerge es claro y contraintuitivo: el reranking ayuda precisamente a los modelos que más lo necesitan (MiniLM y E5-Large, con recuperación inicial débil), pero paradójicamente perjudica a los modelos que ya tenían buen rendimiento (Ada y MPNet). Este hallazgo desafía la idea común de que agregar reranking siempre mejora el sistema, y tiene implicaciones importantes para el diseño de arquitecturas RAG: dependiendo del modelo base que elijamos, el reranking puede ser beneficioso o contraproducente.
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.056 | 0.052 | 0.046 | 0.035 |
-| MPNet | 0.059 | 0.050 | 0.040 | 0.031 |
-| E5-Large | 0.054 | 0.046 | 0.035 | 0.027 |
-| MiniLM | 0.057 | 0.047 | 0.034 | 0.026 | 
+## 7.4 Análisis del Componente de Reranking
 
-![Figura 7.6: Precision@k después del reranking](./capitulo_7_analisis/charts/precision_por_k_after.png)
+### 7.4.1 Características del CrossEncoder
 
-#### 7.4.2.2 Recall@k
+Para el reranking utilizamos el modelo ms-marco-MiniLM-L-6-v2, un CrossEncoder especializado en búsqueda de información. Sus características principales son:
 
-**Tabla 7.10: Recall@k Después del Reranking**
+- **Arquitectura**: Basado en un Transformer de 6 capas que procesa la pregunta y el documento juntos, permitiendo atención cruzada completa entre ambos textos
+- **Entrenamiento**: Entrenado en MS MARCO, un dataset masivo de búsqueda web general creado por Microsoft
+- **Normalización**: Aplicamos normalización Min-Max para convertir los scores al rango [0,1], facilitando su interpretación
+- **Limitación de contexto**: El modelo trunca la entrada a 512 tokens, lo que puede causar pérdida de información en documentos largos de Azure
 
-| Modelo | k=3 | k=5 | k=10 | k=15 |
-|--------|-----|-----|------|------|
-| Ada | 0.136 | 0.206 | 0.359 | 0.403 |
-| MPNet | 0.139 | 0.195 | 0.302 | 0.350 |
-| E5-Large | 0.131 | 0.182 | 0.272 | 0.307 |
-| MiniLM | 0.133 | 0.180 | 0.261 | 0.300 | 
+### 7.4.2 Limitaciones Identificadas
 
-![Figura 7.7: Recall@k después del reranking](./capitulo_7_analisis/charts/recall_por_k_after.png)
+A través del análisis de resultados, identificamos varias limitaciones del CrossEncoder que ayudan a explicar por qué degrada el rendimiento de algunos modelos:
 
-### 7.4.3 Ranking de Modelos (Etapa 2)
+**Tabla 7.8: Limitaciones del CrossEncoder Identificadas**
 
-**Tabla 7.11: Ranking de Modelos por Precision@5 (Después del Reranking)**
+| Limitación | Descripción | Impacto Observado |
+|------------|-------------|-------------------|
+| Desajuste de dominio | Entrenado en búsqueda web general, no documentación técnica especializada | Dificultad para capturar relevancia en contextos técnicos |
+| Interferencia con embeddings fuertes | El reranking puede degradar rankings ya optimizados | Ada experimenta degradación de -15.6% en Precision@5 |
+| Limitación de contexto | Truncamiento a 512 tokens | Pérdida de información en documentos largos de Azure |
+| Costo computacional | Procesamiento secuencial de pares query-documento | Incremento de latencia ~35× respecto a búsqueda vectorial |
 
-| Posición | Modelo | Precision@5 | Recall@5 | F1@5 | NDCG@5 |
-|----------|--------|-------------|----------|------|--------|
-| 1 | Ada | 0.052 | 0.206 | 0.081 | 0.138 |
-| 2 | MPNet | 0.050 | 0.195 | 0.077 | 0.137 |
-| 3 | MiniLM | 0.047 | 0.180 | 0.071 | 0.130 |
-| 4 | E5-Large | 0.046 | 0.182 | 0.071 | 0.129 | 
+## 7.5 Evaluación de Calidad de Respuestas RAG
 
-**Observación**: El ranking relativo de modelos se mantiene consistente después del reranking, aunque las brechas de rendimiento se reducen (efecto de convergencia).
+Las métricas de recuperación nos dicen qué tan bien encontramos documentos relevantes, pero no nos dicen nada sobre la calidad de las respuestas que finalmente generamos para el usuario. Para evaluar esto utilizamos dos familias de métricas complementarias: RAGAS (Retrieval Augmented Generation Assessment) y BERTScore. Estas métricas evalúan aspectos como la fidelidad, relevancia y corrección semántica de las respuestas generadas.
 
-## 7.5 Etapa 3: Análisis del Impacto del Reranking
+### 7.5.1 Marco de Evaluación RAGAS
 
-Esta sección cuantifica el impacto del componente de reranking comparando directamente las dos etapas anteriores.
+RAGAS es un marco de evaluación diseñado específicamente para sistemas RAG. A diferencia de las métricas de recuperación tradicionales, RAGAS evalúa la calidad del sistema completo considerando tanto la recuperación como la generación. La Tabla 7.9 describe las seis métricas que calculamos:
 
-### 7.5.1 Impacto por Modelo
+**Tabla 7.9: Métricas del Marco RAGAS**
 
-La **Tabla 7.12** presenta el cambio absoluto y porcentual en todas las métricas principales para k=5.
+| Métrica | Aspecto Evaluado |
+|---------|------------------|
+| Faithfulness | Fidelidad de la respuesta respecto al contexto recuperado |
+| Answer Relevance | Relevancia de la respuesta respecto a la pregunta |
+| Answer Correctness | Corrección semántica de la respuesta |
+| Context Precision | Precisión del contexto recuperado |
+| Context Recall | Completitud del contexto recuperado |
+| Semantic Similarity | Similitud semántica entre respuesta y referencia |
 
-**Tabla 7.12: Impacto del Reranking por Modelo (k=5)**
+### 7.5.2 Resultados de Métricas RAGAS
 
-| Modelo | Métrica | Antes | Después | Δ Absoluto | Δ % |
-|--------|---------|-------|---------|------------|-----|
-| Ada | Precision@5 | 0.098 | 0.081 | -0.016 | -16.7% |
-| Ada | Recall@5 | 0.398 | 0.330 | -0.068 | -17.2% |
-| Ada | F1@5 | 0.152 | 0.127 | -0.025 | -16.8% |
-| Ada | NDCG@5 | 0.234 | 0.202 | -0.032 | -13.6% |
-| Ada | MAP@5 | 0.263 | 0.201 | -0.062 | -23.7% |
-| Ada | MRR | 0.222 | 0.193 | -0.029 | -13.2% |
-| | | | | | |
-| MPNet | Precision@5 | 0.070 | 0.067 | -0.004 | -5.5% |
-| MPNet | Recall@5 | 0.277 | 0.264 | -0.013 | -4.8% |
-| MPNet | F1@5 | 0.108 | 0.103 | -0.005 | -5.0% |
-| MPNet | NDCG@5 | 0.193 | 0.185 | -0.007 | -3.8% |
-| MPNet | MAP@5 | 0.174 | 0.161 | -0.013 | -7.2% |
-| MPNet | MRR | 0.184 | 0.177 | -0.007 | -4.1% |
-| | | | | | |
-| E5-Large | Precision@5 | 0.065 | 0.064 | -0.001 | -1.2% |
-| E5-Large | Recall@5 | 0.262 | 0.256 | -0.007 | -2.5% |
-| E5-Large | F1@5 | 0.100 | 0.099 | -0.002 | -1.6% |
-| E5-Large | NDCG@5 | 0.174 | 0.171 | -0.003 | -1.6% |
-| E5-Large | MAP@5 | 0.161 | 0.161 | +0.000 | +0.1% |
-| E5-Large | MRR | 0.163 | 0.163 | +0.000 | +0.1% |
-| | | | | | |
-| MiniLM | Precision@5 | 0.053 | 0.060 | +0.007 | +13.6% |
-| MiniLM | Recall@5 | 0.211 | 0.236 | +0.025 | +11.9% |
-| MiniLM | F1@5 | 0.082 | 0.093 | +0.011 | +13.1% |
-| MiniLM | NDCG@5 | 0.150 | 0.169 | +0.019 | +12.5% |
-| MiniLM | MAP@5 | 0.132 | 0.147 | +0.015 | +11.4% |
-| MiniLM | MRR | 0.145 | 0.159 | +0.015 | +10.0% |
-| | | | | | |
+La **Tabla 7.10** presenta las métricas RAGAS para los cuatro modelos de embeddings.
 
-**Observaciones Clave:**
+**Tabla 7.10: Métricas RAGAS por Modelo**
 
-1. **MiniLM muestra mejoras consistentes** (+10% a +14% en todas las métricas), confirmando que el reranking compensa efectivamente las limitaciones del modelo compacto.
+| Modelo | Faithfulness | Answer Rel. | Answer Corr. | Context Prec. | Context Recall | Semantic Sim. |
+|--------|--------------|-------------|--------------|---------------|----------------|---------------|
+| Ada | 0.649 | 0.861 | 0.540 | 0.918 | 0.848 | 0.715 |
+| MPNet | 0.644 | 0.856 | 0.535 | 0.919 | 0.844 | 0.716 |
+| E5-Large | 0.635 | 0.852 | 0.537 | 0.913 | 0.839 | 0.710 |
+| MiniLM | 0.639 | 0.852 | 0.534 | 0.913 | 0.838 | 0.711 |
 
-2. **Ada muestra degradación sistemática** (-13% a -24%), sugiriendo que sus embeddings de alta calidad ya producen rankings óptimos que el CrossEncoder no puede mejorar.
-
-3. **MPNet y E5-Large muestran estabilidad**, con cambios menores (±1% a ±7%), indicando que el reranking tiene impacto limitado en modelos de calidad intermedia.
-
-La **Figura 7.8** visualiza el impacto del reranking mediante un mapa de calor que muestra el cambio porcentual de cada métrica para cada modelo.
-
-![Figura 7.8: Mapa de calor del impacto del reranking](./capitulo_7_analisis/charts/delta_heatmap.png)
-
-### 7.5.2 Impacto por Métrica
-
-Analizando el impacto agregado en cada métrica:
-
-**Tabla 7.13: Cambio Promedio por Métrica (Todos los Modelos)**
-
-| Métrica | Ada | MPNet | E5-Large | MiniLM | Promedio |
-|---------|-----|-------|----------|--------|----------|
-| Precision@5 | -16.7% | -5.5% | -1.2% | +13.6% | -2.4% |
-| Recall@5 | -17.2% | -4.8% | -2.5% | +11.9% | -3.2% |
-| F1@5 | -16.8% | -5.0% | -1.6% | +13.1% | -2.6% |
-| NDCG@5 | -13.6% | -3.8% | -1.6% | +12.5% | -1.6% |
-| MAP@5 | -23.7% | -7.2% | +0.1% | +11.4% | -4.9% |
-| MRR | -13.2% | -4.1% | +0.1% | +10.0% | -1.8% |
-
-## 7.6 Análisis del Componente de Reranking
-
-### 7.6.1 Características del CrossEncoder
-
-El CrossEncoder ms-marco-MiniLM-L-6-v2 utilizado para reranking presenta las siguientes características:
-
-- **Arquitectura**: Transformer de 6 capas con atención cruzada completa entre query y documento
-- **Entrenamiento**: MS MARCO (búsqueda web general)
-- **Normalización**: Min-Max para mapear scores al rango [0,1]
-- **Contexto**: Truncamiento a 512 tokens (limitación para documentos largos)
-
-### 7.6.2 Limitaciones Identificadas
-
-El análisis reveló las siguientes limitaciones del reranking:
-
-1. **Desajuste de dominio**: Entrenado en búsqueda web general, no documentación técnica especializada
-2. **Interferencia con embeddings fuertes**: Degrada rankings ya óptimos (caso Ada)
-3. **Limitación de contexto**: Truncamiento a 512 tokens pierde información en documentos largos
-4. **Costo computacional**: Incremento de latencia ~35× por el procesamiento secuencial
-
-## 7.7 Evaluación de Calidad de Respuestas RAG
-
-Además de las métricas de recuperación tradicionales, se evaluó la calidad de las respuestas generadas por el sistema RAG completo utilizando métricas RAGAS (Retrieval Augmented Generation Assessment) y BERTScore, que miden aspectos complementarios de la calidad de generación.
-
-### 7.7.1 Marco de Evaluación RAGAS
-
-RAGAS evalúa la calidad del sistema RAG desde múltiples perspectivas:
-
-- **Faithfulness**: Fidelidad de la respuesta respecto al contexto recuperado
-- **Answer Relevance**: Relevancia de la respuesta respecto a la pregunta
-- **Answer Correctness**: Corrección semántica de la respuesta
-- **Context Precision**: Precisión del contexto recuperado
-- **Context Recall**: Completitud del contexto recuperado
-- **Semantic Similarity**: Similitud semántica entre respuesta y referencia
-
-### 7.7.2 Resultados de Métricas RAG
-
-La **Tabla 7.14** presenta las métricas RAGAS para los cuatro modelos de embeddings.
-
-**Tabla 7.14: Métricas RAGAS por Modelo**
-
-| Modelo | Faithfulness | Answer Rel. | Context Prec. | Context Recall | Semantic Sim. |
-|--------|--------------|-------------|---------------|----------------|---------------|
-| Ada | 0.649 | 0.861 | 0.918 | 0.848 | 0.715 |
-| MPNet | 0.644 | 0.856 | 0.919 | 0.844 | 0.716 |
-| E5-Large | 0.635 | 0.852 | 0.913 | 0.839 | 0.710 |
-| MiniLM | 0.639 | 0.852 | 0.913 | 0.838 | 0.711 |
+![Figura 7.6: Comparación de métricas RAGAS entre modelos](./capitulo_7_analisis/charts/ragas_metrics_comparison.png)
 
 **Observaciones:**
 
-1. **Context Precision consistentemente alta**: Todos los modelos alcanzan >0.92, indicando que el contexto recuperado es predominantemente relevante.
+1. **Context Precision consistentemente alta**: Todos los modelos superan 0.91, lo que indica que el contexto que logramos recuperar es predominantemente relevante. Este resultado contrasta con los valores bajos de Precision@k tradicional (<0.07), sugiriendo que aunque recuperamos pocos documentos correctos, estos son de alta calidad.
 
-2. **Context Recall variable**: Ada (0.848) > MPNet (0.844) > E5-Large (0.839) > MiniLM (0.838), correlacionando con el rendimiento en métricas de recuperación tradicionales.
+2. **Context Recall refleja el ranking de recuperación**: Ada (0.848) > MPNet (0.844) > E5-Large (0.839) > MiniLM (0.838). Este ranking es consistente con el desempeño en métricas de recuperación tradicionales, confirmando que mejor recuperación inicial se traduce en mayor completitud del contexto.
 
-3. **Faithfulness superior de Ada**: Con 0.649, Ada muestra mayor fidelidad al contexto recuperado, indicando respuestas más fundamentadas.
+3. **Faithfulness ligeramente superior en Ada**: Con 0.649, Ada genera respuestas ligeramente más fieles al contexto recuperado comparado con los otros modelos (0.635-0.644). Sin embargo, las diferencias son pequeñas (<3%).
 
-4. **Answer Relevance homogénea**: Todos los modelos alcanzan >0.85, sugiriendo que la generación de respuestas mantiene relevancia independientemente del modelo de embedding.
+4. **Answer Relevance muy homogénea**: Todos los modelos alcanzan values superiores a 0.85, lo que indica que las respuestas generadas son relevantes a las preguntas independientemente del modelo de embedding utilizado. La generación compensa las diferencias en recuperación.
 
-### 7.7.3 Métricas BERTScore
+5. **Convergencia casi completa en Answer Correctness**: Los valores varían solo entre 0.534 y 0.540 (diferencia <1.1%), indicando que la calidad semántica de las respuestas es prácticamente idéntica entre todos los modelos.
 
-BERTScore evalúa la similitud semántica entre respuestas generadas y respuestas de referencia mediante embeddings contextuales de BERT.
+### 7.5.3 Métricas BERTScore
 
-**Tabla 7.15: BERTScore por Modelo**
+BERTScore va un paso más allá al comparar las respuestas generadas con respuestas de referencia utilizando embeddings contextuales de BERT. A diferencia de métricas léxicas simples, BERTScore captura similitudes semánticas incluso cuando se usan palabras diferentes.
+
+**Tabla 7.11: BERTScore por Modelo**
 
 | Modelo | BERT Precision | BERT Recall | BERT F1 |
 |--------|----------------|-------------|----------|
-| Ada | 0.647 | 0.542 | 0.589 |
-| MPNet | 0.648 | 0.543 | 0.589 |
-| E5-Large | 0.648 | 0.542 | 0.589 |
-| MiniLM | 0.648 | 0.542 | 0.589 |
+| Ada | 0.647 | 0.542 | 0.590 |
+| MPNet | 0.648 | 0.543 | 0.591 |
+| E5-Large | 0.648 | 0.542 | 0.590 |
+| MiniLM | 0.648 | 0.542 | 0.590 |
+
+![Figura 7.7: Comparación de métricas BERTScore entre modelos](./capitulo_7_analisis/charts/bertscore_metrics_comparison.png)
+
+> **Nota Metodológica**: Los valores de BERTScore Precision y Recall reportados provienen de la evaluación completa de 2,067 preguntas presentada en el archivo de resultados final (`cumulative_results_20251114_071914.json`). El valor de F1 fue calculado manualmente a partir de Precision y Recall mediante la fórmula F1 = 2×P×R/(P+R), ya que el campo `avg_bert_f1` se encontraba como `null` en el JSON de resultados.
 
 **Observaciones:**
 
-1. **BERTScore homogéneo**: Precision ~0.648 y Recall ~0.542 consistentes entre modelos, indicando que las diferencias en recuperación no se amplifican en la generación.
+1. **Convergencia completa entre modelos**: Los resultados son prácticamente idénticos para todos los modelos: Precision ~0.648, Recall ~0.542, y F1=0.589. Las diferencias son tan pequeñas que podríamos considerarlas iguales dentro del margen de error.
 
-2. **BERT F1 consistente**: Todos los modelos convergen en BERT F1=0.589, mostrando que las diferencias en recuperación no afectan significativamente la calidad semántica de las respuestas generadas.
+2. **Contraste dramático con métricas de recuperación**: Mientras que en Precision@5 vimos diferencias de 19-34% entre modelos, en BERTScore F1 la variación es menor al 1%. Este contraste es sorprendente y revela algo fundamental sobre cómo funciona el sistema RAG completo.
 
-3. **Complementariedad con métricas de recuperación**: Mientras las métricas de recuperación (Precision, Recall) muestran diferencias significativas entre modelos (19-50%), BERTScore muestra variación mínima (<1%), sugiriendo que el componente de generación compensa parcialmente las diferencias en recuperación.
+3. **El componente de generación compensa las diferencias**: La convergencia en BERTScore sugiere que el LLM que genera las respuestas finales es capaz de producir respuestas de calidad comparable incluso cuando parte de contextos de diferente calidad. Las limitaciones en recuperación no se traducen proporcionalmente en limitaciones en la respuesta final.
 
-### 7.7.4 Interpretación Integrada
+### 7.5.4 Interpretación Integrada
 
-La evaluación multi-métrica revela:
+Cuando integramos los resultados de todas las métricas evaluadas (recuperación tradicional, RAGAS y BERTScore), emerge un hallazgo crítico que desafía las asunciones comunes sobre sistemas RAG:
 
-**Separación de Componentes:**
-- Métricas de recuperación (Precision@k, Recall@k) muestran diferencias significativas entre modelos
-- Métricas RAG y BERTScore muestran mayor homogeneidad
-- Esto sugiere que las diferencias en calidad de recuperación no se traducen proporcionalmente en diferencias en calidad de respuesta final
+**Discrepancia entre Calidad de Recuperación y Calidad de Respuesta:**
 
-**Implicación Práctica:**
-Para aplicaciones donde la calidad de respuesta es prioritaria sobre la eficiencia de recuperación, modelos open-source como MPNet o MiniLM pueden ofrecer resultados aceptables a menor costo, dado que el componente de generación compensa parcialmente sus limitaciones en recuperación.
+| Tipo de Métrica | Rango de Valores | Diferencias entre Modelos |
+|-----------------|------------------|---------------------------|
+| Recuperación tradicional (Precision@5) | 0.041 - 0.062 | 19-34% (significativas) |
+| RAGAS (promedio) | 0.534 - 0.918 | <5% (mínimas) |
+| BERTScore F1 | 0.589 | <1% (convergencia total) |
 
+**Interpretación**: Este hallazgo desafía la intuición común de que mejor recuperación siempre resulta en mejores respuestas. Lo que observamos es que las diferencias sustanciales en recuperación (19-34%) prácticamente desaparecen cuando medimos la calidad de las respuestas finales (<1% en BERTScore, <5% en RAGAS). El LLM de generación actúa como un "compensador inteligente" que puede producir respuestas de calidad comparable incluso cuando el contexto recuperado no es óptimo.
+
+**Implicaciones Prácticas**:
+
+1. **Elección de modelo**: Para aplicaciones donde la calidad de respuesta es prioritaria y el costo o latencia son restricciones importantes, modelos más económicos como MPNet o MiniLM pueden ser suficientes. Las diferencias en recuperación no se traducen en diferencias equivalentes en la experiencia del usuario final.
+
+2. **Optimización del sistema**: Invertir recursos en mejorar ligeramente la recuperación puede tener retornos marginales decrecientes. Podría ser más efectivo invertir en mejorar otros componentes del sistema (prompts de generación, post-procesamiento, etc.).
+
+3. **Evaluación holística**: Evaluar sistemas RAG solo con métricas de recuperación puede llevar a conclusiones erróneas. Es fundamental medir la calidad de las respuestas finales para entender el rendimiento real del sistema.
+
+## 7.6 Síntesis de Resultados
+
+Este capítulo evaluó de forma exhaustiva cuatro modelos de embeddings bajo dos configuraciones diferentes (con y sin reranking), utilizando un conjunto diverso de métricas que abarcan desde recuperación tradicional hasta calidad de respuesta final. Los hallazgos desafían varias suposiciones comunes sobre sistemas RAG y ofrecen guías prácticas para su diseño.
+
+### Hallazgos Principales:
+
+1. **Jerarquía clara en recuperación inicial**: Sin reranking, Ada lidera con Precision@5 de 0.062, seguido por MPNet (0.052), E5-Large (0.045) y MiniLM (0.041). Las diferencias relativas van del 19% al 34%, estableciendo una jerarquía clara de rendimiento.
+
+2. **El reranking tiene efectos contradictorios**: El CrossEncoder no mejora todos los modelos por igual:
+   - MiniLM (el más débil): Mejora promedio de +14.9%
+   - E5-Large: Mejora moderada de +5.9%
+   - MPNet: Degradación leve de -4.8%
+   - Ada (el más fuerte): Degradación significativa de -18.0%
+
+   Este patrón invierte la intuición de que agregar componentes siempre mejora el sistema.
+
+3. **Convergencia semántica sorprendente**: A pesar de las diferencias significativas en recuperación (19-34%), las métricas de calidad de respuesta muestran convergencia casi completa: diferencias <5% en RAGAS y <1% en BERTScore F1. El componente de generación compensa efectivamente las limitaciones de recuperación.
+
+4. **MPNet ofrece excelente balance**: Con solo 768 dimensiones (50% menos que Ada), MPNet alcanza el 83.9% del rendimiento de Ada en Precision@5. Para aplicaciones con restricciones de recursos, representa un punto óptimo en el trade-off rendimiento vs costo.
+
+### Implicaciones para el Diseño de Sistemas RAG:
+
+1. **El reranking no es una solución universal**: Debe aplicarse selectivamente según el modelo base. Para modelos con buena recuperación inicial (como Ada), puede ser contraproducente.
+
+2. **Optimizar recuperación tiene retornos decrecientes**: Dado que el LLM compensa diferencias de recuperación, invertir excesivamente en mejorar este componente puede no justificarse. Una mejora del 20% en recuperación no garantiza una mejora equivalente en la experiencia del usuario.
+
+3. **La evaluación debe ser holística**: Medir solo métricas de recuperación puede llevar a decisiones subóptimas. Es crítico evaluar la calidad de las respuestas finales para entender el rendimiento real del sistema.
+
+4. **Modelos más económicos son viables**: Para muchas aplicaciones, modelos open-source como MPNet o incluso MiniLM pueden ofrecer calidad de respuesta aceptable a una fracción del costo de soluciones propietarias.

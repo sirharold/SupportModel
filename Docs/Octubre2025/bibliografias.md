@@ -2,9 +2,9 @@
 
 ## Referencias del Capítulo 1: Introducción y Fundamentos del Proyecto
 
-Microsoft. (2025). *Microsoft Learn Documentation*. https://learn.microsoft.com/
+Microsoft. (2025a). *Microsoft Learn Documentation*. https://learn.microsoft.com/
 
-Microsoft. (2025). *Microsoft Q&A*. https://learn.microsoft.com/en-us/answers/
+Microsoft. (2025b). *Microsoft Q&A*. https://learn.microsoft.com/en-us/answers/
 
 Hugging Face. (2025). *Sentence Transformers: Model documentation and specifications*. https://huggingface.co/sentence-transformers/
 
@@ -178,7 +178,7 @@ Es, S., James, J., Espinosa-Anke, L., & Schockaert, S. (2023). RAGAS: Automated 
 
 Li, Z., Zhang, X., Zhang, Y., Long, D., Xie, P., & Zhang, M. (2023). Towards general text embeddings with multi-stage contrastive learning. *arXiv preprint arXiv:2308.03281*.
 
-Microsoft. (2025). *Microsoft Learn Documentation*. https://learn.microsoft.com/
+Microsoft. (2025a). *Microsoft Learn Documentation*. https://learn.microsoft.com/
 
 Nogueira, R., & Cho, K. (2019). Passage re-ranking with BERT. *arXiv preprint arXiv:1901.04085*.
 
@@ -204,7 +204,7 @@ Karpukhin, V., Oğuz, B., Min, S., Lewis, P., Wu, L., Edunov, S., ... & Yih, W. 
 
 Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., ... & Kiela, D. (2020). Retrieval-augmented generation for knowledge-intensive NLP tasks. *Advances in Neural Information Processing Systems*, 33, 9459-9474.
 
-Microsoft. (2025). *Microsoft Learn Documentation*. https://learn.microsoft.com/
+Microsoft. (2025a). *Microsoft Learn Documentation*. https://learn.microsoft.com/
 
 Muennighoff, N., Tazi, N., Magne, L., & Reimers, N. (2023). MTEB: Massive text embedding benchmark. *arXiv preprint arXiv:2210.07316*.
 

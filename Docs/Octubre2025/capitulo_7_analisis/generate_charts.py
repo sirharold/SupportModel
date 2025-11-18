@@ -26,7 +26,7 @@ plt.rcParams['ytick.labelsize'] = 9
 plt.rcParams['legend.fontsize'] = 9
 
 # Ruta al archivo de resultados
-RESULTS_FILE = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Octubre2025/cumulative_results_20251013_001552.json"
+RESULTS_FILE = "/Users/haroldgomez/Documents/ProyectoTituloMAgister/SupportModel/Docs/Octubre2025/cumulative_results_20251114_071914.json"
 OUTPUT_DIR = Path(__file__).parent / "charts"
 
 # Valores de k para gráficos (TODOS los disponibles)
@@ -37,7 +37,7 @@ MODEL_COLORS = {
     'ada': '#1f77b4',
     'mpnet': '#ff7f0e',
     'minilm': '#2ca02c',
-    'e5large': '#d62728'
+    'e5-large': '#d62728'
 }
 
 # Nombres de modelos para display
@@ -45,7 +45,7 @@ MODEL_NAMES = {
     'ada': 'Ada (OpenAI)',
     'mpnet': 'MPNet',
     'minilm': 'MiniLM',
-    'e5large': 'E5-Large'
+    'e5-large': 'E5-Large'
 }
 
 # Estilo de seaborn
@@ -84,7 +84,7 @@ def plot_metric_by_k_all_models(metric_family: str, stage: str = 'before'):
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    for model_key in ['ada', 'mpnet', 'minilm', 'e5large']:
+    for model_key in ['ada', 'mpnet', 'minilm', 'e5-large']:
         if model_key not in results:
             continue
 
@@ -260,7 +260,7 @@ def plot_delta_heatmap():
     # Preparar datos
     metric_families = ['precision', 'recall', 'f1', 'ndcg', 'map']
     k_values_subset = [3, 5, 10, 15]  # Usar subset para heatmap
-    models = ['ada', 'mpnet', 'minilm', 'e5large']
+    models = ['ada', 'mpnet', 'minilm', 'e5-large']
 
     # Crear matriz de deltas
     delta_data = []
@@ -344,7 +344,7 @@ def plot_model_ranking_bar():
         before_values = []
         after_values = []
 
-        for model_key in ['ada', 'mpnet', 'minilm', 'e5large']:
+        for model_key in ['ada', 'mpnet', 'minilm', 'e5-large']:
             if model_key not in results:
                 continue
 
@@ -402,6 +402,225 @@ def plot_model_ranking_bar():
     return filepath
 
 
+def plot_combined_before_after_by_metric(metric_family: str):
+    """Genera gráfico combinado mostrando antes/después para todos los modelos en una sola métrica"""
+    data = load_results()
+    results = data['results']
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    for model_key in ['ada', 'mpnet', 'minilm', 'e5-large']:
+        if model_key not in results:
+            continue
+
+        model_data = results[model_key]
+        model_name = MODEL_NAMES.get(model_key, model_key)
+        color = MODEL_COLORS[model_key]
+
+        before_metrics = model_data['avg_before_metrics']
+        after_metrics = model_data.get('avg_after_metrics', {})
+
+        # Extraer valores
+        before_values = extract_metric_values_by_k(before_metrics, metric_family, K_VALUES)
+        after_values = extract_metric_values_by_k(after_metrics, metric_family, K_VALUES)
+
+        # Plotear BEFORE (línea sólida)
+        ax.plot(K_VALUES, before_values,
+                marker='o',
+                label=f'{model_name} (Antes)',
+                color=color,
+                linewidth=2.5,
+                markersize=5,
+                linestyle='-')
+
+        # Plotear AFTER (línea punteada)
+        if after_values and any(v for v in after_values if not np.isnan(v)):
+            ax.plot(K_VALUES, after_values,
+                    marker='s',
+                    label=f'{model_name} (Después)',
+                    color=color,
+                    linewidth=2,
+                    markersize=4,
+                    linestyle='--',
+                    alpha=0.7)
+
+    ax.set_xlabel('k (número de documentos recuperados)', fontweight='bold')
+    ax.set_ylabel(f'{metric_family.upper()}@k', fontweight='bold')
+    ax.set_title(f'{metric_family.upper()} por k - Comparación Antes vs Después de CrossEncoder\n(Todos los Modelos)',
+                 fontweight='bold', fontsize=12)
+
+    ax.legend(loc='best', frameon=True, fancybox=True, shadow=True, ncol=2, fontsize=8)
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(0.5, 15.5)
+    ax.set_xticks(K_VALUES)
+
+    plt.tight_layout()
+
+    # Guardar
+    filename = f"{metric_family}_combined_before_after.png"
+    filepath = OUTPUT_DIR / filename
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"✅ Gráfico generado: {filename}")
+    return filepath
+
+
+def plot_ragas_metrics():
+    """Genera gráfico de barras con métricas RAGAS para todos los modelos"""
+    data = load_results()
+    results = data['results']
+
+    # Métricas RAGAS (con prefijo avg_ como están en el JSON)
+    ragas_metrics = [
+        'avg_faithfulness',
+        'avg_answer_relevance',
+        'avg_answer_correctness',
+        'avg_context_precision',
+        'avg_context_recall',
+        'avg_semantic_similarity'
+    ]
+
+    ragas_labels = [
+        'Faithfulness',
+        'Answer Relevance',
+        'Answer Correctness',
+        'Context Precision',
+        'Context Recall',
+        'Semantic Similarity'
+    ]
+
+    # Recolectar valores
+    model_data_dict = {}
+    for model_key in ['ada', 'mpnet', 'e5-large', 'minilm']:
+        if model_key not in results:
+            continue
+
+        model_name = MODEL_NAMES.get(model_key, model_key)
+        rag_data = results[model_key].get('rag_metrics', {})
+
+        values = []
+        for metric in ragas_metrics:
+            val = rag_data.get(metric, np.nan)
+            values.append(val if val is not None else np.nan)
+
+        model_data_dict[model_name] = values
+
+    if not model_data_dict:
+        print("⚠️  No hay datos RAGAS disponibles")
+        return None
+
+    # Crear gráfico
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    x = np.arange(len(ragas_labels))
+    width = 0.2
+
+    for i, (model_name, values) in enumerate(model_data_dict.items()):
+        # Encontrar color del modelo
+        color = None
+        for model_key, name in MODEL_NAMES.items():
+            if name == model_name:
+                color = MODEL_COLORS[model_key]
+                break
+
+        offset = (i - len(model_data_dict)/2 + 0.5) * width
+        ax.bar(x + offset, values, width, label=model_name, color=color, alpha=0.8)
+
+    ax.set_xlabel('Métrica RAGAS', fontweight='bold')
+    ax.set_ylabel('Valor', fontweight='bold')
+    ax.set_title('Métricas RAGAS por Modelo', fontweight='bold', fontsize=14)
+    ax.set_xticks(x)
+    ax.set_xticklabels(ragas_labels, rotation=45, ha='right')
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_ylim(0, 1.0)
+
+    plt.tight_layout()
+
+    # Guardar
+    filename = "ragas_metrics_comparison.png"
+    filepath = OUTPUT_DIR / filename
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"✅ Gráfico generado: {filename}")
+    return filepath
+
+
+def plot_bertscore_metrics():
+    """Genera gráfico de barras con métricas BERTScore para todos los modelos"""
+    data = load_results()
+    results = data['results']
+
+    # Métricas BERTScore (con prefijo avg_ como están en el JSON)
+    bertscore_metrics = ['avg_bert_precision', 'avg_bert_recall', 'avg_bert_f1']
+    bertscore_labels = ['BERTScore Precision', 'BERTScore Recall', 'BERTScore F1']
+
+    # Recolectar valores
+    model_data_dict = {}
+    for model_key in ['ada', 'mpnet', 'e5-large', 'minilm']:
+        if model_key not in results:
+            continue
+
+        model_name = MODEL_NAMES.get(model_key, model_key)
+        rag_data = results[model_key].get('rag_metrics', {})
+
+        values = []
+        for metric in bertscore_metrics:
+            val = rag_data.get(metric, np.nan)
+            # Si avg_bert_f1 es null, calcularlo como F1 = 2 * (P * R) / (P + R)
+            if metric == 'avg_bert_f1' and (val is None or np.isnan(val)):
+                precision = rag_data.get('avg_bert_precision', np.nan)
+                recall = rag_data.get('avg_bert_recall', np.nan)
+                if precision and recall and not np.isnan(precision) and not np.isnan(recall):
+                    val = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else np.nan
+            values.append(val if val is not None else np.nan)
+
+        model_data_dict[model_name] = values
+
+    if not model_data_dict:
+        print("⚠️  No hay datos BERTScore disponibles")
+        return None
+
+    # Crear gráfico
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    x = np.arange(len(bertscore_labels))
+    width = 0.2
+
+    for i, (model_name, values) in enumerate(model_data_dict.items()):
+        # Encontrar color del modelo
+        color = None
+        for model_key, name in MODEL_NAMES.items():
+            if name == model_name:
+                color = MODEL_COLORS[model_key]
+                break
+
+        offset = (i - len(model_data_dict)/2 + 0.5) * width
+        ax.bar(x + offset, values, width, label=model_name, color=color, alpha=0.8)
+
+    ax.set_xlabel('Métrica BERTScore', fontweight='bold')
+    ax.set_ylabel('Valor', fontweight='bold')
+    ax.set_title('Métricas BERTScore por Modelo', fontweight='bold', fontsize=14)
+    ax.set_xticks(x)
+    ax.set_xticklabels(bertscore_labels)
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis='y')
+    ax.set_ylim(0, 1.0)
+
+    plt.tight_layout()
+
+    # Guardar
+    filename = "bertscore_metrics_comparison.png"
+    filepath = OUTPUT_DIR / filename
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print(f"✅ Gráfico generado: {filename}")
+    return filepath
+
+
 def main():
     """Función principal para generar todos los gráficos"""
     print("=" * 60)
@@ -413,7 +632,7 @@ def main():
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     metric_families = ['precision', 'recall', 'f1', 'ndcg', 'map']
-    models = ['ada', 'mpnet', 'minilm', 'e5large']
+    models = ['ada', 'mpnet', 'minilm', 'e5-large']
 
     total_charts = 0
 
@@ -446,6 +665,22 @@ def main():
     # 5. Gráfico de barras de ranking
     print("\n[5] Generando gráfico de ranking de modelos...")
     plot_model_ranking_bar()
+    total_charts += 1
+
+    # 6. Gráficos combinados before/after por métrica
+    print("\n[6] Generando gráficos combinados before/after por métrica...")
+    for metric in metric_families:
+        plot_combined_before_after_by_metric(metric)
+        total_charts += 1
+
+    # 7. Gráficos de métricas RAGAS (NUEVO)
+    print("\n[7] Generando gráfico de métricas RAGAS...")
+    plot_ragas_metrics()
+    total_charts += 1
+
+    # 8. Gráficos de métricas BERTScore (NUEVO)
+    print("\n[8] Generando gráfico de métricas BERTScore...")
+    plot_bertscore_metrics()
     total_charts += 1
 
     print("\n" + "=" * 60)

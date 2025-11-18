@@ -116,7 +116,7 @@ La Etapa 2 de Reranking con CrossEncoder procesa conjuntamente query y documento
 
 ### 5.5.2 Justificación del CrossEncoder Seleccionado
 
-El modelo cross-encoder/ms-marco-MiniLM-L-6-v2 se selecciona basándose en criterios técnicos y de compatibilidad con la infraestructura de investigación. Las características técnicas detalladas del modelo, incluyendo su arquitectura, entrenamiento en MS MARCO, y capacidades de reranking, se describen en el Capítulo 3 (sección 3.5.2). Los criterios específicos de selección para este proyecto incluyen compatibilidad con limitaciones de memoria en Google Colab, velocidad de inferencia adecuada para procesamiento de múltiples documentos por consulta, y estabilidad de scores apropiada para normalización Min-Max.
+El modelo CrossEncoder ms-marco-MiniLM-L-6-v2 se selecciona basándose en criterios técnicos y de compatibilidad con la infraestructura de investigación. Las características técnicas detalladas del modelo, incluyendo su arquitectura, entrenamiento en MS MARCO, y capacidades de reranking, se describen en el Capítulo 3 (sección 3.5.2). Los criterios específicos de selección para este proyecto incluyen compatibilidad con limitaciones de memoria en Google Colab, velocidad de inferencia adecuada para procesamiento de múltiples documentos por consulta, y estabilidad de scores apropiada para normalización Min-Max.
 
 ### 5.5.3 Estrategia de Normalización de Scores
 

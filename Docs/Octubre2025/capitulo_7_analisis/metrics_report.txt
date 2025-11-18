@@ -1,0 +1,135 @@
+================================================================================
+KEY METRICS EXTRACTION FROM CUMULATIVE RESULTS
+================================================================================
+
+1. CONFIGURATION:
+   - Total questions: 2067
+   - Models evaluated: 4
+   - Model names: ada, e5-large, mpnet, minilm
+   - Reranking method: crossencoder
+   - Top K: 15
+
+2. EVALUATION INFO:
+   - Timestamp: 2025-11-14T07:19:14.842913-03:00
+   - Total duration: 37088.98 seconds
+   - Questions per model: 2067
+
+3. RETRIEVAL METRICS (PRE-RERANKING - avg_before_metrics):
+
+   ADA:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1875
+      NDCG@10: 0.0000
+
+   E5-LARGE:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1303
+      NDCG@10: 0.0000
+
+   MPNET:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1632
+      NDCG@10: 0.0000
+
+   MINILM:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1225
+      NDCG@10: 0.0000
+
+4. RERANKING METRICS (POST-RERANKING - avg_after_metrics):
+
+   ADA:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1558
+      NDCG@10: 0.0000
+
+   E5-LARGE:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1423
+      NDCG@10: 0.0000
+
+   MPNET:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1537
+      NDCG@10: 0.0000
+
+   MINILM:
+      Precision@5: 0.0000
+      Precision@10: 0.0000
+      Recall@5: 0.0000
+      Recall@10: 0.0000
+      MRR: 0.1433
+      NDCG@10: 0.0000
+
+5. RAG METRICS (RAGAS + BERTScore):
+
+   ADA:
+      Faithfulness: 0.6486
+      Answer Relevancy: 0.8609
+      Answer Correctness: 0.5401
+      Context Precision: 0.9184
+      Context Recall: 0.8477
+      Semantic Similarity: 0.7152
+      BERTScore Precision: 0.6473
+      BERTScore Recall: 0.5425
+      BERTScore F1: N/A (not calculated)
+      Total evaluations: 2067
+
+   E5-LARGE:
+      Faithfulness: 0.6347
+      Answer Relevancy: 0.8516
+      Answer Correctness: 0.5366
+      Context Precision: 0.9133
+      Context Recall: 0.8394
+      Semantic Similarity: 0.7103
+      BERTScore Precision: 0.6477
+      BERTScore Recall: 0.5417
+      BERTScore F1: N/A (not calculated)
+      Total evaluations: 2067
+
+   MPNET:
+      Faithfulness: 0.6436
+      Answer Relevancy: 0.8564
+      Answer Correctness: 0.5355
+      Context Precision: 0.9192
+      Context Recall: 0.8443
+      Semantic Similarity: 0.7157
+      BERTScore Precision: 0.6475
+      BERTScore Recall: 0.5430
+      BERTScore F1: N/A (not calculated)
+      Total evaluations: 2067
+
+   MINILM:
+      Faithfulness: 0.6386
+      Answer Relevancy: 0.8519
+      Answer Correctness: 0.5345
+      Context Precision: 0.9134
+      Context Recall: 0.8377
+      Semantic Similarity: 0.7110
+      BERTScore Precision: 0.6480
+      BERTScore Recall: 0.5421
+      BERTScore F1: N/A (not calculated)
+      Total evaluations: 2067
+
+================================================================================

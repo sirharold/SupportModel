@@ -48,7 +48,7 @@ La extracción de preguntas desde Microsoft Q&A capturó no solo el contenido te
 
 La estructura de datos Q&A preservó el título de la pregunta, la URL original, el contenido completo de la pregunta, la respuesta aceptada por la comunidad, las etiquetas temáticas, y la fecha de publicación en formato ISO 8601.
 
-El dataset resultante contiene 13,436 preguntas técnicas con contenido completo, de las cuales 2,067 incluyen enlaces validados a documentación oficial que sirven como ground truth. La distribución temporal muestra concentración en 2023-2024 con 77.3% del total. La longitud promedio de pregunta alcanza 119.9 tokens, mientras que las respuestas promedian 221.6 tokens.
+El dataset resultante contiene 13,436 preguntas técnicas con contenido completo, de las cuales 2,067 incluyen enlaces validados a documentación oficial que sirven como ground truth. Según el análisis exploratorio de las fechas de publicación en los metadatos, la distribución temporal muestra concentración en 2023-2024 con aproximadamente 77.3% del total. La longitud promedio de pregunta alcanza 119.9 tokens, mientras que las respuestas promedian 221.6 tokens.
 
 ## 6.4 Fase 3 - Implementación de ChromaDB
 
@@ -104,7 +104,7 @@ El pipeline registró detalladamente cada etapa, calculó métricas de tiempo de
 
 ### 6.6.2 Reranking con CrossEncoder
 
-El componente de reranking usó el modelo ms-marco-MiniLM-L-6-v2 con normalización de scores. El CrossEncoder procesó pares [pregunta, documento] generando scores de relevancia mediante atención cruzada. El sistema aplicó normalización sigmoid que mapeó logits del CrossEncoder a probabilidades en rango [0,1] mediante la función 1/(1+e^(-x)). Como respaldo, si la normalización sigmoid fallaba por overflow, se aplicó normalización min-max. Los documentos se ordenaron por los scores finales y se retornaron los top-k.
+El componente de reranking usó el modelo ms-marco-MiniLM-L-6-v2 con normalización Min-Max de scores. El CrossEncoder procesó pares [pregunta, documento] generando scores de relevancia mediante atención cruzada. El sistema aplicó normalización Min-Max que mapeó los logits del CrossEncoder al rango [0,1] mediante la fórmula (score - score_min) / (score_max - score_min). Para casos edge donde todos los scores eran idénticos (score_max == score_min), se asignó un valor uniforme de 0.5 a todos los documentos. Los documentos se ordenaron por los scores finales y se retornaron los top-k.
 
 ### 6.6.3 Generación de Respuestas Multi-Modal
 
