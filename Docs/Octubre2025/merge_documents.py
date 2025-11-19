@@ -34,7 +34,7 @@ from docx.oxml.ns import qn
 
 # Configuración
 WORDS_DIR = Path(__file__).parent / "Words"
-OUTPUT_FILE = WORDS_DIR / "ProyectoFinalHaroldGomez.docx"
+OUTPUT_FILE = WORDS_DIR / "ProyectoMAgisterHaroldGomez.docx"
 
 # Archivos a combinar en orden
 FILES_TO_MERGE = [
@@ -46,7 +46,10 @@ FILES_TO_MERGE = [
     'Capitulo_3_Marco_Teorico.docx',
     'Capitulo_4_Analisis_Exploratorio.docx',
     'Capitulo_5_Metodologia.docx',
-    'Capitulo_6_Implementacion.docx'
+    'Capitulo_6_Implementacion.docx',
+    'Capitulo_7_Resultados.docx',
+    'Capitulo_8_Conclusiones_y_Trabajo_Futuro.docx',
+    'Bibliografia.docx'
 ]
 
 

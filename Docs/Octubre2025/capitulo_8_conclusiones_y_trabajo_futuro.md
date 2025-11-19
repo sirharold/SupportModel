@@ -14,7 +14,7 @@ La evaluación cumplió los cinco objetivos técnicos establecidos al inicio de 
 
 El primer objetivo planteaba implementar y comparar múltiples arquitecturas de embeddings, evaluando tanto modelos de código abierto (MiniLM, MPNet, E5-Large) como propietarios (OpenAI Ada). Se implementaron exitosamente cuatro modelos con dimensionalidades variables entre 384 y 1,536 dimensiones. La evaluación documentó diferencias de rendimiento relativas entre 19% y 34% entre los modelos.
 
-La Tabla 8.1 presenta los resultados cuantitativos para cada modelo:
+La Tabla 21 presenta los resultados cuantitativos para cada modelo:
 
 | Ranking | Modelo | Tipo | Dimensionalidad | Precision@5 | Diferencia vs Ada | Eficiencia Relativa* |
 |---------|--------|------|----------------|-------------|-------------------|---------------------|
@@ -23,7 +23,10 @@ La Tabla 8.1 presenta los resultados cuantitativos para cada modelo:
 | 3 | E5-Large | Open-source | 1,024 | 0.045 | -27.4% | 72.6% con 67% dimensiones |
 | 4 | MiniLM | Open-source | 384 | 0.041 | -33.9% | 66.1% con 25% dimensiones |
 
-**Tabla 8.1**: Rendimiento comparativo y eficiencia relativa de modelos de embeddings evaluados
+**Tabla 21: Ranking de modelos de embedding por performance**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
 *Eficiencia relativa = (Precision@5 del modelo / Precision@5 de Ada) × 100
 
 Si bien estos valores absolutos son insuficientes para aplicaciones prácticas, las diferencias relativas entre modelos constituyen hallazgos válidos que permiten establecer una jerarquía de rendimiento. Particularmente notable es la eficiencia relativa de MPNet, que alcanza 84% del rendimiento de Ada utilizando solo la mitad de dimensiones, un trade-off relevante para aplicaciones con restricciones de recursos.
@@ -70,13 +73,13 @@ La implicación crítica es que los resultados cuantitativos no deben interpreta
 
 ### 8.3.2 Jerarquía de Modelos Válida en Términos Comparativos
 
-A pesar de las limitaciones del ground truth, las diferencias relativas entre modelos constituyen hallazgos válidos, dado que todos fueron evaluados bajo las mismas condiciones. Como muestra la Tabla 8.1 (sección 8.2.1), el ranking establece a Ada como líder, seguido por MPNet, E5-Large y MiniLM, con diferencias de rendimiento de 19-34% respecto al modelo superior.
+A pesar de las limitaciones del ground truth, las diferencias relativas entre modelos constituyen hallazgos válidos, dado que todos fueron evaluados bajo las mismas condiciones. Como muestra la Tabla 21 (sección 8.2.1), el ranking establece a Ada como líder, seguido por MPNet, E5-Large y MiniLM, con diferencias de rendimiento de 19-34% respecto al modelo superior.
 
 Estos hallazgos sobre comportamiento comparativo son válidos independientemente de los valores absolutos. Esto permite concluir con confianza que Ada es superior a los modelos open-source en el contexto evaluado, aunque ninguno alcance rendimiento suficiente para producción según las métricas obtenidas.
 
 ### 8.3.3 Patrón de Reranking Diferencial con Implicaciones Arquitectónicas
 
-El patrón de reranking diferencial identificado constituye un hallazgo técnico robusto y reproducible con importantes implicaciones arquitectónicas. La Tabla 8.2 presenta el impacto del reranking con CrossEncoder sobre cada modelo:
+El patrón de reranking diferencial identificado constituye un hallazgo técnico robusto y reproducible con importantes implicaciones arquitectónicas. La Tabla 22 presenta el impacto del reranking con CrossEncoder sobre cada modelo:
 
 | Modelo | Pre-Reranking | Post-Reranking | Cambio Absoluto | Cambio Relativo | Categoría de Impacto |
 |--------|---------------|----------------|-----------------|-----------------|---------------------|
@@ -85,7 +88,10 @@ El patrón de reranking diferencial identificado constituye un hallazgo técnico
 | MPNet | 0.052 | 0.050 | -0.002 | -3.4% | Neutro (degradación leve) |
 | Ada | 0.062 | 0.052 | -0.010 | -15.6% | Degradación significativa |
 
-**Tabla 8.2**: Impacto del reranking con CrossEncoder sobre Precision@5 por modelo
+**Tabla 22: Impacto del reranking en Precision@5 por modelo**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
 
 Este patrón revela un principio importante: el reranking beneficia modelos de recuperación inicial débil pero puede degradar modelos cuya recuperación ya está optimizada. La validez de este hallazgo es independiente de la calidad del ground truth, ya que representa comportamiento comparativo consistente entre configuraciones. Esto tiene implicaciones prácticas para el diseño de arquitecturas RAG: la aplicación de reranking debe ser selectiva y basada en las características del modelo de embedding.
 
@@ -157,7 +163,6 @@ Finalmente, el uso exclusivo de datos públicos, sin acceso a datos corporativos
 
 La recomendación principal para futuras investigaciones es desarrollar ground truth validado por expertos del dominio técnico. Este proceso debería incluir:
 
-**Tabla 8.3: Componentes Recomendados para Validación de ground truth**
 
 | Componente | Descripción | Beneficio Esperado |
 |------------|-------------|-------------------|
@@ -166,13 +171,16 @@ La recomendación principal para futuras investigaciones es desarrollar ground t
 | Validación multi-evaluador | Múltiples expertos independientes por cada par | Garantía de consenso y reducción de sesgos |
 | Documentación de razonamiento | Expertos explican sus criterios de relevancia | Trazabilidad y reproducibilidad de decisiones |
 
+**Tabla 23: Componentes propuestos para validación humana rigurosa**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
 El resultado esperado sería un ground truth verdaderamente confiable que permita evaluar la efectividad real de sistemas de recuperación técnica, proporcionando una base sólida para conclusiones sobre rendimiento absoluto más allá de comparaciones relativas entre modelos.
 
 ### 8.6.2 Extensiones Recomendadas
 
 Si se continúa esta línea de investigación, varias direcciones serían relevantes y prometedoras:
 
-**Tabla 8.4: Extensiones Recomendadas para Investigación Futura**
 
 | Extensión | Descripción | Beneficio Esperado |
 |-----------|-------------|-------------------|
@@ -181,13 +189,17 @@ Si se continúa esta línea de investigación, varias direcciones serían releva
 | Contenido multi-modal | Procesamiento de diagramas y elementos visuales | Mayor aplicabilidad a documentación técnica real |
 | Validación cross-domain | Evaluación en otros ecosistemas (AWS, GCP) | Establecimiento de robustez de principios identificados |
 
+**Tabla 24: Extensiones propuestas para investigación futura**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
 Es importante notar que estas extensiones requieren el desarrollo previo de ground truth validado para ser verdaderamente efectivas, dado que los problemas metodológicos identificados se reproducirían en cualquier contexto sin ground truth confiable.
 
 ## 8.7 Conclusión del Capítulo
 
 Esta investigación cumplió sus objetivos técnicos de implementación y evaluación, desarrollando un sistema RAG completo con un pipeline automatizado de evaluación multi-métrica sobre un corpus sustancial de documentación Azure. Sin embargo, los resultados revelan limitaciones metodológicas fundamentales que condicionan la interpretación de los hallazgos.
 
-Los hallazgos técnicos válidos incluyen la jerarquía relativa entre modelos (Tabla 8.1), el patrón de reranking diferencial (Tabla 8.2), la convergencia en métricas semánticas independiente del rendimiento de recuperación, el análisis de eficiencia relativa de modelos open-source, y la demostración de escalabilidad de la infraestructura ChromaDB. Estos hallazgos son robustos porque se basan en comparaciones relativas bajo condiciones experimentales controladas.
+Los hallazgos técnicos válidos incluyen la jerarquía relativa entre modelos (Tabla 21), el patrón de reranking diferencial (Tabla 22), la convergencia en métricas semánticas independiente del rendimiento de recuperación, el análisis de eficiencia relativa de modelos open-source, y la demostración de escalabilidad de la infraestructura ChromaDB. Estos hallazgos son robustos porque se basan en comparaciones relativas bajo condiciones experimentales controladas.
 
 La limitación crítica es que el ground truth basado en enlaces de respuestas comunitarias no garantiza la validez de la correspondencia entre preguntas y documentos, produciendo resultados cuantitativos de validez cuestionable. Esta limitación no invalida los hallazgos comparativos, pero impide conclusiones definitivas sobre rendimiento absoluto.
 

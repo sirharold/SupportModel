@@ -29,11 +29,13 @@ El análisis completo de los 187,031 chunks mediante tokenización cl100k_base (
 | Q3 (75%)                  | 1,004 tokens |
 | Coeficiente de variación | 38.3%        |
 
-<p align="center">
-  <img src="img/Capitulo4Figura1.png" alt="Distribución de longitud de chunks" width="700">
-  <br>
-  <em><strong>Figura 4.1:</strong> Distribución de longitud de chunks del corpus Microsoft Azure Documentation. Análisis completo de 187,031 chunks con tokenización cl100k_base.</em>
-</p>
+**Tabla 4: Estadísticas descriptivas de longitud de chunks del corpus**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
+![Distribución de longitud de chunks](img/Capitulo4Figura1.png)
+
+***Figura 1:*** Distribución de longitud de chunks del corpus Microsoft Azure Documentation. Análisis completo de 187,031 chunks con tokenización cl100k_base.
 
 #### Estadísticas de Documentos Completos
 
@@ -50,11 +52,13 @@ Los documentos completos antes de la segmentación presentan características di
 | Q3 (75%)                  | 2,308 tokens   |
 | Coeficiente de variación | 200.7%         |
 
-<p align="center">
-  <img src="img/Capitulo4Figura2.png" alt="Comparación chunks vs documentos completos" width="700">
-  <br>
-  <em><strong>Figura 4.2:</strong> Comparación de longitudes entre chunks segmentados y documentos completos. Box plots mostrando la reducción de variabilidad lograda mediante segmentación (CV de 200.7% a 38.3%).</em>
-</p>
+**Tabla 5: Estadísticas descriptivas de longitud de documentos completos**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
+![Comparación chunks vs documentos completos](img/Capitulo4Figura2.png)
+
+***Figura 2:*** Comparación de longitudes entre chunks segmentados y documentos completos. Box plots mostrando la reducción de variabilidad lograda mediante segmentación (CV de 200.7% a 38.3%).
 
 #### Interpretación de la Distribución
 
@@ -81,11 +85,13 @@ El análisis completo del corpus reveló la siguiente distribución temática:
 | **Operations**     | 21,882 | 11.9%      |
 | **Azure Services** | 10,754 | 5.8%       |
 
-<p align="center">
-  <img src="img/Capitulo4Figura3.png" alt="Distribución temática del corpus" width="700">
-  <br>
-  <em><strong>Figura 4.3:</strong> Distribución temática del corpus Microsoft Azure Documentation. Análisis completo de 187,031 chunks clasificados en cuatro categorías principales mediante sistema de puntuación ponderada basado en keywords.</em>
-</p>
+**Tabla 6: Distribución del corpus por categoría temática**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
+![Distribución temática del corpus](img/Capitulo4Figura3.png)
+
+***Figura 3:*** Distribución temática del corpus Microsoft Azure Documentation. Análisis completo de 187,031 chunks clasificados en cuatro categorías principales mediante sistema de puntuación ponderada basado en keywords.
 
 La orientación técnica predominante hacia desarrollo de software (53.6%) es consistente con el propósito de la documentación oficial de Microsoft Learn, diseñada principalmente para desarrolladores, arquitectos e ingenieros que implementan soluciones técnicas. La significativa presencia de contenido de seguridad (28.6%) refleja la importancia crítica de este aspecto en implementaciones empresariales cloud. Las categorías de Operations (11.9%) y Azure Services (5.8%) complementan el corpus con información operacional y de servicios específicos. El contenido abarca múltiples dominios técnicos, proporcionando cobertura adecuada para consultas técnicas en diferentes áreas de la plataforma.
 
@@ -130,11 +136,13 @@ El análisis de longitud mediante tokenización cl100k_base (OpenAI, 2025) del d
 | Q3 (75%)                  | 168 tokens   |
 | Coeficiente de variación | 168.1%       |
 
-<p align="center">
-  <img src="img/Capitulo4Figura4.png" alt="Distribución de longitud de preguntas" width="700">
-  <br>
-  <em><strong>Figura 4.4:</strong> Distribución de longitud de preguntas del dataset Microsoft Q&A. Análisis de 13,436 preguntas con tokenización cl100k_base mostrando alta variabilidad (CV = 168.1%).</em>
-</p>
+**Tabla 7: Estadísticas descriptivas de longitud de preguntas del dataset**
+*Fuente: Elaboración mediante resultados obtenidos por los autores.*
+
+
+![Distribución de longitud de preguntas](img/Capitulo4Figura4.png)
+
+***Figura 4:*** Distribución de longitud de preguntas del dataset Microsoft Q&A. Análisis de 13,436 preguntas con tokenización cl100k_base mostrando alta variabilidad (CV = 168.1%).
 
 La distribución presenta alta variabilidad (coeficiente de variación de 168.1%), reflejando la diversidad en complejidad de las consultas: desde preguntas breves y directas hasta consultas extensas que incluyen contexto detallado, logs de error, o descripciones de configuraciones complejas. El rango intercuartílico muestra que el 50% central de las preguntas tiene entre 56 y 168 tokens (Q1-Q3), con una mediana de 96 tokens. Esta variabilidad es característica de foros técnicos donde usuarios con diferentes niveles de experiencia formulan preguntas con grados variables de detalle y especificidad.
 

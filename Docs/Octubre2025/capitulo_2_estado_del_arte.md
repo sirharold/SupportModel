@@ -100,9 +100,8 @@ La evaluación rigurosa de sistemas de recuperación de información es fundamen
 
 **Precision@k y Recall@k** están diseñadas para evaluar la calidad de los primeros k resultados. Precision@k mide la proporción de resultados relevantes entre los primeros k documentos recuperados. Por ejemplo, si entre los primeros 5 artículos sugeridos, 3 son relevantes, entonces Precision@5 = 0.6. Recall@k evalúa cuántos documentos relevantes fueron recuperados entre los primeros k, comparado con el total disponible. Si hay 4 documentos relevantes totales y el sistema recupera 3 dentro de los primeros 5, entonces Recall@5 = 0.75.
 
-Las fórmulas matemáticas de estas métricas se presentan en la Tabla 2.1:
+Las fórmulas matemáticas de estas métricas se presentan en la Tabla 1:
 
-**Tabla 2.1: Fórmulas de Métricas Tradicionales de Recuperación y Ranking**
 
 | Métrica | Fórmula | Descripción de Variables |
 |---------|---------|--------------------------|
@@ -118,13 +117,16 @@ Las fórmulas matemáticas de estas métricas se presentan en la Tabla 2.1:
 | **NDCG@k** | $NDCG@k = \frac{DCG@k}{IDCG@k}$ <br> $DCG@k = \sum_{i=1}^{k} \frac{rel_i}{\log_2(i+1)}$ | $rel_i$ = relevancia del documento en posición $i$, $IDCG@k$ = DCG ideal hasta posición k |
 | **MAP@k** | $MAP@k = \frac{1}{\|Q\|} \sum_{q=1}^{\|Q\|} AP@k(q)$ <br> $AP@k(q) = \frac{1}{\min(k, \|R_q\|)} \sum_{i=1}^{k} P(i) \cdot rel(i)$ | Average Precision calculado solo hasta los primeros k documentos |
 
+**Tabla 1: Métricas tradicionales de recuperación de información**
+*Fuente: Adaptado de Manning, C. D., Raghavan, P., & Schütze, H. (2008). Introduction to information retrieval. Cambridge University Press.*
+
+
 ### 2.6.2 Métricas Específicas para Sistemas RAG
 
 Las arquitecturas RAG requieren métricas especializadas que evalúen no solo la recuperación sino también la calidad de la generación y la coherencia entre ambas fases. **Answer Relevancy** mide qué tan bien la respuesta generada aborda la pregunta formulada, evaluando la alineación semántica entre consulta y respuesta (Es et al., 2023). **Context Precision** evalúa qué proporción del contexto recuperado es realmente relevante para responder la pregunta, identificando ruido en la fase de recuperación. **Context Recall** mide si toda la información necesaria para responder está presente en el contexto recuperado. **Faithfulness** evalúa si la respuesta generada es factualmente consistente con el contexto proporcionado, detectando alucinaciones o inconsistencias.
 
-Las fórmulas matemáticas de estas métricas RAG se presentan en la Tabla 2.2:
+Las fórmulas matemáticas de estas métricas RAG se presentan en la Tabla 2:
 
-**Tabla 2.2: Fórmulas de Métricas Específicas para Sistemas RAG**
 
 | Métrica | Fórmula | Descripción de Variables |
 |---------|---------|--------------------------|
@@ -134,13 +136,16 @@ Las fórmulas matemáticas de estas métricas RAG se presentan en la Tabla 2.2:
 | **Faithfulness** | $F = \frac{\|\text{Claims}_{\text{supported}}\|}{\|\text{Claims}_{\text{total}}\|}$ | Proporción de afirmaciones en la respuesta que están soportadas por el contexto |
 | **Answer Correctness** | $AC = w_s \cdot S + w_f \cdot F$ | $S$ = similitud semántica, $F$ = similitud factual, $w_s, w_f$ = pesos (típicamente 0.5 cada uno) |
 
+**Tabla 2: Métricas RAGAS para evaluación de sistemas RAG**
+*Fuente: Adaptado de Es, S., James, J., Espinosa-Anke, L., & Schockaert, S. (2023). RAGAS: Automated evaluation of retrieval augmented generation. arXiv preprint arXiv:2309.15217.*
+
+
 ### 2.6.3 Métricas de Similitud Semántica y Aplicación al Proyecto
 
 **BERTScore** utiliza representaciones contextuales de BERT para evaluar la similitud semántica entre respuestas generadas y respuestas de referencia, proporcionando una evaluación más matizada que métricas basadas en coincidencia léxica como BLEU o ROUGE (Zhang et al., 2019). En este proyecto se implementó BERTScore utilizando el modelo `distiluse-base-multilingual-cased-v2`, optimizado para evaluación de similitud semántica cross-lingual, aunque se aplicó a contenido en inglés para mantener consistencia con el corpus de documentación técnica.
 
-Las fórmulas matemáticas de estas métricas de similitud semántica se presentan en la Tabla 2.3:
+Las fórmulas matemáticas de estas métricas de similitud semántica se presentan en la Tabla 3:
 
-**Tabla 2.3: Fórmulas de Métricas de Similitud Semántica**
 
 | Métrica | Fórmula | Descripción de Variables |
 |---------|---------|--------------------------|
@@ -149,5 +154,9 @@ Las fórmulas matemáticas de estas métricas de similitud semántica se present
 | **BERTScore Recall** | $R_{\text{BERT}} = \frac{1}{\|x^{cand}\|} \sum_{x_i \in x^{cand}} \max_{x_j \in x^{ref}} \mathbf{x}_i^T \mathbf{x}_j$ | $x^{cand}$ = tokens candidatos, $x^{ref}$ = tokens de referencia |
 | **BERTScore F1** | $F_{\text{BERT}} = 2 \cdot \frac{P_{\text{BERT}} \cdot R_{\text{BERT}}}{P_{\text{BERT}} + R_{\text{BERT}}}$ | Media armónica de Precision y Recall de BERTScore |
 | **Semantic Similarity** | $SS = \text{cosine\_sim}(\text{emb}(answer), \text{emb}(reference))$ | $\text{emb}(\cdot)$ = función de embedding semántico (ej: Sentence-BERT) |
+
+**Tabla 3: Métricas de similitud semántica y BERTScore**
+*Fuente: Adaptado de Zhang, T., Kishore, V., Wu, F., Weinberger, K. Q., & Artzi, Y. (2019). BERTScore: Evaluating text generation with BERT. arXiv preprint arXiv:1904.09675.*
+
 
 En este proyecto se implementó un framework de evaluación que incluye métricas de recuperación tradicionales (Precision@k, Recall@k, MRR, NDCG), métricas RAG especializadas (Answer Relevancy, Context Precision, Context Recall, Faithfulness implementadas via RAGAS), evaluación semántica mediante BERTScore, y análisis pre/post reranking para cuantificar el impacto del CrossEncoder. Esta combinación permite evaluar integralmente tanto la efectividad de la recuperación como la calidad de las respuestas generadas, proporcionando insights detallados sobre el rendimiento de cada componente del pipeline RAG en el contexto del soporte técnico de Azure.

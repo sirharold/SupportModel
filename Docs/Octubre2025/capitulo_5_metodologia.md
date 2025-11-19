@@ -14,7 +14,9 @@ El siguiente diagrama presenta una vista integral del flujo metodológico emplea
 
 <img src="img/Capitulo5FlujoMetodologico.png" alt="Cronograma DSR del Proyecto" width="900">
 
-**Figura 5.1:** Cronograma y flujo metodológico del proyecto siguiendo las seis fases del proceso DSR (Design Science Research)
+<p align="center">
+  <em><strong>Figura 5:</strong> Cronograma y flujo metodológico del proyecto siguiendo las seis fases del proceso DSR (Design Science Research)</em>
+</p>
 
 ### 5.2.2 Descripción de las Fases DSR
 
@@ -138,11 +140,23 @@ El framework ejecuta evaluación exhaustiva para cada consulta, calculando todas
 
 ### 5.6.3 Métricas de Evaluación
 
-El sistema se evalúa mediante tres familias de métricas complementarias descritas en el Capítulo 2 (sección 2.6). Las métricas tradicionales de recuperación incluyen Precision@k, Recall@k, F1@k, Mean Reciprocal Rank (MRR), Normalized Discounted Cumulative Gain (nDCG@k) y Mean Average Precision (MAP), calculadas para valores de k desde 1 hasta 15. Estas métricas, con sus fórmulas y definiciones formales, se presentan en la Tabla 2.1 del Capítulo 2.
+El sistema se evalúa mediante tres familias de métricas complementarias descritas en el Capítulo 2 (sección 2.6). Las métricas tradicionales de recuperación incluyen Precision@k, Recall@k, F1@k, Mean Reciprocal Rank (MRR), Normalized Discounted Cumulative Gain (nDCG@k) y Mean Average Precision (MAP), calculadas para valores de k desde 1 hasta 15. Estas métricas, con sus fórmulas y definiciones formales, se presentan en la Tabla 1 del Capítulo 2.
 
-Las métricas especializadas RAG se implementan mediante la biblioteca RAGAS (Es et al., 2023) e incluyen Answer Relevancy, Context Precision, Context Recall y Faithfulness. Estas métricas evalúan aspectos específicos de sistemas de generación aumentada por recuperación, como la consistencia factual, la relevancia de la respuesta, y la calidad del contexto recuperado. Sus fórmulas y descripciones se presentan en la Tabla 2.2 del Capítulo 2.
+Las métricas especializadas RAG se implementan mediante la biblioteca RAGAS (Es et al., 2023). RAGAS es un marco de evaluación diseñado específicamente para sistemas RAG que, a diferencia de las métricas de recuperación tradicionales, evalúa la calidad del sistema completo considerando tanto la recuperación como la generación. En este proyecto se implementan seis métricas RAGAS complementarias que evalúan aspectos específicos de sistemas de generación aumentada por recuperación, como la consistencia factual, la relevancia de la respuesta, y la calidad del contexto recuperado. Sus fórmulas y definiciones formales se presentan en la Tabla 2 del Capítulo 2.
 
-Las métricas semánticas utilizan BERTScore con el modelo distiluse-base-multilingual-cased-v2, calculando precision, recall y F1 semánticos mediante embeddings contextualizados. Esta métrica captura similitud semántica profunda más allá del matching léxico superficial, siendo particularmente valiosa para evaluar paráfrasis y reformulaciones técnicas. Las fórmulas de BERTScore se presentan en la Tabla 2.3 del Capítulo 2.
+| Métrica            | Aspecto Evaluado                                          |
+| ------------------- | --------------------------------------------------------- |
+| Faithfulness        | Fidelidad de la respuesta respecto al contexto recuperado |
+| Answer Relevance    | Relevancia de la respuesta respecto a la pregunta         |
+| Answer Correctness  | Corrección semántica de la respuesta                    |
+| Context Precision   | Precisión del contexto recuperado                        |
+| Context Recall      | Completitud del contexto recuperado                       |
+| Semantic Similarity | Similitud semántica entre respuesta y referencia         |
+
+**Tabla 8: Métricas RAGAS implementadas para evaluación del sistema RAG**
+*Fuente: Es et al. (2023).*
+
+Las métricas semánticas utilizan BERTScore con el modelo distiluse-base-multilingual-cased-v2, calculando precision, recall y F1 semánticos mediante embeddings contextualizados. Esta métrica captura similitud semántica profunda más allá del matching léxico superficial, siendo particularmente valiosa para evaluar paráfrasis y reformulaciones técnicas. Las fórmulas de BERTScore se presentan en la Tabla 3 del Capítulo 2.
 
 ### 5.6.4 Análisis Comparativo de Resultados
 
